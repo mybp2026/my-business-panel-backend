@@ -1,4 +1,6 @@
-import { Inject, Injectable, NotFoundException } from '@nestjs/common';
+
+import { Injectable, Inject, NotFoundException, ConflictException, Logger } from '@nestjs/common';
+import { Cron } from '@nestjs/schedule';
 import Database from '@crane-technologies/database';
 import { DATABASE } from '../db/db.provider';
 import { Warehouse } from './interfaces/warehouse.interface';
@@ -11,6 +13,7 @@ import { InvalidTenantError } from '@/common/errors/invalid_tenant.error';
 import { InventoryTransferProduct } from './interfaces/inventory_transfer_product.interface';
 import { InventoryTransfer } from './interfaces/inventory_transfer.interface';
 import { warehouseQueries } from './warehouse.queries';
+import { InventoryTransferProductDto } from './dto/inventory_transfer.dto';
 
 @Injectable()
 export class WarehouseService {
@@ -220,6 +223,34 @@ export class WarehouseService {
     ]);
     return rows;
   }
+  
+async getStockByWarehouse(
+  warehouse_id: string,
+  tenant_id: string,
+): Promise<ProductCount[]> {
+  const tenant = this.state.getTenant(tenant_id);
+  if (!tenant)
+    throw new NotFoundException(`Tenant with ID ${tenant_id} not found`);
+
+  // Verifica que el warehouse pertenezca al tenant
+  const warehouse = await this.db.query(warehouseQueries.byTenantAndId, [
+    warehouse_id,
+    tenant_id,
+  ]);
+  if (warehouse.rowCount === 0)
+    throw new NotFoundException(
+      `Warehouse with ID ${warehouse_id} not found for Tenant with ID ${tenant_id}`,
+    );
+
+  const { rows } = await this.db.query(warehouseQueries.countAllInWarehouse, [
+    warehouse_id,
+    tenant_id,
+  ]);
+  return rows;
+}
+
+
+
 
   async createDiscrepancyReport(
     tenant_id: string,
@@ -273,7 +304,7 @@ export class WarehouseService {
 
     const { rows } = await this.db.query(
       warehouseQueries.getAllDiscrepancyReports,
-      [tenant_id, warehouse_id],
+      [warehouse_id, tenant_id],
     );
     return rows;
   }
@@ -288,7 +319,7 @@ export class WarehouseService {
 
     const { rows } = await this.db.query(
       warehouseQueries.getDiscrepancyReportById,
-      [tenant_id, discrepancy_count_id],
+      [discrepancy_count_id, tenant_id],
     );
     if (rows.length === 0)
       throw new NotFoundException(
@@ -298,34 +329,156 @@ export class WarehouseService {
     return rows[0];
   }
 
-  // TODO: envolver en transacción con this.db.transaction()
-  // TODO: se debe registrar el movimiento IN en inventory_log y el movimiento OUT también
-  async moveProductToWarehouse(
-    origin_warehouse_id: string,
-    destination_warehouse_id: string,
-    tenant_id: string,
-    products: InventoryTransferProduct[],
-  ) {
-    const tenant = this.state.getTenant(tenant_id);
-    if (!tenant)
-      throw new NotFoundException(`Tenant with ID ${tenant_id} not found`);
+ 
+  async applyDiscrepancyAdjustment(
+  discrepancyCountId: string,
+  tenantId: string,
+) {
+  const tenant = this.state.getTenant(tenantId);
+  if (!tenant)
+    throw new NotFoundException(`Tenant with ID ${tenantId} not found`);
 
-    const transfer_creator = await this.db.query(
-      warehouseQueries.createInventoryTransfer,
-      [tenant_id, origin_warehouse_id, destination_warehouse_id],
+  const { rows } = await this.db.query(
+    warehouseQueries.getDiscrepancyReportById,
+    [discrepancyCountId, tenantId],
+  );
+  if (rows.length === 0)
+    throw new NotFoundException(
+      `Discrepancy Report with ID ${discrepancyCountId} not found`,
     );
 
-    const transfer = transfer_creator.rows[0] as InventoryTransfer;
+  const report = rows[0];
 
-    for (const product of products) {
-      await this.db.query(warehouseQueries.addProductToInventoryTransfer, [
-        transfer.inventory_transfer_id,
-        tenant_id,
-        product.product_id,
-        product.amount,
-      ]);
+  if (report.is_applied)
+     throw new ConflictException(
+      `Discrepancy Report ${discrepancyCountId} has already been applied`,
+    );
+
+  const { warehouse_id, product_variant_id, stored_quantity, physical_quantity } = report;
+  const delta = physical_quantity - stored_quantity;
+
+  const queryArray: string[] = [];
+  const paramsArray: any[][] = [];
+
+  if (delta > 0) {
+    queryArray.push(warehouseQueries.addStock,warehouseQueries.logInventoryMovement,);
+    paramsArray.push([delta, warehouse_id, product_variant_id, tenantId],[1, warehouse_id, tenantId, product_variant_id, delta]);
+
+  } else if (delta < 0) {
+    queryArray.push(warehouseQueries.removeStock, warehouseQueries.logInventoryMovement);
+
+    paramsArray.push([Math.abs(delta), warehouse_id, product_variant_id, tenantId],[2, warehouse_id, tenantId, product_variant_id, Math.abs(delta)]);
+
+   
+  }
+
+  queryArray.push(warehouseQueries.applyDiscrepancyReport);
+  paramsArray.push([discrepancyCountId, tenantId]);
+
+  const results = await this.db.transaction(queryArray, paramsArray, []);
+  return results[results.length - 1].rows[0];
+}
+
+   async moveProductToWarehouse(
+    originWarehouseId: string,
+    destinationWarehouseId: string,
+    tenantId: string,
+    products: InventoryTransferProductDto[],
+  ) {
+    const tenant = this.state.getTenant(tenantId);
+    if (!tenant)
+      throw new NotFoundException(`Tenant with ID ${tenantId} not found`);
+
+    const originWarehouse = await this.db.query(warehouseQueries.byId, [
+      originWarehouseId,
+    ]);
+    if (originWarehouse.rowCount === 0)
+      throw new NotFoundException(
+        `Origin warehouse with ID ${originWarehouseId} not found`,
+      );
+
+    const destinationWarehouse = await this.db.query(warehouseQueries.byId, [
+      destinationWarehouseId,
+    ]);
+    if (destinationWarehouse.rowCount === 0)
+      throw new NotFoundException(
+        `Destination warehouse with ID ${destinationWarehouseId} not found`,
+      );
+
+    if (!products || products.length === 0)
+      throw new NotFoundException('Products list cannot be empty');
+
+    const queryArray: string[] = [];
+    const paramsArray: any[][] = [];
+    const dependencies: { sourceIndex: number; targetIndex: number; targetParamIndex: number }[] = [];
+
+    queryArray.push(warehouseQueries.createInventoryTransfer);
+    paramsArray.push([originWarehouseId, destinationWarehouseId]);
+
+    for (const p of products) {
+  const { rows: lockRows } = await this.db.query(
+    `SELECT stock FROM inventory_schema.inventory
+     WHERE warehouse_id = $1 AND product_variant_id = $2 AND tenant_id = $3
+     FOR UPDATE`,
+    [originWarehouseId, p.product_id, tenantId],
+  );
+  if (!lockRows[0] || lockRows[0].stock < p.amount)
+    throw new NotFoundException(
+      `Insufficient stock for product ${p.product_id} in warehouse ${originWarehouseId}`,
+    );
+}
+
+    for (const p of products) {
+      const base = queryArray.length;
+
+      queryArray.push(warehouseQueries.removeStock);
+      paramsArray.push([p.amount, originWarehouseId, p.product_id, tenantId]);
+
+      queryArray.push(warehouseQueries.addStock);
+      paramsArray.push([p.amount, destinationWarehouseId, p.product_id, tenantId]);
+
+      queryArray.push(warehouseQueries.addProductToInventoryTransfer);
+      paramsArray.push([null, tenantId, p.product_id, p.amount]);
+      dependencies.push({
+        sourceIndex: 0,
+        targetIndex: base + 2,
+        targetParamIndex: 0,
+      });
+
+      queryArray.push(warehouseQueries.logInventoryMovement);
+      paramsArray.push([2, originWarehouseId, tenantId, p.product_id, p.amount]);
+
+      queryArray.push(warehouseQueries.logInventoryMovement);
+      paramsArray.push([1, destinationWarehouseId, tenantId, p.product_id, p.amount]);
     }
 
-    return { message: 'Products moved successfully between warehouses' };
+    const results = await this.db.transaction(queryArray, paramsArray, dependencies);
+    return results[0].rows[0];
   }
+
+  async getExpiringProducts(
+  tenant_id: string,
+  days: number = 30,
+): Promise<any[]> {
+  const tenant = this.state.getTenant(tenant_id);
+  if (!tenant)
+    throw new NotFoundException(`Tenant with ID ${tenant_id} not found`);
+
+  const { rows } = await this.db.query(
+    warehouseQueries.getExpiringStock,
+    [tenant_id, days],
+  );
+  return rows;
+}
+
+@Cron('0 8 * * *')
+async notifyExpiringProducts() {
+  const logger = new Logger('WarehouseScheduler');
+  logger.log('[IN-04] Checking products expiring in the next 7 days...');
+  // Integrar con sistema de notificaciones cuando esté disponible
+}
+
+
+
+
 }

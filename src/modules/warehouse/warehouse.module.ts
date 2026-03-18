@@ -11,3 +11,4 @@ import { ProductModule } from '../product/product.module';
     exports: [WarehouseService],
 })
 export class WarehouseModule {}
+

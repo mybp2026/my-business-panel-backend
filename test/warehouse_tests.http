@@ -1,0 +1,445 @@
+### ============================================================
+### WAREHOUSE MODULE — TEST COMPLETO IN-01 / IN-02 / IN-03 / IN-04
+### Servidor: http://localhost:3000
+###
+### INSTRUCCIONES:
+### 1. Ejecuta cada request en orden con "Send Request"
+### 2. Copia el ID del response y pégalo en la variable indicada
+### 3. PASOS 1-11 = Setup de datos
+### 4. TEST IN-01/02/03/04 = Validaciones reales
+### ============================================================
+
+@baseUrl = http://localhost:3000
+
+### — Completar a medida que ejecutas cada paso —
+@tenantId = f0dfd94f-06e1-4cf7-b3a7-a0669f1147ce
+@branchId = 
+@turnId = 
+@variantId = 
+@warehouseId = 
+@warehouse2Id = 
+@reportId = 
+
+
+### ============================================================
+### PASO 1 — Crear tenant
+### ✅ Copia tenant_id → pega en @tenantId arriba
+### ============================================================
+POST {{baseUrl}}/tenant
+Content-Type: application/json
+
+{
+  "tenant_name": "Warehouse Test Corp 2027",
+  "contact_email": "wh-test-corp+2027@test.cr",
+  "region_id": 1,
+  "identification": "7766554434",
+  "economic_activity": "742101",
+  "sign": "WTC",
+  "is_subscribed": true
+}
+
+###
+
+### ============================================================
+### PASO 2 — Crear branch
+### ✅ Copia branch_id → pega en @branchId
+### ============================================================
+POST {{baseUrl}}/branch
+Content-Type: application/json
+
+{
+  "tenant_id": "{{tenantId}}",
+  "branch_name": "Sucursal Warehouse 2026",
+  "branch_number": "002",
+  "address": "San José, Costa Rica",
+  "contact_email": "branch-wh+2026@test.cr",
+  "is_main_branch": true
+}
+
+###
+
+### ============================================================
+### PASO 3 — Crear turno de trabajo
+### ✅ Copia turn_id → pega en @turnId
+### ============================================================
+POST {{baseUrl}}/turns
+Content-Type: application/json
+
+{
+  "branchId": "{{branchId}}",
+  "entry": "08:00",
+  "out": "17:00"
+}
+
+###
+
+### ============================================================
+### PASO 4 — Crear usuario admin
+### ✅ Verifica HTTP 201 — no necesitas copiar nada
+### ============================================================
+POST {{baseUrl}}/user
+Content-Type: application/json
+
+{
+  "tenant_id": "{{tenantId}}",
+  "email": "wh-admin+2026@test.cr",
+  "password": "Admin1234!",
+  "role_id": 1,
+  "employeeInfo": {
+    "tenant_id": "{{tenantId}}",
+    "branch_id": "{{branchId}}",
+    "first_name": "María",
+    "last_name": "González",
+    "doc_number": "305990003",
+    "phone": "70009877",
+    "email": "wh-admin+2026@test.cr",
+    "payment_schedule_id": 1,
+    "contractData": {
+      "start_date": "2026-01-01",
+      "end_date": "2028-01-01",
+      "hours": 40,
+      "base_salary": 500000,
+      "duties": "Administración de Bodega",
+      "turn_type": 1,
+      "turn_id": "{{turnId}}"
+    }
+  }
+}
+
+###
+
+### ============================================================
+### PASO 5 — Login
+### ✅ La cookie de sesión queda automática para todos los requests
+### ============================================================
+# @name login
+POST {{baseUrl}}/auth/login
+Content-Type: application/json
+
+{
+  "email": "wh-admin@test.cr",
+  "password": "Admin1234!"
+}
+
+###
+
+### ============================================================
+### PASO 6 — Crear producto
+### ✅ Copia product_variant_id → pega en @variantId
+### ============================================================
+POST {{baseUrl}}/product
+Content-Type: application/json
+
+{
+  "products": [
+    {
+      "tenant_id": "{{tenantId}}",
+      "sku": "TEST-WH-002",
+      "variant_name": "Leche Deslactosada 1L",
+      "unit_price": 1600
+    }
+  ]
+}
+
+###
+
+### ============================================================
+### PASO 7 — Crear bodega principal (origen)
+### ✅ Copia warehouse_id → pega en @warehouseId
+### ============================================================
+POST {{baseUrl}}/warehouse
+Content-Type: application/json
+
+{
+  "branch_id": "{{branchId}}",
+  "warehouse_name": "Bodega Principal",
+  "warehouse_address": "San José, La Uruca"
+}
+
+###
+
+### ============================================================
+### PASO 8 — Crear bodega secundaria (destino)
+### ✅ Copia warehouse_id → pega en @warehouse2Id
+### ============================================================
+POST {{baseUrl}}/warehouse
+Content-Type: application/json
+
+{
+  "branch_id": "{{branchId}}",
+  "warehouse_name": "Bodega Secundaria",
+  "warehouse_address": "San José, Alajuela"
+}
+
+###
+
+### ============================================================
+### PASO 9 — Agregar 200 unidades a bodega principal
+### expiration_date en ~98 días desde hoy (2026-06-15)
+### ✅ Verifica HTTP 201
+### ============================================================
+POST {{baseUrl}}/warehouse/product
+Content-Type: application/json
+
+{
+  "warehouse_id": "{{warehouseId}}",
+  "product_id": "{{variantId}}",
+  "amount": 200,
+  "expiration_date": "2026-06-15"
+}
+
+###
+
+### ============================================================
+### PASO 10 — Agregar 50 unidades a bodega secundaria
+### ✅ Verifica HTTP 201
+### ============================================================
+POST {{baseUrl}}/warehouse/product
+Content-Type: application/json
+
+{
+  "warehouse_id": "{{warehouse2Id}}",
+  "product_id": "{{variantId}}",
+  "amount": 50,
+  "expiration_date": "2026-06-15"
+}
+
+###
+
+
+### ============================================================
+### ════════════════════════════════════════════════════════════
+###  TEST IN-03 — STOCK CONSOLIDADO POR BODEGA
+### ════════════════════════════════════════════════════════════
+### ============================================================
+
+### TEST IN-03 A — Stock bodega principal
+### ✅ Esperado: HTTP 200 | total_amount = 200
+GET {{baseUrl}}/warehouse/{{warehouseId}}/stock
+
+###
+
+### TEST IN-03 B — Stock bodega secundaria
+### ✅ Esperado: HTTP 200 | total_amount = 50
+GET {{baseUrl}}/warehouse/{{warehouse2Id}}/stock
+
+###
+
+### TEST IN-03 C — Listar todas las bodegas del tenant
+### ✅ Esperado: HTTP 200 | array con 2 bodegas
+GET {{baseUrl}}/warehouse/tenant/
+
+###
+
+### TEST IN-03 D — NEGATIVO: Bodega de otro tenant
+### ✅ Esperado: HTTP 404 "Warehouse...not found for Tenant..."
+GET {{baseUrl}}/warehouse/00000000-0000-0000-0000-000000000000/stock
+
+###
+
+
+### ============================================================
+### ════════════════════════════════════════════════════════════
+###  TEST IN-01 — TRANSFERENCIA ATÓMICA DE INVENTARIO
+### ════════════════════════════════════════════════════════════
+### ============================================================
+
+### TEST IN-01 A — Transferir 30 unidades: principal → secundaria
+### ✅ Esperado: HTTP 201 | objeto con inventory_transfer_id
+POST {{baseUrl}}/warehouse/transfer
+Content-Type: application/json
+
+{
+  "origin_warehouse_id": "{{warehouseId}}",
+  "destination_warehouse_id": "{{warehouse2Id}}",
+  "products": [
+    {
+      "product_id": "{{variantId}}",
+      "amount": 30
+    }
+  ]
+}
+
+###
+
+### TEST IN-01 B — Stock ORIGEN después de transferencia
+### ✅ Esperado: total_amount = 170  (200 - 30)
+GET {{baseUrl}}/warehouse/{{warehouseId}}/stock
+
+###
+
+### TEST IN-01 C — Stock DESTINO después de transferencia
+### ✅ Esperado: total_amount = 80  (50 + 30)
+GET {{baseUrl}}/warehouse/{{warehouse2Id}}/stock
+
+###
+
+### TEST IN-01 D — NEGATIVO: Transferir más stock del disponible
+### ✅ Esperado: HTTP 404 "Insufficient stock for product..."
+POST {{baseUrl}}/warehouse/transfer
+Content-Type: application/json
+
+{
+  "origin_warehouse_id": "{{warehouseId}}",
+  "destination_warehouse_id": "{{warehouse2Id}}",
+  "products": [
+    {
+      "product_id": "{{variantId}}",
+      "amount": 9999
+    }
+  ]
+}
+
+###
+
+### TEST IN-01 E — NEGATIVO: Bodega origen inexistente
+### ✅ Esperado: HTTP 404 "Origin warehouse...not found"
+POST {{baseUrl}}/warehouse/transfer
+Content-Type: application/json
+
+{
+  "origin_warehouse_id": "00000000-0000-0000-0000-000000000000",
+  "destination_warehouse_id": "{{warehouse2Id}}",
+  "products": [
+    {
+      "product_id": "{{variantId}}",
+      "amount": 10
+    }
+  ]
+}
+
+###
+
+### TEST IN-01 F — Confirmar que stock NO cambió tras errores
+### ✅ Esperado: total_amount = 170 (igual que IN-01 B)
+GET {{baseUrl}}/warehouse/{{warehouseId}}/stock
+
+###
+
+
+### ============================================================
+### ════════════════════════════════════════════════════════════
+###  TEST IN-02 — AJUSTE POR DISCREPANCIA
+### ════════════════════════════════════════════════════════════
+### ============================================================
+
+### TEST IN-02 A — Crear reporte: delta NEGATIVO (-5)
+### Sistema dice 170, físico encontró 165
+### ✅ Copia discrepancy_count_id → pega en @reportId
+POST {{baseUrl}}/warehouse/discrepancy-report
+Content-Type: application/json
+
+{
+  "product_id": "{{variantId}}",
+  "warehouse_id": "{{warehouseId}}",
+  "stored_quantity": 170,
+  "physical_quantity": 165,
+  "discrepancy_reason": "Conteo físico detectó 5 unidades faltantes"
+}
+
+###
+
+### TEST IN-02 B — Ver todos los reportes de la bodega
+### ✅ Esperado: array con 1 reporte, is_applied = false
+GET {{baseUrl}}/warehouse/discrepancy-report/{{warehouseId}}
+
+###
+
+### TEST IN-02 C — Ver reporte por ID
+### ✅ Esperado: stored_quantity=170, physical_quantity=165, is_applied=false
+GET {{baseUrl}}/warehouse/discrepancy-report/id/{{reportId}}
+
+###
+
+### TEST IN-02 D — Stock ANTES del ajuste
+### ✅ Esperado: total_amount = 170
+GET {{baseUrl}}/warehouse/{{warehouseId}}/stock
+
+###
+
+### TEST IN-02 E — Aplicar ajuste (delta = -5 → removeStock)
+### ✅ Esperado: HTTP 200 | is_applied = true
+PATCH {{baseUrl}}/warehouse/discrepancy-report/{{reportId}}/apply
+
+###
+
+### TEST IN-02 F — Stock DESPUÉS del ajuste
+### ✅ Esperado: total_amount = 165  (170 - 5)
+GET {{baseUrl}}/warehouse/{{warehouseId}}/stock
+
+###
+
+### TEST IN-02 G — NEGATIVO: Aplicar mismo reporte dos veces
+### ✅ Esperado: HTTP 409 "has already been applied"
+PATCH {{baseUrl}}/warehouse/discrepancy-report/{{reportId}}/apply
+
+###
+
+### ── PARTE 2: delta POSITIVO ──────────────────────────────────
+
+### TEST IN-02 H — Crear reporte: delta POSITIVO (+10)
+### Sistema dice 80, físico encontró 90
+### ✅ Copia el NUEVO discrepancy_count_id → actualiza @reportId arriba
+POST {{baseUrl}}/warehouse/discrepancy-report
+Content-Type: application/json
+
+{
+  "product_id": "{{variantId}}",
+  "warehouse_id": "{{warehouse2Id}}",
+  "stored_quantity": 80,
+  "physical_quantity": 90,
+  "discrepancy_reason": "Conteo físico encontró 10 unidades extra sin registrar"
+}
+
+###
+
+### TEST IN-02 I — Stock ANTES del ajuste positivo
+### ✅ Esperado: total_amount = 80
+GET {{baseUrl}}/warehouse/{{warehouse2Id}}/stock
+
+###
+
+### (Actualiza @reportId con el ID del paso H antes de ejecutar esto)
+### TEST IN-02 J — Aplicar ajuste positivo (delta = +10 → addStock)
+### ✅ Esperado: HTTP 200 | is_applied = true
+PATCH {{baseUrl}}/warehouse/discrepancy-report/{{reportId}}/apply
+
+###
+
+### TEST IN-02 K — Stock DESPUÉS del ajuste positivo
+### ✅ Esperado: total_amount = 90  (80 + 10)
+GET {{baseUrl}}/warehouse/{{warehouse2Id}}/stock
+
+###
+
+
+### ============================================================
+### ════════════════════════════════════════════════════════════
+###  TEST IN-04 — ALERTAS DE PRODUCTOS POR VENCER
+### ════════════════════════════════════════════════════════════
+### ============================================================
+
+### TEST IN-04 A — Vencen en 30 días
+### expiration_date = 2026-06-15 (~98 días desde hoy 2026-03-09)
+### ✅ Esperado: array vacío []
+GET {{baseUrl}}/warehouse/expiring?days=30
+
+###
+
+### TEST IN-04 B — Vencen en 120 días (cubre la fecha 2026-06-15)
+### ✅ Esperado: array con productos, days_until_expiry > 0
+GET {{baseUrl}}/warehouse/expiring?days=120
+
+###
+
+### TEST IN-04 C — Sin parámetro (default = 30 días)
+### ✅ Esperado: array vacío [] (igual que IN-04 A)
+GET {{baseUrl}}/warehouse/expiring
+
+###
+
+### TEST IN-04 D — Vencen en 1000 días (cubre todo)
+### ✅ Esperado: todos los productos con expiration_date != NULL
+GET {{baseUrl}}/warehouse/expiring?days=1000
+
+###

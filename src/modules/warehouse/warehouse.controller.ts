@@ -1,4 +1,4 @@
-import { Controller, Delete, Get, Param } from '@nestjs/common';
+import { Controller, Delete, Get, Param, Patch, Query } from '@nestjs/common';
 import { WarehouseService } from './warehouse.service';
 import { Warehouse } from './interfaces/warehouse.interface';
 import { CreateWarehouseDto } from './dto/create_warehouse.dto';
@@ -61,7 +61,30 @@ export class WarehouseController {
   @Get('tenant/')
   getAllWarehouses(@Session() userSession: IUserSession) {
     return this.warehouseService.getWarehousesByTenant(userSession.tenant_id);
+
   }
+
+  @Get('expiring')
+getExpiringProducts(
+  @Query('days') days: string = '30',
+  @Session() userSession: IUserSession,
+) {
+  return this.warehouseService.getExpiringProducts(
+    userSession.tenant_id,
+    parseInt(days, 10),
+  );
+}
+
+  @Get(':warehouse_id/stock')
+getStockByWarehouse(
+  @Param('warehouse_id') warehouse_id: string,
+  @Session() userSession: IUserSession,
+) {
+  return this.warehouseService.getStockByWarehouse(
+    warehouse_id,
+    userSession.tenant_id,
+  );
+}
 
   @Post('count')
   countAllProductsInWarehouse(
@@ -110,6 +133,17 @@ export class WarehouseController {
       report_id,
     );
   }
+
+  @Patch('discrepancy-report/:report_id/apply')
+applyDiscrepancyAdjustment(
+  @Param('report_id') report_id: string,
+  @Session() userSession: IUserSession,
+) {
+  return this.warehouseService.applyDiscrepancyAdjustment(
+    report_id,
+    userSession.tenant_id,
+  );
+}
 
   @Post('transfer')
   transferInventoryBetweenWarehouses(
