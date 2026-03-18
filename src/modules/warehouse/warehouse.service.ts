@@ -357,26 +357,24 @@ async getStockByWarehouse(
   const { warehouse_id, product_variant_id, stored_quantity, physical_quantity } = report;
   const delta = physical_quantity - stored_quantity;
 
-  const queryArray: string[] = [];
-  const paramsArray: any[][] = [];
-
-  if (delta > 0) {
-    queryArray.push(warehouseQueries.addStock,warehouseQueries.logInventoryMovement,);
-    paramsArray.push([delta, warehouse_id, product_variant_id, tenantId],[1, warehouse_id, tenantId, product_variant_id, delta]);
-
-  } else if (delta < 0) {
-    queryArray.push(warehouseQueries.removeStock, warehouseQueries.logInventoryMovement);
-
-    paramsArray.push([Math.abs(delta), warehouse_id, product_variant_id, tenantId],[2, warehouse_id, tenantId, product_variant_id, Math.abs(delta)]);
-
-   
+  // Usar transacción manual
+  const txn = await this.db.transaction();
+  try {
+    if (delta > 0) {
+      await txn.query(warehouseQueries.addStock, [delta, warehouse_id, product_variant_id, tenantId]);
+      await txn.query(warehouseQueries.logInventoryMovement, [1, warehouse_id, tenantId, product_variant_id, delta]);
+    } else if (delta < 0) {
+      await txn.query(warehouseQueries.removeStock, [Math.abs(delta), warehouse_id, product_variant_id, tenantId]);
+      await txn.query(warehouseQueries.logInventoryMovement, [2, warehouse_id, tenantId, product_variant_id, Math.abs(delta)]);
+    }
+    await txn.query(warehouseQueries.applyDiscrepancyReport, [discrepancyCountId, tenantId]);
+    await txn.commit();
+    // Obtener el resultado final si es necesario (puedes ajustar según lo que devuelva applyDiscrepancyReport)
+    return { success: true };
+  } catch (error) {
+    await txn.rollback();
+    throw error;
   }
-
-  queryArray.push(warehouseQueries.applyDiscrepancyReport);
-  paramsArray.push([discrepancyCountId, tenantId]);
-
-  const results = await this.db.transaction(queryArray, paramsArray, []);
-  return results[results.length - 1].rows[0];
 }
 
    async moveProductToWarehouse(
@@ -408,52 +406,42 @@ async getStockByWarehouse(
     if (!products || products.length === 0)
       throw new NotFoundException('Products list cannot be empty');
 
-    const queryArray: string[] = [];
-    const paramsArray: any[][] = [];
-    const dependencies: { sourceIndex: number; targetIndex: number; targetParamIndex: number }[] = [];
+    // Usar transacción manual
+    const txn = await this.db.transaction();
+    try {
+      // Crear transferencia de inventario
+      const transferRes = await txn.query(warehouseQueries.createInventoryTransfer, [originWarehouseId, destinationWarehouseId]);
+      const transferId = transferRes.rows[0]?.id ?? null;
 
-    queryArray.push(warehouseQueries.createInventoryTransfer);
-    paramsArray.push([originWarehouseId, destinationWarehouseId]);
+      for (const p of products) {
+        // Bloqueo y verificación de stock
+        const { rows: lockRows } = await txn.query(
+          `SELECT stock FROM inventory_schema.inventory
+           WHERE warehouse_id = $1 AND product_variant_id = $2 AND tenant_id = $3
+           FOR UPDATE`,
+          [originWarehouseId, p.product_id, tenantId],
+        );
+        if (!lockRows[0] || lockRows[0].stock < p.amount)
+          throw new NotFoundException(
+            `Insufficient stock for product ${p.product_id} in warehouse ${originWarehouseId}`,
+          );
 
-    for (const p of products) {
-  const { rows: lockRows } = await this.db.query(
-    `SELECT stock FROM inventory_schema.inventory
-     WHERE warehouse_id = $1 AND product_variant_id = $2 AND tenant_id = $3
-     FOR UPDATE`,
-    [originWarehouseId, p.product_id, tenantId],
-  );
-  if (!lockRows[0] || lockRows[0].stock < p.amount)
-    throw new NotFoundException(
-      `Insufficient stock for product ${p.product_id} in warehouse ${originWarehouseId}`,
-    );
-}
-
-    for (const p of products) {
-      const base = queryArray.length;
-
-      queryArray.push(warehouseQueries.removeStock);
-      paramsArray.push([p.amount, originWarehouseId, p.product_id, tenantId]);
-
-      queryArray.push(warehouseQueries.addStock);
-      paramsArray.push([p.amount, destinationWarehouseId, p.product_id, tenantId]);
-
-      queryArray.push(warehouseQueries.addProductToInventoryTransfer);
-      paramsArray.push([null, tenantId, p.product_id, p.amount]);
-      dependencies.push({
-        sourceIndex: 0,
-        targetIndex: base + 2,
-        targetParamIndex: 0,
-      });
-
-      queryArray.push(warehouseQueries.logInventoryMovement);
-      paramsArray.push([2, originWarehouseId, tenantId, p.product_id, p.amount]);
-
-      queryArray.push(warehouseQueries.logInventoryMovement);
-      paramsArray.push([1, destinationWarehouseId, tenantId, p.product_id, p.amount]);
+        // Remover stock del origen
+        await txn.query(warehouseQueries.removeStock, [p.amount, originWarehouseId, p.product_id, tenantId]);
+        // Agregar stock al destino
+        await txn.query(warehouseQueries.addStock, [p.amount, destinationWarehouseId, p.product_id, tenantId]);
+        // Registrar producto en la transferencia
+        await txn.query(warehouseQueries.addProductToInventoryTransfer, [transferId, tenantId, p.product_id, p.amount]);
+        // Log movimientos
+        await txn.query(warehouseQueries.logInventoryMovement, [2, originWarehouseId, tenantId, p.product_id, p.amount]);
+        await txn.query(warehouseQueries.logInventoryMovement, [1, destinationWarehouseId, tenantId, p.product_id, p.amount]);
+      }
+      await txn.commit();
+      return { transferId };
+    } catch (error) {
+      await txn.rollback();
+      throw error;
     }
-
-    const results = await this.db.transaction(queryArray, paramsArray, dependencies);
-    return results[0].rows[0];
   }
 
   async getExpiringProducts(
