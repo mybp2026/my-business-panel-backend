@@ -3,6 +3,7 @@ import { AppModule } from '@/app/app.module';
 import * as cookieParser from 'cookie-parser';
 import { ValidationPipe } from '@nestjs/common';
 import * as bodyParser from 'body-parser';
+import { ResponseInterceptor } from './common/interceptors/ResponseFormatter.interceptor';
 
 require('dotenv').config();
 
@@ -11,6 +12,8 @@ async function bootstrap() {
     rawBody: true,
   });
   app.use(cookieParser());
+  app.useGlobalInterceptors(new ResponseInterceptor());
+
   app.useGlobalPipes(
     new ValidationPipe({
       transform: true,

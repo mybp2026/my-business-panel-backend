@@ -1,11 +1,11 @@
 import { HttpException, HttpStatus } from '@nestjs/common';
 
-export class InvalidBill extends HttpException {
+export class InvalidInvoice extends HttpException {
   constructor() {
     super(
-      { error: 'Error creating bill on db.' },
+      { error: 'Error creating invoice on db.' },
       HttpStatus.UNPROCESSABLE_ENTITY,
     );
-    this.name = 'InvalidBillError';
+    this.name = 'InvalidInvoiceError';
   }
 }

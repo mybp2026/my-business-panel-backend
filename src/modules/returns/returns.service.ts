@@ -19,7 +19,7 @@ export class ReturnsService {
 
   async createNewFullReturn(data: ReturnTransactionDto) {
     const {
-      bill_id,
+      invoice_id,
       tenant_customer_id,
       total_refund_amount,
       refund_method,
@@ -31,7 +31,7 @@ export class ReturnsService {
     try {
       //Primero se crea la transacción de devolución
       const res = await this.db.query(queries.returns.newTransaction, [
-        bill_id,
+        invoice_id,
         tenant_customer_id,
         total_refund_amount,
         refund_method,
@@ -54,9 +54,9 @@ export class ReturnsService {
       await this.db.query(updateProducts.query, updateProducts.values);
 
       //Actualizar total de la factura
-      await this.db.query(queries.bill.updateAmount, [
+      await this.db.query(queries.dInvoice.updateAmount, [
         total_refund_amount,
-        bill_id,
+        invoice_id,
       ]);
 
       await this.db.query('COMMIT');
@@ -69,7 +69,7 @@ export class ReturnsService {
 
   async findReturns(findReturnsDto: FindReturnsDto) {
     const { rows } = await this.db.query(queries.returns.find, [
-      findReturnsDto.bill_id,
+      findReturnsDto.invoice_id,
       findReturnsDto.tenant_customer_id,
       findReturnsDto.return_status_id,
       findReturnsDto.refund_method,

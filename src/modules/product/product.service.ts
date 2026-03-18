@@ -8,7 +8,7 @@ import { DATABASE } from '../db/db.provider';
 import Database from '@crane-technologies/database';
 import { bulkProducts, queries } from '@/queries';
 import {
-  NewProductDto,
+  // NewProductDto,
   ProductInsert,
   ProductInsertDto,
 } from './dto/newProduct.dto';
@@ -95,9 +95,10 @@ export class ProductService {
     });
 
     const query = `
-        INSERT INTO general_schema.product (${bulkProducts.join(', ')})
+        INSERT INTO general_schema.product_variant (${bulkProducts.join(', ')})
         VALUES ${placeholders.join(', ')}
-        RETURNING product_id
+        ON CONFLICT (tenant_id, sku) DO NOTHING
+        RETURNING product_variant_id
       `;
 
     return { query, values };
@@ -114,8 +115,8 @@ export class ProductService {
       throw new BadRequestException('No valid fields to update');
     }
 
-    let setClause: string[] = [];
-    let paramsArray: any[] = [];
+    const setClause: string[] = [];
+    const paramsArray: any[] = [];
     let index = 1;
 
     for (const key of updateKeys) {
@@ -130,9 +131,9 @@ export class ProductService {
     const setString = setClause.join(', ');
 
     const queryString = `
-          UPDATE general_schema.product
+          UPDATE general_schema.product_variant
           SET ${setString}
-          WHERE product_id = $${index}
+          WHERE product_variant_id = $${index}
           RETURNING *
         `;
 
@@ -146,7 +147,7 @@ export class ProductService {
   }
 
   async deleteProduct(productId: string) {
-    const deleted = await this.db.query(queries.products.delete, [productId]);
+    await this.db.query(queries.products.delete, [productId]);
     return { message: `Product with id ${productId} deleted` };
   }
 }

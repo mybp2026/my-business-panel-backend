@@ -1,0 +1,642 @@
+### ============================================================
+### FLUJO COMPLETO: Tenant → Venta → Factura Electrónica
+### ============================================================
+### Requisitos previos:
+###   1. pos_schema.sql aplicado en la BD (sale, sale_item, etc.)
+###   2. EINVOICE_P12_BASE64 y EINVOICE_P12_PASSWORD en .env
+###   3. Servidor corriendo en http://localhost:3000
+###
+### ⚠️  NOTA: POST /product apunta a la tabla CABYS (cabys_code PK).
+###     Los productos del tenant deben insertarse en product_variant.
+###     Ver Paso 6 para el workaround.
+### ============================================================
+
+@baseUrl = http://localhost:3000
+
+# ─── IDs capturados de respuestas previas ────────────────────
+# (reemplazar con los valores reales devueltos por cada request)
+@tenantId      = 7bf9977e-0289-45b8-a28c-17655fb22273
+@branchId      = d98e3350-c2e9-40cf-91f3-4cc25867c122
+@turnId        = 1
+@userId        = a27d2a2d-9aca-4cb5-be2e-19b0ab4da469
+@cashRegId     = d409cd80-bafe-4d16-a317-3ac9dc1598e9
+@cashRegSessId = 6689a5aa-63c9-4eb8-adde-85983c8e7738
+@customerId    = 5e4b2fdf-d9d8-4070-8df7-a3383c9afc7c
+@variantId     = 5f8ac1a1-8e56-40fa-a39b-4e890f84e7b8
+@saleId        = 6c5e1f02-7aff-497e-9cd8-553a27d27d0d
+# ─── IDs para venta multi-ítem (FASE 10 y 11) ───────────────
+@v02Id         = b9a1c870-b5cc-4ee4-892a-a10343ac3f99
+@v03Id         = a432967c-0b74-401f-8a60-254cc614d55b
+@v04Id         = 3a06a7a2-ba5c-4def-8882-d755439e293e
+@v05Id         = aba16bdc-3be8-4209-999d-42729b1dbe7a
+@v06Id         = 50621299-425d-48c2-ade6-42e6afae1e4c
+@v07Id         = c15c7695-8c10-442c-9713-977d82a0c503
+@v08Id         = e61e7688-b494-47cd-9e3d-592d2ab318d1
+@v09Id         = 26f94180-510a-4f69-bfed-f574d2f4635f
+@v10Id         = 08e7a6dc-946e-48ae-8356-c66431e105f8
+@v11Id         = 7de10bd0-d3c3-4cce-b574-f11fa0e32be1
+@multiSaleId   = 
+
+
+### ============================================================
+### FASE 0 — BOOTSTRAP (SQL directo, solo primera vez)
+### ============================================================
+### El primer usuario admin NO puede crearse via HTTP sin una
+### sucursal preexistente, y la sucursal requiere sesión activa.
+### Resolver ejecutando este SQL ANTES de los requests HTTP:
+###
+###   -- 1. Crear sucursal principal del tenant
+###   INSERT INTO general_schema.branch
+###     (tenant_id, branch_name, branch_number, is_main_branch)
+###   VALUES
+###     ('{{tenantId}}', 'Sucursal Central San José', '001', true)
+###   RETURNING branch_id;
+###   -- → copiar branch_id en @branchId
+###
+###   -- 2. Crear turno de trabajo para esa sucursal
+###   INSERT INTO hr_schema.turn (branch_id, entry, out)
+###   VALUES ('<branch_id>', '08:00', '17:00')
+###   RETURNING turn_id;
+###   -- → copiar turn_id en @turnId (normalmente 1 la primera vez)
+###
+### ============================================================
+
+
+### ============================================================
+### FASE 1 — CONFIGURACIÓN DEL TENANT
+### ============================================================
+
+### 1. Crear tenant
+# Respuesta: { tenant_id, tenant_name, ... }
+# → Guardar tenant_id en @tenantId
+POST {{baseUrl}}/tenant
+Content-Type: application/json
+
+{
+  "tenant_name": "Distribuidora Demo S.A.",
+  "contact_email": "demo@distribuidora.cr",
+  "region_id": 1,
+  "identification": "3101234567",
+  "economic_activity": "742101",
+  "sign": "DDS",
+  "is_subscribed": true
+}
+
+
+### ============================================================
+### FASE 2 — USUARIO Y AUTENTICACIÓN
+### ============================================================
+
+### 2. Crear usuario administrador
+# Sin guards activos — no requiere sesión previa.
+# Requiere: @branchId y @turnId del bootstrap SQL (Fase 0).
+# Respuesta: { user_id, ... }
+POST {{baseUrl}}/user
+Content-Type: application/json
+
+{
+  "tenant_id": "{{tenantId}}",
+  "email": "admin@distribuidora.cr",
+  "password": "Admin1234!",
+  "role_id": 1,
+  "employeeInfo": {
+    "tenant_id": "{{tenantId}}",
+    "branch_id": "{{branchId}}",
+    "first_name": "Carlos",
+    "last_name": "Mora",
+    "doc_number": "106780000",
+    "phone": "60001111",
+    "email": "admin@distribuidora.cr",
+    "payment_schedule_id": 1,
+    "contractData": {
+      "start_date": "2025-01-01",
+      "end_date": "2026-01-01",
+      "hours": 40,
+      "base_salary": 500000,
+      "duties": "Administración general",
+      "turn_type": 1,
+      "turn_id": {{turnId}}
+    }
+  }
+}
+
+
+### 3. Login
+# Respuesta: cookie de sesión (se aplica automáticamente a requests siguientes)
+POST {{baseUrl}}/auth/login
+Content-Type: application/json
+
+{
+  "email": "admin@distribuidora.cr",
+  "password": "Admin1234!"
+}
+
+
+### ============================================================
+### FASE 3 — SUCURSAL ADICIONAL VÍA API (opcional)
+### ============================================================
+
+### 4. Crear sucursal adicional via API (requiere sesión nivel 3+)
+# La sucursal principal ya fue creada en el bootstrap SQL.
+# Este request es para crear sucursales adicionales.
+# Respuesta: { branch_id, ... }
+POST {{baseUrl}}/branch
+Content-Type: application/json
+
+{
+  "tenant_id": "{{tenantId}}",
+  "branch_name": "Sucursal Norte",
+  "address": "Alajuela, Costa Rica",
+  "contact_email": "norte@distribuidora.cr",
+  "branch_number": "002",
+  "is_main_branch": false
+}
+
+
+### 5. Crear caja registradora
+# Requiere: sesión (nivel 4+)
+# Respuesta: { cash_register_id, ... }
+# → Guardar cash_register_id en @cashRegId
+POST {{baseUrl}}/cash-register
+Content-Type: application/json
+
+{
+  "branch_id": "{{branchId}}",
+  "register_name": "Caja Principal",
+  "is_active": true
+}
+
+
+### 6. Abrir sesión de caja
+# Requiere: sesión (nivel 1+)
+# Respuesta: { cash_register_session_id, ... }
+# → Guardar cash_register_session_id en @cashRegSessId
+POST {{baseUrl}}/cash-register/start
+Content-Type: application/json
+
+{
+  "cash_register_id": "{{cashRegId}}",
+  "userId": "{{userId}}",
+  "opening_amount": 100000,
+  "opened_at": "2025-06-01T08:00:00.000Z"
+}
+
+
+### ============================================================
+### FASE 4 — CLIENTE
+### ============================================================
+
+### 7. Crear cliente
+# Respuesta: { tenant_customer_id, ... }
+# → Guardar tenant_customer_id en @customerId
+POST {{baseUrl}}/customers
+Content-Type: application/json
+
+{
+  "tenant_id": "{{tenantId}}",
+  "first_name": "María",
+  "last_name": "Rodríguez Vega",
+  "document_type_id": 1,
+  "document_number": "106780001",
+  "economic_activity": "742101",
+  "email": "maria.rodriguez@gmail.com",
+  "phone": "60001234",
+  "address": "San José, Escazú, Costa Rica",
+  "is_tenant": false
+}
+
+
+### ============================================================
+### FASE 5 — PRODUCTO
+### ============================================================
+
+### 8. Crear variante de producto (tenant)
+### Guarda el product_variant_id devuelto en @variantId
+### NOTA: cabys_code es opcional (FK nullable). Solo incluirlo si el CABYS loader fue ejecutado.
+POST {{baseUrl}}/product
+Content-Type: application/json
+
+{
+  "products": [
+    {
+      "tenant_id": "{{tenantId}}",
+      "sku": "PROD-001",
+      "variant_name": "Cuaderno universitario 100 hojas",
+      "unit_price": 1500,
+      "cabys_code": "0111100009900"
+    }
+  ]
+}
+
+
+### ============================================================
+### FASE 6 — VENTA COMPLETA
+### ============================================================
+### Cálculo de montos (IVA 13%):
+###   unit_price = 1500 CRC
+###   quantity   = 2
+###   subtotal   = 3000.00
+###   impuesto   = 3000 * 0.13 = 390.00
+###   total      = 3000 + 390 = 3390.00
+
+### 9. Crear venta completa (sale + items + pagos en un solo request)
+# Respuesta: { sale_id, ... }
+# → Guardar sale_id en @saleId
+POST {{baseUrl}}/sale
+Content-Type: application/json
+
+{
+  "branch_id": "{{branchId}}",
+  "currency_id": 1,
+  "tenant_id": "{{tenantId}}",
+  "tenant_customer_id": "{{customerId}}",
+  "sale_condition": "01",
+  "sale_date": "2025-06-01T10:30:00.000Z",
+  "subtotal_amount": 3000.00,
+  "tax_amount": 390.00,
+  "total_amount": 3390.00,
+  "is_completed": true,
+  "has_electronic_invoice": false,
+  "items": [
+    {
+      "tenant_id": "{{tenantId}}",
+      "product_variant_id": "{{variantId}}",
+      "quantity": 2,
+      "unit_price": 1500.00,
+      "total_price": 3000.00
+    }
+  ],
+  "payments": [
+    {
+      "tenant_customer_id": "{{customerId}}",
+      "payment_method_id": 1,
+      "is_points_redemption": false,
+      "points_redeemed": 0,
+      "points_to_currency_rate": 0,
+      "payment_amount": 3390.00,
+      "payment_date": "2025-06-01T10:30:00.000Z",
+      "currency_id": 1,
+      "verified": true
+    }
+  ]
+}
+
+
+### ============================================================
+### FASE 7 — CONSULTAR FACTURA DIGITAL
+### ============================================================
+
+### 10. Obtener todas las ventas de la sucursal
+GET {{baseUrl}}/sale/{{branchId}}
+
+
+### 11. Obtener facturas del tenant
+# Devuelve digital_sale_invoice generada tras la venta
+GET {{baseUrl}}/invoice/{{tenantId}}
+
+
+### 12. Obtener detalle de factura por ID
+GET {{baseUrl}}/invoice/details/{{saleId}}
+
+
+### 13. Obtener facturas de un cliente por documento
+GET {{baseUrl}}/invoice?id={{tenantId}}&doc=106780001
+
+
+### ============================================================
+### FASE 8 — FACTURA ELECTRÓNICA (e-invoice)
+### ============================================================
+### La generación de la factura electrónica se dispara automáticamente
+### desde SaleService cuando has_electronic_invoice: true en POST /sale.
+### No se requiere un endpoint HTTP separado en el módulo e-invoice.
+###
+### Flujo interno en SaleService.createFullSale():
+###   1. INSERT sale con has_electronic_invoice = false
+###   2. INSERT sale_items
+###   3. INSERT customer_payments
+###   4. INSERT digital_sale_invoice  (InvoiceService.createInvoice)
+###   5. IF has_electronic_invoice → EInvoiceService.createEInvoiceForSale()
+###        → valida venta completada + factura digital existente
+###        → genera XML con XmlGeneratorEngine
+###        → firma con p12 (EINVOICE_P12_BASE64 + EINVOICE_P12_PASSWORD)
+###        → INSERT electronic_sale_invoice
+###        → INSERT electronic_sale_invoice_items
+###        → UPDATE sale SET has_electronic_invoice = true
+###
+### Prerequisito: variables de entorno configuradas en .env:
+###   EINVOICE_P12_BASE64=<base64 del archivo .p12>
+###   EINVOICE_P12_PASSWORD=<contraseña del .p12>
+
+### 14. Venta CON factura electrónica (requiere .p12 configurado en .env)
+POST {{baseUrl}}/sale
+Content-Type: application/json
+
+{
+  "branch_id": "{{branchId}}",
+  "currency_id": 1,
+  "tenant_id": "{{tenantId}}",
+  "tenant_customer_id": "{{customerId}}",
+  "sale_condition": "01",
+  "sale_date": "2025-06-02T10:30:00.000Z",
+  "subtotal_amount": 3000.00,
+  "tax_amount": 390.00,
+  "total_amount": 3390.00,
+  "is_completed": true,
+  "has_electronic_invoice": true,
+  "items": [
+    {
+      "tenant_id": "{{tenantId}}",
+      "product_variant_id": "{{variantId}}",
+      "quantity": 2,
+      "unit_price": 1500.00,
+      "total_price": 3000.00
+    }
+  ],
+  "payments": [
+    {
+      "tenant_customer_id": "{{customerId}}",
+      "payment_method_id": 1,
+      "is_points_redemption": false,
+      "points_redeemed": 0,
+      "points_to_currency_rate": 0,
+      "payment_amount": 3390.00,
+      "payment_date": "2025-06-02T10:30:00.000Z",
+      "currency_id": 1,
+      "verified": true
+    }
+  ]
+}
+
+
+### ============================================================
+### FASE 9 — CIERRE DE CAJA
+### ============================================================
+
+### 15. Cerrar sesión de caja
+POST {{baseUrl}}/cash-register/close
+Content-Type: application/json
+
+{
+  "cash_register_session_id": "{{cashRegSessId}}",
+  "closing_amount": 103390.00,
+  "closed_at": "2025-06-01T18:00:00.000Z"
+}
+
+
+### ============================================================
+### CONSULTAS DE VERIFICACIÓN
+### ============================================================
+
+### 16. Ver todos los clientes del tenant
+GET {{baseUrl}}/customers/tenant/{{tenantId}}
+
+
+### 17. Ver ítems de la venta
+GET {{baseUrl}}/items/{{saleId}}
+
+
+### 18. Ver cajas de la sucursal
+GET {{baseUrl}}/cash-register?branch_id={{branchId}}
+
+
+### 19. Ver sucursales del tenant (usa sesión)
+GET {{baseUrl}}/branch
+
+
+### ============================================================
+### FASE 10 — 10 PRODUCTOS DE DISTINTAS CATEGORÍAS (con CABYS)
+### ============================================================
+### Requisito: CABYS loader ejecutado (general_schema.product poblado).
+###
+### Para encontrar CABYS codes válidos de distintas categorías:
+###   SELECT p.cabys_code, p.product_name, pc.category_name,
+###          tr.rate_percentage * 100 AS iva_pct
+###   FROM general_schema.product p
+###   LEFT JOIN general_schema.product_category pc USING (product_category_id)
+###   LEFT JOIN general_schema.tax_rate tr USING (tax_rate_id)
+###   ORDER BY RANDOM()
+###   LIMIT 20;
+###
+### Los cabys_code que siguen están basados en el código confirmado
+### "0111100009900" (cuaderno universitario). Reemplazar los demás
+### con códigos reales de la BD para cubrir distintas categorías.
+###
+### → Guardar cada product_variant_id devuelto:
+###   v02Id … v11Id (el array viene en el mismo orden del request)
+
+### 20. Crear 10 variantes de producto con CABYS
+POST {{baseUrl}}/product
+Content-Type: application/json
+
+{
+  "products": [
+    {
+      "tenant_id": "{{tenantId}}",
+      "sku": "MULTI-001",
+      "variant_name": "Lapicero BIC azul (caja 10 u.)",
+      "unit_price": 400,
+      "cabys_code": "0111100009900"
+    },
+    {
+      "tenant_id": "{{tenantId}}",
+      "sku": "MULTI-002",
+      "variant_name": "Resma papel bond carta 500 hojas",
+      "unit_price": 8900,
+      "cabys_code": "0111100009900"
+    },
+    {
+      "tenant_id": "{{tenantId}}",
+      "sku": "MULTI-003",
+      "variant_name": "Corrector líquido Liquid Paper",
+      "unit_price": 1200,
+      "cabys_code": "0111100009900"
+    },
+    {
+      "tenant_id": "{{tenantId}}",
+      "sku": "MULTI-004",
+      "variant_name": "Folder manila carta x50",
+      "unit_price": 2500,
+      "cabys_code": "0111100009900"
+    },
+    {
+      "tenant_id": "{{tenantId}}",
+      "sku": "MULTI-005",
+      "variant_name": "Engrapadora metálica 24/6",
+      "unit_price": 4800,
+      "cabys_code": "0111100009900"
+    },
+    {
+      "tenant_id": "{{tenantId}}",
+      "sku": "MULTI-006",
+      "variant_name": "Cinta adhesiva transparente 3M 12mm",
+      "unit_price": 700,
+      "cabys_code": "0111100009900"
+    },
+    {
+      "tenant_id": "{{tenantId}}",
+      "sku": "MULTI-007",
+      "variant_name": "Calculadora de bolsillo Casio",
+      "unit_price": 6500,
+      "cabys_code": "0111100009900"
+    },
+    {
+      "tenant_id": "{{tenantId}}",
+      "sku": "MULTI-008",
+      "variant_name": "Marcador permanente negro Sharpie",
+      "unit_price": 800,
+      "cabys_code": "0111100009900"
+    },
+    {
+      "tenant_id": "{{tenantId}}",
+      "sku": "MULTI-009",
+      "variant_name": "Archivador palanca tamaño oficio",
+      "unit_price": 3200,
+      "cabys_code": "0111100009900"
+    },
+    {
+      "tenant_id": "{{tenantId}}",
+      "sku": "MULTI-010",
+      "variant_name": "Tijeras de oficina inoxidable",
+      "unit_price": 1100,
+      "cabys_code": "0111100009900"
+    }
+  ]
+}
+
+
+### ============================================================
+### FASE 11 — VENTA MULTI-ÍTEM CON FACTURA ELECTRÓNICA
+### ============================================================
+### Prerequisitos:
+###   - Variables @v02Id … @v11Id llenadas con los IDs del paso 20
+###   - EINVOICE_P12_BASE64 y EINVOICE_P12_PASSWORD en .env
+###   - Todos los productos con cabys_code válido (FE requiere CABYS)
+###
+### Cálculo (IVA 13% sobre todos los ítems):
+###   Ítem 01: 10 × @v02Id  @  400  =   4,000
+###   Ítem 02:  2 × @v03Id  @ 8,900 =  17,800
+###   Ítem 03:  5 × @v04Id  @ 1,200 =   6,000
+###   Ítem 04:  4 × @v05Id  @ 2,500 =  10,000
+###   Ítem 05:  1 × @v06Id  @ 4,800 =   4,800
+###   Ítem 06:  6 × @v07Id  @  700  =   4,200
+###   Ítem 07:  1 × @v08Id  @ 6,500 =   6,500
+###   Ítem 08:  8 × @v09Id  @  800  =   6,400
+###   Ítem 09:  2 × @v10Id  @ 3,200 =   6,400
+###   Ítem 10:  3 × @v11Id  @ 1,100 =   3,300
+###   ─────────────────────────────────────────
+###   subtotal_amount = 69,400.00 CRC
+###   tax_amount      = 69,400 × 0.13 = 9,022.00 CRC
+###   total_amount    = 78,422.00 CRC
+###
+### → Guardar sale_id en @multiSaleId
+
+### 21. Venta multi-ítem CON factura electrónica
+POST {{baseUrl}}/sale
+Content-Type: application/json
+
+{
+  "branch_id": "{{branchId}}",
+  "currency_id": 1,
+  "tenant_id": "{{tenantId}}",
+  "tenant_customer_id": "{{customerId}}",
+  "sale_condition": "01",
+  "sale_date": "2025-06-03T10:00:00.000Z",
+  "subtotal_amount": 69400.00,
+  "tax_amount": 9022.00,
+  "total_amount": 78422.00,
+  "is_completed": true,
+  "has_electronic_invoice": true,
+  "items": [
+    {
+      "tenant_id": "{{tenantId}}",
+      "product_variant_id": "{{v02Id}}",
+      "quantity": 10,
+      "unit_price": 400.00,
+      "total_price": 4000.00
+    },
+    {
+      "tenant_id": "{{tenantId}}",
+      "product_variant_id": "{{v03Id}}",
+      "quantity": 2,
+      "unit_price": 8900.00,
+      "total_price": 17800.00
+    },
+    {
+      "tenant_id": "{{tenantId}}",
+      "product_variant_id": "{{v04Id}}",
+      "quantity": 5,
+      "unit_price": 1200.00,
+      "total_price": 6000.00
+    },
+    {
+      "tenant_id": "{{tenantId}}",
+      "product_variant_id": "{{v05Id}}",
+      "quantity": 4,
+      "unit_price": 2500.00,
+      "total_price": 10000.00
+    },
+    {
+      "tenant_id": "{{tenantId}}",
+      "product_variant_id": "{{v06Id}}",
+      "quantity": 1,
+      "unit_price": 4800.00,
+      "total_price": 4800.00
+    },
+    {
+      "tenant_id": "{{tenantId}}",
+      "product_variant_id": "{{v07Id}}",
+      "quantity": 6,
+      "unit_price": 700.00,
+      "total_price": 4200.00
+    },
+    {
+      "tenant_id": "{{tenantId}}",
+      "product_variant_id": "{{v08Id}}",
+      "quantity": 1,
+      "unit_price": 6500.00,
+      "total_price": 6500.00
+    },
+    {
+      "tenant_id": "{{tenantId}}",
+      "product_variant_id": "{{v09Id}}",
+      "quantity": 8,
+      "unit_price": 800.00,
+      "total_price": 6400.00
+    },
+    {
+      "tenant_id": "{{tenantId}}",
+      "product_variant_id": "{{v10Id}}",
+      "quantity": 2,
+      "unit_price": 3200.00,
+      "total_price": 6400.00
+    },
+    {
+      "tenant_id": "{{tenantId}}",
+      "product_variant_id": "{{v11Id}}",
+      "quantity": 3,
+      "unit_price": 1100.00,
+      "total_price": 3300.00
+    }
+  ],
+  "payments": [
+    {
+      "tenant_customer_id": "{{customerId}}",
+      "payment_method_id": 1,
+      "is_points_redemption": false,
+      "points_redeemed": 0,
+      "points_to_currency_rate": 0,
+      "payment_amount": 78422.00,
+      "payment_date": "2025-06-03T10:00:00.000Z",
+      "currency_id": 1,
+      "verified": true
+    }
+  ]
+}
+
+
+### 22. Verificar factura electrónica generada
+GET {{baseUrl}}/e-invoice/sale/{{multiSaleId}}
+
+
+### 23. Ver ítems de la venta multi-ítem
+GET /sale/d98e3350-c2e9-40cf-91f3-4cc25867c122?limit=3&sortBy=created_at&order=DESC

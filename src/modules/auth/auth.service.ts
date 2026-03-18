@@ -40,7 +40,7 @@ export class AuthService {
     if (!validPassword) throw new InvalidCredentialsError();
 
     const userSession: IUserSession = {
-      user_id: storedUser.users_id,
+      user_id: storedUser.user_id,
       email: email,
       tenant_id: storedUser.tenant_id,
       role_id: storedUser.role_id,

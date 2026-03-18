@@ -1,8 +1,9 @@
 import Decimal from 'decimal.js';
 import { XmlGeneratorEngine } from './xml_generator.engine';
 import { EInvoice } from '../interface/e-invoice.interface';
-import * as path from 'path';
-import * as fs from 'fs';
+// import * as path from 'path';
+// import * as fs from 'fs';
+import * as forge from 'node-forge';
 
 describe('EInvoiceEngine - Generation test', () => {
   let engine: XmlGeneratorEngine;
@@ -112,35 +113,100 @@ describe('EInvoiceEngine - Generation test', () => {
       },
     };
 
-    const x = await engine.buildXml(mock);
-    expect(x).toBeDefined();
-    expect(typeof x).toBe('string');
-    expect(x.startsWith('PD94')).toBeTruthy();
+    const xmlString = await engine.buildXml(mock);
+    expect(xmlString).toBeDefined();
+    expect(typeof xmlString).toBe('string');
+    // buildXml now returns plain XML, not base64
+    expect(xmlString.startsWith('<?xml')).toBeTruthy();
 
     const end = performance.now();
     console.log(`XML generation took ${(end - start).toFixed(2)} ms`);
-    console.log('Xml to base64: ', x);
 
-    const filePath = path.join(
-      process.cwd(),
-      'src',
-      'modules',
-      'e-invoice',
-      'templates',
-      `invoice_${mock.numeroConsecutivo}.xml`,
+    // const filePath = path.join(
+    //   process.cwd(),
+    //   'src',
+    //   'modules',
+    //   'e-invoice',
+    //   'templates',
+    //   `invoice_${mock.numeroConsecutivo}.xml`,
+    // );
+
+    // expect(fs.existsSync(filePath)).toBeTruthy();
+
+    expect(xmlString).toContain(`<Clave>${key}</Clave>`);
+    expect(xmlString).toContain('<CodigoCABYS>2399900009900</CodigoCABYS>');
+
+    // console.log('XML generated successfully at:', filePath);
+  });
+});
+
+describe('signXML - XAdES-BES signature test', () => {
+  let engine: XmlGeneratorEngine;
+  let p12Buffer: Buffer;
+  const p12Password = 'test-password';
+
+  beforeEach(() => {
+    engine = new XmlGeneratorEngine();
+  });
+
+  // Generate a self-signed certificate programmatically — no external .p12 file needed
+  beforeAll(() => {
+    const keys = forge.pki.rsa.generateKeyPair(2048);
+    const cert = forge.pki.createCertificate();
+    cert.publicKey = keys.publicKey;
+    cert.serialNumber = '01';
+    cert.validity.notBefore = new Date();
+    cert.validity.notAfter = new Date();
+    cert.validity.notAfter.setFullYear(
+      cert.validity.notBefore.getFullYear() + 1,
     );
+    cert.setSubject([{ name: 'commonName', value: 'Test Emisor CR' }]);
+    cert.setIssuer([{ name: 'commonName', value: 'Test Emisor CR' }]);
+    cert.sign(keys.privateKey, forge.md.sha256.create());
 
-    // if (!fs.existsSync(filePath)) {
-    //   fs.mkdirSync(filePath, { recursive: true });
-    // }
+    const p12Asn1 = forge.pkcs12.toPkcs12Asn1(
+      keys.privateKey,
+      [cert],
+      p12Password,
+      { algorithm: '3des' },
+    );
+    p12Buffer = Buffer.from(forge.asn1.toDer(p12Asn1).getBytes(), 'binary');
+  });
 
-    expect(fs.existsSync(filePath)).toBeTruthy();
+  it('should return a signed XML containing <ds:Signature>', () => {
+    const sampleXml = [
+      '<?xml version="1.0" encoding="utf-8"?>',
+      '<FacturaElectronica xmlns="https://cdn.comprobanteselectronicos.go.cr/xml-schemas/v4.4/facturaElectronica"',
+      '  xmlns:ds="http://www.w3.org/2000/09/xmldsig#" version="4.4">',
+      '  <Clave>50601012500310123456700100100010000000011999999</Clave>',
+      '  <NumeroConsecutivo>00100100010000000011</NumeroConsecutivo>',
+      '</FacturaElectronica>',
+    ].join('\n');
 
-    const decoded = Buffer.from(x, 'base64').toString('utf8');
+    const signed = engine.signXML(sampleXml, p12Buffer, p12Password);
 
-    expect(decoded).toContain(`<Clave>${key}</Clave>`);
-    expect(decoded).toContain('<CodigoCABYS>2399900009900</CodigoCABYS>');
+    expect(signed).toBeDefined();
+    expect(typeof signed).toBe('string');
+    // Debe contener el nodo de firma XMLDSig
+    expect(signed).toContain('<ds:Signature');
+    // Debe contener las propiedades XAdES-BES
+    expect(signed).toContain('<xades:QualifyingProperties');
+    expect(signed).toContain('<xades:SigningTime>');
+    expect(signed).toContain('<xades:SigningCertificateV2>');
+    // El contenido original del XML debe preservarse (integridad)
+    expect(signed).toContain(
+      '<Clave>50601012500310123456700100100010000000011999999</Clave>',
+    );
+    // El resultado es XML plano, no base64
+    expect(signed.startsWith('<?xml')).toBeTruthy();
 
-    console.log('XML generated successfully at:', filePath);
+    console.log('Signed XML (first 500 chars):', signed.substring(0, 500));
+  });
+
+  it('should throw when the .p12 password is wrong', () => {
+    const sampleXml =
+      '<?xml version="1.0"?><FacturaElectronica xmlns:ds="http://www.w3.org/2000/09/xmldsig#"></FacturaElectronica>';
+
+    expect(() => engine.signXML(sampleXml, p12Buffer, 'wrong-password')).toThrow();
   });
 });

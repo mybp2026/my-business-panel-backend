@@ -1,7 +1,10 @@
-import { IsArray, IsNumber, IsOptional, IsString, IsUUID } from 'class-validator';
+import { IsNumber, IsOptional, IsString, IsUUID, IsArray, ValidateNested } from 'class-validator';
+import { Type } from 'class-transformer';
 
 export class ProductInsertDto {
   @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => NewProductDto)
   products!: NewProductDto[];
 }
 
@@ -13,14 +16,11 @@ export class NewProductDto {
   sku!: string;
 
   @IsString()
-  product_name!: string;
+  variant_name!: string;
 
   @IsOptional()
   @IsString()
-  product_description?: string;
-
-  @IsNumber()
-  product_category_id!: number;
+  cabys_code?: string;
 
   @IsNumber()
   unit_price!: number;
@@ -29,8 +29,7 @@ export class NewProductDto {
 export interface ProductInsert {
   tenant_id: string;
   sku: string;
-  product_name: string;
-  product_description?: string;
-  product_category_id: number;
+  variant_name: string;
+  cabys_code?: string;
   unit_price: number;
 }

@@ -1,0 +1,832 @@
+### ============================================================
+### SETUP COMPLETO — SUPERUSER
+### Cubre todos los módulos del sistema en orden de dependencias
+### ============================================================
+### ORDEN DE EJECUCIÓN:
+###   1. Correr bootstrap.sql / database_backup.sql para crear esquemas
+###   2. Ejecutar requests en orden numérico
+###   3. Copiar cada ID devuelto en la variable correspondiente
+###   4. Los pasos del BLOQUE SQL son comandos psql manuales
+### ============================================================
+
+@baseUrl = http://localhost:3000
+
+# ─── Variables — actualizar después de cada request ─────────
+@tenantId        = FILL_ME
+@branchId        = FILL_ME
+@turnId          = FILL_ME
+@userId          = FILL_ME
+@cashRegId       = FILL_ME
+@cashRegSessId   = FILL_ME
+@customerId      = FILL_ME
+@variantId       = FILL_ME
+@saleId          = FILL_ME
+@invoiceId       = FILL_ME
+@returnId        = FILL_ME
+@warehouseId     = FILL_ME
+@supplierId      = FILL_ME
+@purchaseId      = FILL_ME
+@employeeId      = FILL_ME
+@conceptId       = FILL_ME
+@promotionId     = FILL_ME
+@loyalProgramId  = FILL_ME
+@paysheetId      = FILL_ME
+@segmentId       = FILL_ME
+
+
+### ============================================================
+### FASE 1 — TENANT
+### Sin autenticación requerida
+### ============================================================
+
+### 1. Crear tenant
+### → Guardar tenant_id en @tenantId
+POST {{baseUrl}}/tenant
+Content-Type: application/json
+
+{
+  "tenant_name": "Distribuidora Demo S.A.",
+  "contact_email": "demo@distribuidora.cr",
+  "region_id": 1,
+  "identification": "3101234567",
+  "economic_activity": "742101",
+  "sign": "DDS",
+  "is_subscribed": true
+}
+
+
+### ============================================================
+### FASE 2 — SUCURSAL
+### Requiere: @tenantId
+### ============================================================
+
+### 2. Crear sucursal principal
+### → Guardar branch_id en @branchId
+POST {{baseUrl}}/branch
+Content-Type: application/json
+
+{
+  "tenant_id": "{{tenantId}}",
+  "branch_name": "Sucursal Central",
+  "branch_number": "001",
+  "address": "San José, Costa Rica",
+  "contact_email": "central@distribuidora.cr",
+  "is_main_branch": true
+}
+
+
+### ============================================================
+### FASE 3 — TURNO DE TRABAJO
+### Requiere: @branchId
+### ============================================================
+
+### 3. Crear turno de trabajo
+### → Guardar turn_id en @turnId
+POST {{baseUrl}}/turns
+Content-Type: application/json
+
+{
+  "branchId": "{{branchId}}",
+  "entry": "08:00",
+  "out": "17:00"
+}
+
+
+### ============================================================
+### FASE 4 — USUARIO ADMINISTRADOR Y AUTENTICACIÓN
+### Requiere: @tenantId, @branchId, @turnId
+### ============================================================
+
+### 4. Crear usuario administrador (role_id 1 = admin)
+### → Guardar user_id en @userId
+POST {{baseUrl}}/user
+Content-Type: application/json
+
+{
+  "tenant_id": "{{tenantId}}",
+  "email": "admin@distribuidora.cr",
+  "password": "Admin1234!",
+  "role_id": 1,
+  "employeeInfo": {
+    "tenant_id": "{{tenantId}}",
+    "branch_id": "{{branchId}}",
+    "first_name": "Carlos",
+    "last_name": "Mora Solano",
+    "doc_number": "106780000",
+    "phone": "60001111",
+    "email": "admin@distribuidora.cr",
+    "payment_schedule_id": 1,
+    "contractData": {
+      "start_date": "2025-01-01",
+      "end_date": "2026-01-01",
+      "hours": 40,
+      "base_salary": 500000,
+      "duties": "Administración general",
+      "turn_type": 1,
+      "turn_id": {{turnId}}
+    }
+  }
+}
+
+
+### 5. Login
+### → Sesión por cookie (automática en VS Code REST Client)
+POST {{baseUrl}}/auth/login
+Content-Type: application/json
+
+{
+  "email": "admin@distribuidora.cr",
+  "password": "Admin1234!"
+}
+
+
+### ============================================================
+### FASE 5 — CAJA REGISTRADORA
+### Requiere: sesión activa, @branchId, @userId
+### ============================================================
+
+### 6. Crear caja registradora
+### → Guardar cash_register_id en @cashRegId
+POST {{baseUrl}}/cash-register
+Content-Type: application/json
+
+{
+  "branch_id": "{{branchId}}",
+  "register_name": "Caja Principal",
+  "is_active": true
+}
+
+
+### 7. Abrir sesión de caja
+### → Guardar cash_register_session_id en @cashRegSessId
+POST {{baseUrl}}/cash-register/start
+Content-Type: application/json
+
+{
+  "cash_register_id": "{{cashRegId}}",
+  "opening_amount": 100000,
+  "opened_at": "2025-06-01T08:00:00.000Z"
+}
+
+
+### ============================================================
+### FASE 6 — CLIENTE
+### Requiere: @tenantId
+### ============================================================
+
+### 8. Crear cliente
+### → Guardar tenant_customer_id en @customerId
+POST {{baseUrl}}/customers
+Content-Type: application/json
+
+{
+  "tenant_id": "{{tenantId}}",
+  "first_name": "María",
+  "last_name": "Rodríguez Vega",
+  "document_type_id": 1,
+  "document_number": "106780001",
+  "economic_activity": "742101",
+  "email": "maria.rodriguez@gmail.com",
+  "phone": "60001234",
+  "address": "San José, Escazú, Costa Rica",
+  "is_tenant": false
+}
+
+
+### ============================================================
+### FASE 7 — PRODUCTOS
+### Requiere: @tenantId
+### ============================================================
+
+### 9. Crear productos (variantes de producto del tenant)
+### → Guardar product_variant_id en @variantId (del primer item en el array de respuesta)
+POST {{baseUrl}}/product
+Content-Type: application/json
+
+{
+  "products": [
+    {
+      "tenant_id": "{{tenantId}}",
+      "sku": "PROD-001",
+      "variant_name": "Cuaderno universitario 100 hojas",
+      "unit_price": 1500
+    },
+    {
+      "tenant_id": "{{tenantId}}",
+      "sku": "PROD-002",
+      "variant_name": "Lapicero azul BIC",
+      "unit_price": 350
+    },
+    {
+      "tenant_id": "{{tenantId}}",
+      "sku": "PROD-003",
+      "variant_name": "Resma papel carta 500 hojas",
+      "unit_price": 8900
+    }
+  ]
+}
+
+
+### 10. Consultar productos del tenant
+GET {{baseUrl}}/product/{{tenantId}}
+
+
+### ============================================================
+### FASE 8 — BODEGA E INVENTARIO
+### Requiere: @branchId, @variantId
+### ============================================================
+
+### 11. Crear bodega
+### → Guardar warehouse_id en @warehouseId
+POST {{baseUrl}}/warehouse
+Content-Type: application/json
+
+{
+  "branch_id": "{{branchId}}",
+  "warehouse_name": "Bodega Principal",
+  "warehouse_address": "San José, La Uruca, Costa Rica"
+}
+
+
+### 12. Agregar stock de producto a la bodega
+POST {{baseUrl}}/warehouse/product
+Content-Type: application/json
+
+{
+  "warehouse_id": "{{warehouseId}}",
+  "product_id": "{{variantId}}",
+  "amount": 200,
+  "expiration_date": "2026-12-31"
+}
+
+
+### 13. Contar inventario de la bodega
+POST {{baseUrl}}/warehouse/count
+Content-Type: application/json
+
+{
+  "warehouse_id": "{{warehouseId}}"
+}
+
+
+### 14. Consultar bodegas del tenant
+GET {{baseUrl}}/warehouse/tenant/
+
+
+### ============================================================
+### FASE 9 — PROVEEDORES Y COMPRAS
+### Requiere: @warehouseId, @variantId
+### ============================================================
+
+### 15. Crear proveedor
+### → Guardar supplier_id en @supplierId
+POST {{baseUrl}}/suppliers
+Content-Type: application/json
+
+{
+  "supplier_name": "Papelería Nacional S.A.",
+  "supplier_contact_info": "ventas@papnacional.cr | +506 2222-3333",
+  "supplier_address": "Barrio Amón, San José, Costa Rica",
+  "supplier_notes": "Proveedor preferido para artículos de oficina"
+}
+
+
+### 16. Consultar proveedores
+GET {{baseUrl}}/suppliers
+
+
+### 17. Crear orden de compra
+### → Guardar purchase_order_id en @purchaseId
+POST {{baseUrl}}/purchase
+Content-Type: application/json
+
+{
+  "supplier_id": "{{supplierId}}",
+  "warehouse_id": "{{warehouseId}}",
+  "expected_delivery_date": "2025-07-15",
+  "has_invoice": false,
+  "payment_condition": "30",
+  "items": [
+    {
+      "product_variant_id": "{{variantId}}",
+      "quantity_ordered": 100,
+      "unit_price": 1200
+    }
+  ]
+}
+
+
+### 18. Consultar órdenes de compra
+GET {{baseUrl}}/purchase
+
+
+### ============================================================
+### FASE 10 — CONFIGURACIÓN DE CATÁLOGOS
+### (segmentos, márgenes, promociones, programa de lealtad)
+### ============================================================
+
+### 19. Crear segmento de cliente personalizado
+### → Guardar customer_segment_id en @segmentId
+POST {{baseUrl}}/segment
+Content-Type: application/json
+
+{
+  "segment_name": "VIP Corporativo",
+  "segment_hierarchy": 1
+}
+
+
+### 20. Crear margen por segmento
+POST {{baseUrl}}/margin
+Content-Type: application/json
+
+{
+  "tenant_id": "{{tenantId}}",
+  "customer_segment_id": 1,
+  "customer_segment_margin_type": 1,
+  "spending_threshold": 50000,
+  "seniority_months": 6,
+  "frequency_per_month": 4
+}
+
+
+### 21. Crear tipo de promoción (usar ID de catalog seed: 1=Porcentaje, 2=Monto fijo, 3=2x1)
+### 22. Crear promoción
+### → Guardar promotion_id en @promotionId
+POST {{baseUrl}}/promos
+Content-Type: application/json
+
+{
+  "tenant_id": "{{tenantId}}",
+  "promotion_name": "Descuento Verano 10%",
+  "promotion_code": "VERANO10",
+  "promotion_description": "10% de descuento en compras durante el verano",
+  "promotion_type_id": 1,
+  "customer_segment_id": 1,
+  "promotion_start_date": "2025-06-01",
+  "promotion_end_date": "2025-08-31",
+  "is_active": true,
+  "rules": [
+    {
+      "discount_percentage": 10,
+      "min_purchase_amount": 5000
+    }
+  ]
+}
+
+
+### 23. Crear programa de lealtad
+### → Guardar loyalty_program_id en @loyalProgramId
+POST {{baseUrl}}/loyal-program
+Content-Type: application/json
+
+{
+  "tenant_id": "{{tenantId}}",
+  "points_earned_per_currency_unit": 1.00,
+  "points_redeemed_per_currency_unit": 100.00,
+  "minimum_purchase_for_points": 1000
+}
+
+
+### ============================================================
+### FASE 11 — VENTA COMPLETA
+### Requiere: @branchId, @tenantId, @customerId, @variantId
+### Cálculo (IVA 13%):
+###   2x PROD-001 (1500) = subtotal 3000 + IVA 390 = total 3390
+### ============================================================
+
+### 24. Crear venta completa (sale + items + pagos en un solo request)
+### → Guardar sale_id en @saleId
+POST {{baseUrl}}/sale
+Content-Type: application/json
+
+{
+  "branch_id": "{{branchId}}",
+  "currency_id": 1,
+  "tenant_id": "{{tenantId}}",
+  "tenant_customer_id": "{{customerId}}",
+  "sale_condition": "01",
+  "sale_date": "2025-06-01T10:30:00.000Z",
+  "subtotal_amount": 3000.00,
+  "tax_amount": 390.00,
+  "total_amount": 3390.00,
+  "is_completed": true,
+  "has_electronic_invoice": false,
+  "items": [
+    {
+      "tenant_id": "{{tenantId}}",
+      "product_variant_id": "{{variantId}}",
+      "quantity": 2,
+      "unit_price": 1500.00,
+      "total_price": 3000.00
+    }
+  ],
+  "payments": [
+    {
+      "tenant_customer_id": "{{customerId}}",
+      "payment_method_id": 1,
+      "is_points_redemption": false,
+      "points_redeemed": 0,
+      "points_to_currency_rate": 0,
+      "payment_amount": 3390.00,
+      "payment_date": "2025-06-01T10:30:00.000Z",
+      "currency_id": 1,
+      "verified": true
+    }
+  ]
+}
+
+
+### 25. Consultar ventas de la sucursal
+GET {{baseUrl}}/sale/{{branchId}}
+
+
+### 26. Consultar ítems de la venta
+GET {{baseUrl}}/items/{{saleId}}
+
+
+### ============================================================
+### FASE 12 — FACTURA
+### Requiere: @saleId, @tenantId
+### ============================================================
+
+### 27. Consultar facturas del tenant
+### → Guardar digital_sale_invoice_id en @invoiceId
+GET {{baseUrl}}/invoice/{{tenantId}}
+
+
+### 28. Consultar detalle de factura
+GET {{baseUrl}}/invoice/details/{{saleId}}
+
+
+### 29. Consultar facturas por cliente (documento)
+GET {{baseUrl}}/invoice?id={{tenantId}}&doc=106780001
+
+
+### ============================================================
+### FASE 13 — DEVOLUCIÓN
+### Requiere: @invoiceId, @customerId, @saleId
+### Nota: sale_item_id se obtiene del response del paso 26
+### ============================================================
+
+### 30. Crear devolución parcial
+### → Guardar return_transaction_id en @returnId
+### NOTA: Reemplazar sale_item_id con el ID real del step 26
+POST {{baseUrl}}/returns
+Content-Type: application/json
+
+{
+  "invoice_id": "{{invoiceId}}",
+  "tenant_customer_id": "{{customerId}}",
+  "total_refund_amount": 1695.00,
+  "refund_method": 1,
+  "return_status_id": 1,
+  "return_date": "2025-06-02T09:00:00.000Z",
+  "return_products": [
+    {
+      "sale_item_id": "FILL_SALE_ITEM_ID",
+      "quantity": 1,
+      "unit_price": 1500.00,
+      "total_price": 1500.00
+    }
+  ]
+}
+
+
+### 31. Consultar devoluciones
+GET {{baseUrl}}/returns?invoice_id={{invoiceId}}
+
+
+### ============================================================
+### FASE 14 — CIERRE DE CAJA
+### Requiere: @cashRegSessId
+### ============================================================
+
+### 32. Cerrar sesión de caja
+POST {{baseUrl}}/cash-register/close
+Content-Type: application/json
+
+{
+  "cash_register_session_id": "{{cashRegSessId}}",
+  "closing_amount": 101695.00,
+  "closed_at": "2025-06-01T18:00:00.000Z"
+}
+
+
+### ============================================================
+### FASE 15 — RECURSOS HUMANOS
+### Requiere: @tenantId, @branchId, @userId, @turnId
+### ============================================================
+
+### 33. Crear concepto de nómina (tipo deducción)
+### → Guardar concept_id en @conceptId
+POST {{baseUrl}}/concept
+Content-Type: application/json
+
+{
+  "tenantId": "{{tenantId}}",
+  "name": "CCSS Empleado",
+  "type": "deduction",
+  "calcMethod": "percentage",
+  "isTaxable": false,
+  "baseValue": 10.67,
+  "code": "CCSS-EMP"
+}
+
+
+### 34. Consultar conceptos del tenant
+GET {{baseUrl}}/concept/{{tenantId}}
+
+
+### 35. Registrar marcado de entrada (clocking in)
+POST {{baseUrl}}/clocking
+Content-Type: application/json
+
+{
+  "employeeId": "{{employeeId}}",
+  "branchId": "{{branchId}}"
+}
+
+
+### 36. Registrar marcado de salida (clocking out)
+PATCH {{baseUrl}}/clocking
+Content-Type: application/json
+
+{
+  "employeeId": "{{employeeId}}"
+}
+
+
+### 37. Consultar empleados del tenant
+GET {{baseUrl}}/employee/{{tenantId}}
+
+
+### 38. Consultar detalle de empleado
+GET {{baseUrl}}/employee/detail/{{employeeId}}
+
+
+### 39. Crear incapacidad de empleado
+POST {{baseUrl}}/incapacity
+Content-Type: application/json
+
+{
+  "employee_id": "{{employeeId}}",
+  "branch_id": "{{branchId}}",
+  "type": "CCSS",
+  "period_start": "2025-06-10",
+  "period_end": "2025-06-15",
+  "days_paying": 6,
+  "percentage_to_pay": 60
+}
+
+
+### 40. Registrar amonestación (foul)
+POST {{baseUrl}}/foul
+Content-Type: application/json
+
+{
+  "employee_id": "{{employeeId}}",
+  "branch_id": "{{branchId}}",
+  "identificator": "FOUL-001",
+  "foul_date": "2025-06-05",
+  "foul_hour": "09:30",
+  "description": "Llegada tardía sin justificación"
+}
+
+
+### 41. Registrar suspensión de empleado
+POST {{baseUrl}}/suspention
+Content-Type: application/json
+
+{
+  "employee_id": "{{employeeId}}",
+  "suspentionStart": "2025-06-20",
+  "suspentionEnd": "2025-06-22",
+  "reason": "Incumplimiento de reglamento interno",
+  "branchId": "{{branchId}}"
+}
+
+
+### 42. Procesar planilla
+### → Guardar paysheet_id en @paysheetId
+POST {{baseUrl}}/payroll/create
+Content-Type: application/json
+
+{
+  "tenantId": "{{tenantId}}",
+  "branchId": "{{branchId}}",
+  "periodStart": "2025-06-01",
+  "periodEnd": "2025-06-30"
+}
+
+
+### 43. Consultar planillas de la sucursal
+GET {{baseUrl}}/paysheet/branch/{{branchId}}
+
+
+### 44. Consultar detalle de planilla
+GET {{baseUrl}}/paysheet/{{paysheetId}}
+
+
+### 45. Consultar movimientos de la planilla
+GET {{baseUrl}}/movements/paysheet/{{paysheetId}}
+
+
+### ============================================================
+### CONSULTAS DE VERIFICACIÓN GENERAL
+### ============================================================
+
+### 46. Ver todos los tenants
+GET {{baseUrl}}/tenant
+
+
+### 47. Ver tenant por ID
+GET {{baseUrl}}/tenant/{{tenantId}}
+
+
+### 48. Ver usuarios del tenant
+GET {{baseUrl}}/tenant/{{tenantId}}/users
+
+
+### 49. Ver sucursales
+GET {{baseUrl}}/branch
+
+
+### 50. Ver sucursal por ID
+GET {{baseUrl}}/branch/{{branchId}}
+
+
+### 51. Ver cajas de la sucursal
+GET {{baseUrl}}/cash-register?branch_id={{branchId}}
+
+
+### 52. Ver detalle de caja
+GET {{baseUrl}}/cash-register/{{cashRegId}}
+
+
+### 53. Ver todos los clientes del tenant
+GET {{baseUrl}}/customers/tenant/{{tenantId}}
+
+
+### 54. Ver cliente por ID
+GET {{baseUrl}}/customers/{{customerId}}
+
+
+### 55. Ver tipos de documento
+GET {{baseUrl}}/document
+
+
+### 56. Ver roles de usuario
+GET {{baseUrl}}/user/roles
+
+
+### 57. Ver categorías de producto (CABYS)
+GET {{baseUrl}}/category
+
+
+### 58. Ver segmentos de clientes
+GET {{baseUrl}}/segment
+
+
+### 59. Ver márgenes del tenant
+GET {{baseUrl}}/margin/{{tenantId}}
+
+
+### 60. Ver promociones del tenant
+GET {{baseUrl}}/promos/{{tenantId}}
+
+
+### 61. Ver programa de lealtad del tenant
+GET {{baseUrl}}/loyal-program/{{tenantId}}
+
+
+### 62. Ver bodegas del tenant
+GET {{baseUrl}}/warehouse/tenant/
+
+
+### 63. Ver proveedores
+GET {{baseUrl}}/suppliers
+
+
+### 64. Ver proveedor por ID
+GET {{baseUrl}}/suppliers/{{supplierId}}
+
+
+### 65. Ver turnos de la sucursal
+GET {{baseUrl}}/turns/branch/{{branchId}}
+
+
+### 66. Ver incapacidades del empleado
+GET {{baseUrl}}/incapacity/employee/{{employeeId}}
+
+
+### 67. Ver amonestaciones del empleado
+GET {{baseUrl}}/foul/employee/{{employeeId}}
+
+
+### 68. Ver suspensiones del empleado
+GET {{baseUrl}}/suspention/employee/{{employeeId}}
+
+
+### 69. Ver tardanzas de la sucursal
+GET {{baseUrl}}/tardiness/branch/{{branchId}}
+
+
+### 70. Logout
+POST {{baseUrl}}/auth/logout
+
+
+### ============================================================
+### REQUESTS ADICIONALES / ACTUALIZACIONES
+### ============================================================
+
+### U1. Actualizar datos del tenant
+PATCH {{baseUrl}}/tenant/{{tenantId}}
+Content-Type: application/json
+
+{
+  "tenant_name": "Distribuidora Demo S.A. (Actualizado)"
+}
+
+
+### U2. Actualizar caja registradora
+PUT {{baseUrl}}/cash-register/{{cashRegId}}
+Content-Type: application/json
+
+{
+  "cash_register_id": "{{cashRegId}}",
+  "register_name": "Caja Principal 2025",
+  "is_active": true
+}
+
+
+### U3. Actualizar datos de cliente
+PATCH {{baseUrl}}/customers/{{customerId}}
+Content-Type: application/json
+
+{
+  "phone": "60009999"
+}
+
+
+### U4. Actualizar producto
+PATCH {{baseUrl}}/product/{{variantId}}
+Content-Type: application/json
+
+{
+  "unit_price": 1600
+}
+
+
+### U5. Actualizar proveedor
+PATCH {{baseUrl}}/suppliers/{{supplierId}}
+Content-Type: application/json
+
+{
+  "supplier_notes": "Proveedor actualizado - descuento del 5%"
+}
+
+
+### U6. Actualizar turno de trabajo
+PATCH {{baseUrl}}/turns/{{turnId}}
+Content-Type: application/json
+
+{
+  "entry": "07:30",
+  "out": "16:30"
+}
+
+
+### U7. Reporte de discrepancia de inventario
+POST {{baseUrl}}/warehouse/discrepancy-report
+Content-Type: application/json
+
+{
+  "product_id": "{{variantId}}",
+  "warehouse_id": "{{warehouseId}}",
+  "stored_quantity": 200,
+  "physical_quantity": 195,
+  "discrepancy_reason": "Producto dañado durante almacenamiento"
+}
+
+
+### U8. Ver reporte de discrepancias
+GET {{baseUrl}}/warehouse/discrepancy-report/{{warehouseId}}
+
+
+### U9. Transferir inventario entre bodegas
+### Requiere dos bodegas — crear una segunda bodega primero (POST /warehouse)
+POST {{baseUrl}}/warehouse/transfer
+Content-Type: application/json
+
+{
+  "origin_warehouse_id": "{{warehouseId}}",
+  "destination_warehouse_id": "FILL_SECOND_WAREHOUSE_ID",
+  "tenant_id": "{{tenantId}}",
+  "products": [
+    {
+      "product_id": "{{variantId}}",
+      "amount": 50
+    }
+  ]
+}

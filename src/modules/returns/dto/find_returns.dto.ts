@@ -8,7 +8,7 @@ import {
 export class FindReturnsDto {
   @IsOptional()
   @IsUUID()
-  bill_id?: string;
+  invoice_id?: string;
 
   @IsOptional()
   @IsUUID()

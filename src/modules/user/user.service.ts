@@ -1,6 +1,5 @@
 import { Injectable, Inject } from '@nestjs/common';
 import { CreateUserDto } from './dto/create_user.dto';
-// import { UpdateUserDto } from './dto/update-user.dto';
 import Database from '@crane-technologies/database';
 import { DATABASE } from '@/modules/db/db.provider';
 import { IUserResult } from '@/modules/user/interfaces/user_result.interface';
@@ -51,64 +50,70 @@ export class UserService {
 
   async createUser(createUserDto: CreateUserDto) {
     const password_hash = await hash(
-      createUserDto.password,
-      this.state.getConstant<number>('PASSWORD_SALT_ROUNDS'),
-    );
-    const { tenant_id, email, role_id, employeeInfo } = createUserDto;
+        createUserDto.password,
+        this.state.getConstant<number>('PASSWORD_SALT_ROUNDS'),
+      ),
+      { tenant_id, email, role_id, employeeInfo } = createUserDto,
+      txn = await this.db.transaction();
 
-    const newUser = await this.db.query(queries.user.create, [
-      tenant_id,
-      email,
-      password_hash,
-      role_id,
-    ]);
-    if (newUser.rows.length === 0) {
-      throw new UserCreationError(email);
+    try {
+      const newUser = await txn.query(queries.user.create, [
+        tenant_id,
+        email,
+        password_hash,
+        role_id,
+      ]);
+      if (newUser.rows.length === 0) {
+        throw new UserCreationError(email);
+      }
+
+      const userId = newUser.rows[0].user_id;
+
+      const {
+        base_salary,
+        hours,
+        start_date,
+        end_date,
+        duties,
+        turn_type,
+        turn_id,
+      } = employeeInfo.contractData;
+
+      const newEmployee = await txn.query(queries.employee.full, [
+        start_date,
+        end_date,
+        hours,
+        base_salary,
+        duties,
+        turn_type,
+        turn_id,
+        userId,
+        employeeInfo.tenant_id,
+        employeeInfo.first_name,
+        employeeInfo.last_name,
+        employeeInfo.doc_number,
+        employeeInfo.phone,
+        employeeInfo.email,
+        employeeInfo.payment_schedule_id,
+        employeeInfo.branch_id,
+      ]);
+
+      if (newEmployee.rows.length === 0) {
+        throw new CreateFullEmployeeError();
+      }
+
+      await txn.commit();
+      return { message: 'user created successfully!' };
+    } catch (error) {
+      await txn.rollback();
+      console.error('Error creating user:', error);
+      throw error;
     }
-
-    const userId = newUser.rows[0].user_id;
-
-    const {
-      base_salary,
-      hours,
-      start_date,
-      end_date,
-      duties,
-      turn_type,
-      turn_id,
-    } = employeeInfo.contractData;
-
-    const newEmployee = await this.db.query(queries.employee.full, [
-      start_date,
-      end_date,
-      hours,
-      base_salary,
-      duties,
-      turn_type,
-      turn_id,
-      userId,
-      employeeInfo.tenant_id,
-      employeeInfo.first_name,
-      employeeInfo.last_name,
-      employeeInfo.doc_number,
-      employeeInfo.phone,
-      employeeInfo.email,
-      employeeInfo.payment_schedule_id,
-      employeeInfo.branch_id,
-    ]);
-
-    if (newEmployee.rows.length === 0) {
-      throw new CreateFullEmployeeError();
-    }
-
-    return { message: 'user created successfully!' };
   }
 
   async createUsersBulk(createUserDto: CreateUserDto[]) {
-    try {
-      const saltRounds = this.state.getConstant<number>('PASSWORD_SALT_ROUNDS');
-
-      const rows = createUserDto.map((dto) => {
+    const saltRounds = this.state.getConstant<number>('PASSWORD_SALT_ROUNDS'),
+      rows = createUserDto.map((dto) => {
         const validTenant =
           isUUID(dto.tenant_id) && this.state.getTenant(dto.tenant_id);
         if (!validTenant) throw new InvalidTenantError(dto.tenant_id);
@@ -116,16 +121,17 @@ export class UserService {
         const password_hash = hashSync(dto.password, saltRounds);
 
         return [dto.tenant_id, dto.email, password_hash, dto.role_id];
-      });
+      }),
+      txn = await this.db.transaction();
 
-      const userResult = await this.db.bulkInsert(
+    try {
+      const userResult = await txn.bulkInsert(
         'general_schema.users',
         ['tenant_id', 'email', 'password_hash', 'role_id'],
         rows,
         { header: false, returnFields: ['user_id', 'email'] },
       );
 
-      // ✅ Mapear por índice en lugar de email
       const userIds = (userResult.fields || []).map((row: any) => row.user_id);
 
       const contractRows = createUserDto.map((dto) => {
@@ -150,7 +156,7 @@ export class UserService {
         ];
       });
 
-      const contractResult = await this.db.bulkInsert(
+      const contractResult = await txn.bulkInsert(
         'hr_schema.contract',
         [
           'tenant_id',
@@ -207,7 +213,7 @@ export class UserService {
         ];
       });
 
-      await this.db.bulkInsert(
+      await txn.bulkInsert(
         'hr_schema.employee',
         [
           'user_id',
@@ -225,6 +231,7 @@ export class UserService {
         { header: false },
       );
 
+      await txn.commit();
       return {
         message: 'users created successfully!',
         count: rows.length,
@@ -234,6 +241,7 @@ export class UserService {
         })),
       };
     } catch (error) {
+      await txn.rollback();
       console.error('Error bulk creating users:', error);
       console.error('Error details:', JSON.stringify(error, null, 2));
       throw error;

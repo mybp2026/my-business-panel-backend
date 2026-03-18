@@ -3,7 +3,7 @@ import { IsDate, IsNumber, IsUUID } from 'class-validator';
 
 export class ReturnTransactionDto {
   @IsUUID()
-  bill_id!: string;
+  invoice_id!: string;
 
   @IsUUID()
   tenant_customer_id!: string;

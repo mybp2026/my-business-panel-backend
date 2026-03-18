@@ -57,7 +57,7 @@ def parse_tax(value) -> float:
     
     try:
         if '%' in s:
-            return float(s.replace('%', '')) / 100.0
+            return float(s.replace('%', ''))
         else:
             return float(s)
     except ValueError:
@@ -135,7 +135,7 @@ def list_tax_rates(dataframe: DataFrame, tax_column_name: str = "impuesto") -> s
             cleaned_taxes.add(0.0)
         elif '%' in s:
             try:
-                cleaned_taxes.add(float(s.replace('%', '')) / 100.0)
+                cleaned_taxes.add(float(s.replace('%', '')))
             except ValueError:
                 pass
         else:

@@ -44,12 +44,13 @@ export class CashRegisterService {
   }
 
   async create(tenant_id: string, createDto: CreateCashRegisterDto) {
-    const { branch_id, is_active } = createDto;
+    const { branch_id, register_name, is_active } = createDto;
 
     await this.branchService.validateBranch(branch_id, tenant_id);
 
     const { rows } = await this.db.query(queries.cash_register.create, [
       branch_id,
+      register_name,
       is_active,
     ]);
     return { created: rows[0] };

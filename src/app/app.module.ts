@@ -13,7 +13,7 @@ import { ProductModule } from '@/modules/product/product.module';
 import { CustomerPaymentModule } from '@/modules/customer_payment/customer_payment.module';
 import { SaleModule } from '@/modules/sale/sale.module';
 import { SaleItemModule } from '@/modules/sale-item/sale-item.module';
-import { BillModule } from '@/modules/bill/bill.module';
+import { DInvoiceModule } from '@/modules/d-invoice/d-invoice.module';
 import { PromosModule } from '@/modules/promos/promos.module';
 import { SegmentModule } from '@/modules/segment/segment.module';
 import { ReturnsModule } from '@/modules/returns/returns.module';
@@ -38,6 +38,7 @@ import { TurnsModule } from '@/modules/turns/turns.module';
 import { FoulModule } from '@/modules/foul/foul.module';
 import { TardinessModule } from '@/modules/tardiness/tardiness.module';
 import { EInvoiceModule } from '@/modules/e-invoice/e-invoice.module';
+import { AccountingModule } from '@/modules/accounting/accounting.module';
 require('dotenv').config();
 
 console.log(
@@ -60,7 +61,7 @@ console.log(
     StripeModule,
     SaleModule,
     SaleItemModule,
-    BillModule,
+    DInvoiceModule,
     PromosModule,
     SegmentModule,
     ReturnsModule,
@@ -83,7 +84,8 @@ console.log(
     TurnsModule,
     FoulModule,
     TardinessModule,
-    EInvoiceModule
+    EInvoiceModule,
+    AccountingModule,
   ],
   controllers: [AppController],
   providers: [AppService],

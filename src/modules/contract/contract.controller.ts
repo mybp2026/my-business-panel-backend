@@ -12,7 +12,10 @@ export class ContractController {
   }
 
   @Patch(':id')
-  async updateContractTerms(@Param('id') id: string, @Body() data: ContractDto) {
+  async updateContractTerms(
+    @Param('id') id: string,
+    @Body() data: ContractDto,
+  ) {
     return this.contractService.updateContract(id, data);
   }
 }

@@ -1,18 +1,27 @@
 import { Injectable } from '@nestjs/common';
-import { CreateInvoiceDto } from '../dto/e-invoice.dto';
 import { EInvoice } from '../interface/e-invoice.interface';
-import { create, createCB } from 'xmlbuilder2';
-import * as fs from 'fs';
-import * as path from 'path';
+import Decimal from 'decimal.js';
+import { create } from 'xmlbuilder2';
+// import * as fs from 'fs';
+// import * as path from 'path';
+import * as crypto from 'crypto';
 import encodeQR from 'qr';
+import * as forge from 'node-forge';
+import { SignedXml } from 'xml-crypto';
 
 @Injectable()
 export class XmlGeneratorEngine {
-  //Refinar el dto para asegurar que se tenga toda la información necesaria para generar la factura electrónica.
-  generate(data: CreateInvoiceDto) {}
+  /**
+   * Punto de entrada principal del engine.
+   * Orquesta buildXml() → signXML() y retorna el XML firmado en texto plano.
+   * El llamador convierte a base64 para almacenamiento: Buffer.from(result).toString('base64')
+   */
+  generate(eInvoice: EInvoice, p12Buffer: Buffer, p12Password: string): string {
+    const xmlPlain = this.buildXml(eInvoice);
+    return this.signXML(xmlPlain, p12Buffer, p12Password);
+  }
 
-  async buildXml(content: EInvoice): Promise<String> {
-
+  buildXml(content: EInvoice): string {
     const xml = create({ version: '1.0', encoding: 'utf-8' }).ele(
       'FacturaElectronica',
       {
@@ -50,6 +59,12 @@ export class XmlGeneratorEngine {
     ubicacion.ele('Distrito').txt(content.emisor.ubicacion.distrito).up();
     ubicacion.ele('OtrasSenas').txt(content.emisor.ubicacion.otrasSenas).up();
     ubicacion.up();
+    if (content.emisor.telefono?.numero) {
+      const tel = emisor.ele('Telefono');
+      tel.ele('CodigoPais').txt(content.emisor.telefono.codigoPais).up();
+      tel.ele('NumTelefono').txt(content.emisor.telefono.numero).up();
+      tel.up();
+    }
     emisor.ele('CorreoElectronico').txt(content.emisor.correoElectronico).up();
     emisor.up();
 
@@ -107,9 +122,9 @@ export class XmlGeneratorEngine {
       }
 
       linea.ele('MontoTotalLinea').txt(line.montoTotalLinea.toFixed(5)).up();
-      linea.up(); 
+      linea.up();
     }
-    detalleNode.up(); 
+    detalleNode.up();
 
     const res = xml.ele('ResumenFactura');
     const mon = res.ele('CodigoTipoMoneda');
@@ -167,27 +182,190 @@ export class XmlGeneratorEngine {
 
     const xmlString = xml.end({ prettyPrint: true });
 
-    //Esto genera el archivo xml para auditoria y verificacion de que se cree correctamente
-    const templateDir = path.join(
-      process.cwd(),
-      'src',
-      'modules',
-      'e-invoice',
-      'templates',
-    );
-    if (!fs.existsSync(templateDir))
-      fs.mkdirSync(templateDir, { recursive: true });
-    fs.writeFileSync(
-      path.join(templateDir, `invoice_${content.numeroConsecutivo}.xml`),
-      xmlString,
+    // // Auditoría: escritura no-bloqueante (fire-and-forget)
+    // const templateDir = path.join(
+    //   process.cwd(),
+    //   'src',
+    //   'modules',
+    //   'e-invoice',
+    //   'templates',
+    // );
+    // const auditPath = path.join(
+    //   templateDir,
+    //   `invoice_${content.numeroConsecutivo}.xml`,
+    // );
+    // fs.promises
+    //   .mkdir(templateDir, { recursive: true })
+    //   .then(() => fs.promises.writeFile(auditPath, xmlString))
+    //   .catch((err) => console.error('Error writing audit XML:', err));
+
+    // Retorna XML plano. El llamador firma con signXML() y luego codifica a base64 para almacenar.
+    return xmlString;
+  }
+
+  /**
+   * Firma el XML con una firma XAdES-BES enveloped (RSA-SHA256), según DGT-R-48-2016.
+   *
+   * El certificado .p12 NUNCA debe hardcodearse. El llamador debe cargarlo
+   * desde variables de entorno o un vault:
+   *
+   *   const p12Buffer = Buffer.from(process.env.EINVOICE_P12_BASE64, 'base64');
+   *   const signed = engine.signXML(xml, p12Buffer, process.env.EINVOICE_P12_PASSWORD);
+   *   // Para almacenar en xml_signed:
+   *   const xmlSignedB64 = Buffer.from(signed).toString('base64');
+   *
+   * @param xmlString  XML plano generado por buildXml()
+   * @param p12Buffer  Buffer con el archivo .p12 (PKCS#12)
+   * @param p12Password Contraseña del .p12
+   * @returns XML firmado en texto plano (el llamador hace el base64 final)
+   */
+  signXML(xmlString: string, p12Buffer: Buffer, p12Password: string): string {
+    // 1. Parsear el .p12 y extraer clave privada + certificado X.509
+    const p12Asn1 = forge.asn1.fromDer(p12Buffer.toString('binary'));
+    const p12 = forge.pkcs12.pkcs12FromAsn1(p12Asn1, p12Password);
+
+    const keyBags = p12.getBags({
+      bagType: forge.pki.oids.pkcs8ShroudedKeyBag,
+    })[forge.pki.oids.pkcs8ShroudedKeyBag];
+
+    const certBags = p12.getBags({ bagType: forge.pki.oids.certBag })[
+      forge.pki.oids.certBag
+    ];
+
+    if (!keyBags || keyBags.length === 0 || !keyBags[0].key) {
+      throw new Error('No se encontró clave privada en el archivo .p12');
+    }
+    if (!certBags || certBags.length === 0 || !certBags[0].cert) {
+      throw new Error('No se encontró certificado en el archivo .p12');
+    }
+
+    const privateKeyPem = forge.pki.privateKeyToPem(keyBags[0].key);
+    const cert = certBags[0].cert;
+
+    // DER del certificado en base64 (va dentro de <ds:X509Certificate>)
+    const certDerBytes = forge.asn1
+      .toDer(forge.pki.certificateToAsn1(cert))
+      .getBytes();
+    const certDerBase64 = forge.util.encode64(certDerBytes);
+
+    // SHA-256 del DER del certificado (para xades:SigningCertificateV2)
+    const certDigest = crypto
+      .createHash('sha256')
+      .update(Buffer.from(certDerBytes, 'binary'))
+      .digest('base64');
+
+    // 2. Construir el fragmento XAdES-BES QualifyingProperties e inyectarlo antes del cierre raíz
+    const signingTime = this.formatCRDateTime(new Date());
+    const xadesFragment = [
+      `<ds:Object>`,
+      `<xades:QualifyingProperties xmlns:xades="http://uri.etsi.org/01903/v1.3.2#" Target="#Signature">`,
+      `<xades:SignedProperties Id="xades-signed-properties">`,
+      `<xades:SignedSignatureProperties>`,
+      `<xades:SigningTime>${signingTime}</xades:SigningTime>`,
+      `<xades:SigningCertificateV2>`,
+      `<xades:Cert>`,
+      `<xades:CertDigest>`,
+      `<ds:DigestMethod Algorithm="http://www.w3.org/2001/04/xmlenc#sha256"/>`,
+      `<ds:DigestValue>${certDigest}</ds:DigestValue>`,
+      `</xades:CertDigest>`,
+      `</xades:Cert>`,
+      `</xades:SigningCertificateV2>`,
+      `</xades:SignedSignatureProperties>`,
+      `<xades:SignedDataObjectProperties>`,
+      `<xades:DataObjectFormat ObjectReference="#">`,
+      `<xades:MimeType>text/xml</xades:MimeType>`,
+      `</xades:DataObjectFormat>`,
+      `</xades:SignedDataObjectProperties>`,
+      `</xades:SignedProperties>`,
+      `</xades:QualifyingProperties>`,
+      `</ds:Object>`,
+    ].join('');
+
+    const closingTag = '</FacturaElectronica>';
+    const xmlWithXades = xmlString.replace(
+      closingTag,
+      `${xadesFragment}${closingTag}`,
     );
 
-    //XML formateado a Base64 ==> EL FORMATEO SE DEBE HACER DESPUES DE FIRMAR EL XML
-    return Buffer.from(xmlString).toString('base64');
+    // Helper: BigInteger de node-forge → base64 sin byte de signo (prefijo 0x00)
+    const biToB64 = (bi: any): string => {
+      const bytes: number[] = bi.toByteArray();
+      const start = bytes[0] === 0 ? 1 : 0;
+      const bin = bytes
+        .slice(start)
+        .map((b: number) => String.fromCharCode(b & 0xff))
+        .join('');
+      return forge.util.encode64(bin);
+    };
+
+    const rsaKey = cert.publicKey as forge.pki.rsa.PublicKey;
+    const modulusB64 = biToB64(rsaKey.n);
+    const exponentB64 = biToB64(rsaKey.e);
+
+    // 3. Firmar con xml-crypto (XMLDSig enveloped, RSA-SHA256)
+    const sig = new SignedXml({
+      privateKey: privateKeyPem,
+      signatureAlgorithm: 'http://www.w3.org/2001/04/xmldsig-more#rsa-sha256',
+      canonicalizationAlgorithm:
+        'http://www.w3.org/TR/2001/REC-xml-c14n-20010315',
+      getKeyInfoContent: ({ prefix } = {}) => {
+        const p = prefix ?? 'ds';
+        return (
+          `<${p}:X509Data><${p}:X509Certificate>${certDerBase64}</${p}:X509Certificate></${p}:X509Data>` +
+          `<${p}:KeyValue><${p}:RSAKeyValue>` +
+          `<${p}:Modulus>${modulusB64}</${p}:Modulus>` +
+          `<${p}:Exponent>${exponentB64}</${p}:Exponent>` +
+          `</${p}:RSAKeyValue></${p}:KeyValue>`
+        );
+      },
+    });
+
+    // Reconocer el atributo 'Id' para resolver referencias URI por ID (necesario para XAdES)
+    sig.idAttributes = ['Id', 'id', 'ID'];
+
+    // Referencia 1: documento completo con transformación enveloped-signature
+    sig.addReference({
+      xpath: '/*',
+      transforms: [
+        'http://www.w3.org/2000/09/xmldsig#enveloped-signature',
+        'http://www.w3.org/TR/2001/REC-xml-c14n-20010315',
+      ],
+      digestAlgorithm: 'http://www.w3.org/2001/04/xmlenc#sha256',
+      uri: '',
+    });
+
+    // Referencia 2: propiedades XAdES (xades:SignedProperties)
+    sig.addReference({
+      xpath: "//*[@Id='xades-signed-properties']",
+      transforms: ['http://www.w3.org/TR/2001/REC-xml-c14n-20010315'],
+      digestAlgorithm: 'http://www.w3.org/2001/04/xmlenc#sha256',
+      uri: '#xades-signed-properties',
+    });
+
+    sig.computeSignature(xmlWithXades, {
+      location: { reference: '/*', action: 'append' },
+      prefix: 'ds',
+      attrs: { Id: 'Signature' },
+    });
+
+    return sig.getSignedXml();
   }
-  //TODO: Crear metodos requeridos para la generacion de una factura que Hacienda pueda aceptar
-  //Firma de XM -> Investigar sobre la firma XAdES-EPES, y que compone la firma del xml
-  signXML() {}
+
+  /**
+   * Formatea una fecha en hora de Costa Rica (UTC-6, sin horario de verano)
+   * con el offset explícito requerido por Hacienda: "YYYY-MM-DDTHH:mm:ss-06:00"
+   */
+  private formatCRDateTime(date: Date): string {
+    const offsetMs = -6 * 60 * 60 * 1000;
+    const cr = new Date(date.getTime() + offsetMs);
+    const yyyy = cr.getUTCFullYear();
+    const MM = String(cr.getUTCMonth() + 1).padStart(2, '0');
+    const dd = String(cr.getUTCDate()).padStart(2, '0');
+    const HH = String(cr.getUTCHours()).padStart(2, '0');
+    const mm = String(cr.getUTCMinutes()).padStart(2, '0');
+    const ss = String(cr.getUTCSeconds()).padStart(2, '0');
+    return `${yyyy}-${MM}-${dd}T${HH}:${mm}:${ss}-06:00`;
+  }
 
   //Generador de NumeroConsecutivo(20 digitos)
   // 01 = "Factura Electronica", 04 = "Tiquet"
@@ -195,7 +373,7 @@ export class XmlGeneratorEngine {
     docType: '01' | '04',
     terminal: number,
     pos: number,
-    num: number, //Numero del comprobante
+    num: number,
   ): string {
     const pv = pos.toString().padStart(5, '0');
     const term = terminal.toString().padStart(3, '0');
@@ -213,10 +391,12 @@ export class XmlGeneratorEngine {
     const now = new Date();
     const day = now.getDate().toString().padStart(2, '0');
     const month = (now.getMonth() + 1).toString().padStart(2, '0');
-    let year = now.getFullYear().toString().substring(2);
+    const year = now.getFullYear().toString().substring(2);
 
     const id = issuerId.replace(/-/g, '').padStart(12, '0');
-    const randomSecure = Math.floor(Math.random() * 99999999)
+    // #10: crypto.randomInt es CSPRNG; Math.random() no lo es
+    const randomSecure = crypto
+      .randomInt(0, 100_000_000)
       .toString()
       .padStart(8, '0');
 
@@ -232,5 +412,103 @@ export class XmlGeneratorEngine {
   }
   //Generador de QR para Hacienda
 
-  //Calculo de Resumen de Factura
+  /**
+   * Mapea datos crudos de la BD al modelo EInvoice.
+   * El engine conoce la estructura de EInvoice y se encarga de la transformación.
+   */
+  mapSaleToEInvoice(
+    sale: any,
+    items: any[],
+    key: string,
+    consecutive: string,
+  ): EInvoice {
+    return {
+      clave: key,
+      codigoActividad: sale.activity_code,
+      numeroConsecutivo: consecutive,
+      fechaEmision: this.formatCRDateTime(new Date()),
+      emisor: {
+        nombre: sale.issuer_name,
+        identificacion: {
+          tipo: sale.issuer_identification_type,
+          numero: sale.issuer_identification,
+        },
+        ubicacion: {
+          provincia: sale.provincia,
+          canton: sale.canton,
+          distrito: sale.distrito,
+          otrasSenas: sale.otras_senas,
+        },
+        telefono: {
+          codigoPais: sale.issuer_phone_code ?? '506',
+          numero: sale.issuer_phone_number ?? '',
+        },
+        correoElectronico: sale.issuer_email,
+      },
+      receptor: sale.receiver_name
+        ? {
+            nombre: sale.receiver_name,
+            identificacion: {
+              tipo: sale.receiver_identification_type,
+              numero: sale.receiver_identification,
+            },
+            correoElectronico: sale.receiver_email,
+          }
+        : undefined,
+      condicionVenta: sale.sale_condition,
+      medioPago: [sale.payment_method_code ?? '01'],
+      detalle: items.map((item) => ({
+        numeroLinea: item.line_number,
+        codigo: item.cabys_code,
+        cantidad: new Decimal(item.quantity),
+        unidadMedida: item.unit_of_measure ?? 'Unid',
+        detalle: item.description,
+        precioUnitario: new Decimal(item.unit_price),
+        montoTotal: new Decimal(item.total_amount),
+        descuento:
+          parseFloat(item.discount_amount) > 0
+            ? {
+                monto: new Decimal(item.discount_amount),
+                naturaleza: 'Descuento comercial',
+              }
+            : undefined,
+        subTotal: new Decimal(item.subtotal),
+        impuestos: item.tax_code
+          ? [
+              {
+                codigo: item.tax_code,
+                codigoTarifa: item.tax_rate_code,
+                tarifa: new Decimal(item.tax_rate),
+                monto: new Decimal(item.tax_amount),
+              },
+            ]
+          : [],
+        montoTotalLinea: new Decimal(item.total_line_amount),
+      })),
+      resumenFactura: {
+        codigoMoneda: sale.currency_code ?? 'CRC',
+        tipoCambio: new Decimal(sale.exchange_rate ?? '1.00000'),
+        totalServGravados: new Decimal(sale.total_serv_gravados ?? '0'),
+        totalServExentos: new Decimal(sale.total_serv_exentos ?? '0'),
+        totalServExonerados: new Decimal(sale.total_serv_exonerados ?? '0'),
+        totalMercanciasGravadas: new Decimal(
+          sale.total_mercancias_gravadas ?? '0',
+        ),
+        totalMercanciasExentas: new Decimal(
+          sale.total_mercancias_exentas ?? '0',
+        ),
+        totalMercanciasExoneradas: new Decimal(
+          sale.total_mercancias_exoneradas ?? '0',
+        ),
+        totalGravados: new Decimal(sale.subtotal_amount),
+        totalExentos: new Decimal(0),
+        totalExonerados: new Decimal(0),
+        totalVenta: new Decimal(sale.subtotal_amount),
+        totalDescuentos: new Decimal(0),
+        totalVentaNeta: new Decimal(sale.subtotal_amount),
+        totalImpuestos: new Decimal(sale.tax_amount),
+        totalComprobante: new Decimal(sale.total_amount),
+      },
+    };
+  }
 }

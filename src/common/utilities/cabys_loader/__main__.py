@@ -66,7 +66,7 @@ global loaded_nodes
 loaded_nodes = 0    
 
 def move_inside_tree(tree: Dict[str, CabysNode], client: DatabaseClient) -> Optional[CabysNode]:
-    def _walk(node: CabysNode, parent_code: Optional[str] = None):
+    def _walk(node: CabysNode, parent_code: Optional[str] = None, depth: int = 0):
         global loaded_nodes
         if node is None:
             return
@@ -84,7 +84,7 @@ def move_inside_tree(tree: Dict[str, CabysNode], client: DatabaseClient) -> Opti
             client.insert_category(
                 code=node.data.code,
                 description=node.data.description,
-                hierarchy_level=0,  # You can calculate this based on the depth in the tree
+                hierarchy_level=depth,
                 parent_code=parent_code
             )
 
@@ -96,7 +96,7 @@ def move_inside_tree(tree: Dict[str, CabysNode], client: DatabaseClient) -> Opti
         else:
             iterable = children
         for child in iterable:
-            _walk(child, parent_code=node.data.code)
+            _walk(child, parent_code=node.data.code, depth=depth + 1)
 
     for root in tree.values():
         _walk(root)

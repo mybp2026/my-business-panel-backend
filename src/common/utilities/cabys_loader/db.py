@@ -33,10 +33,13 @@ class DatabaseClient:
     
     def load_tax_rates(self, tax_rates: List[float]) -> None:
         with self.engine.connect() as connection:
-            connection.execute(text("DELETE FROM general_schema.tax_rate RETURNING *"))
             for rate in tax_rates:
                 connection.execute(
-                    text("INSERT INTO general_schema.tax_rate (region, rate_percentage) VALUES (:region, :rate)"),
+                    text("""
+                        INSERT INTO general_schema.tax_rate (region, rate_percentage)
+                        VALUES (:region, :rate)
+                        ON CONFLICT (region, rate_percentage) DO NOTHING
+                    """),
                     {"region": "Costa Rica", "rate": rate}
                 )
             
@@ -51,6 +54,7 @@ class DatabaseClient:
                  INSERT INTO general_schema.product_category 
                  (product_category_id, category_name, hierarchy_level, parent_category_id) 
                  VALUES (:product_category_id, :category_name, :hierarchy_level, :parent_category_id)
+                 ON CONFLICT (product_category_id) DO NOTHING
                 """),
             {"product_category_id": code, "category_name": description, "hierarchy_level": hierarchy_level, "parent_category_id": parent_code}
         )
@@ -66,6 +70,7 @@ class DatabaseClient:
                  INSERT INTO general_schema.product 
                  (cabys_code, product_name, tax_rate_id, product_category_id, is_exonerated) 
                  VALUES (:code, :description, :tax_rate, :category_code, :is_exonerated)
+                 ON CONFLICT (cabys_code) DO NOTHING
                  """),
             {"code": code, "description": description, "tax_rate": tax_rate_id, "category_code": category_code, "is_exonerated": tax_rate == 0.0}
         )

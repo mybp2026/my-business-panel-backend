@@ -5,6 +5,9 @@ export class CreateCashRegisterDto {
   @IsNotEmpty()
   branch_id!: string;
 
+  @IsNotEmpty()
+  register_name!: string;
+
   @IsOptional()
   @IsBoolean()
   is_active: boolean = true;
