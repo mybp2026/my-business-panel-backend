@@ -5,14 +5,15 @@ import { ValidationPipe } from '@nestjs/common';
 import * as bodyParser from 'body-parser';
 import { ResponseInterceptor } from './common/interceptors/ResponseFormatter.interceptor';
 import 'dotenv/config';
+import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule, {
     rawBody: true,
   });
+  app.setGlobalPrefix('api/v1');
   app.use(cookieParser());
   app.useGlobalInterceptors(new ResponseInterceptor());
-
   app.useGlobalPipes(
     new ValidationPipe({
       transform: true,
@@ -25,6 +26,15 @@ async function bootstrap() {
       type: 'application/json',
     }),
   );
+
+  const config = new DocumentBuilder()
+    .setTitle('My Business Panel API')
+    .setDescription('API documentation for My Business Panel')
+    .setVersion('1.0')
+    .build();
+  const document = SwaggerModule.createDocument(app, config);
+  SwaggerModule.setup('docs', app, document);
+
   await app.listen(process.env.PORT ?? 3000);
 }
 void bootstrap();
