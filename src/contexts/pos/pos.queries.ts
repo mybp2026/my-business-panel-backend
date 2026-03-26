@@ -228,6 +228,19 @@ export const posQueryDefs = {
       ORDER BY next_check_at
       LIMIT 100
     `,
+    // Batch dispatcher: facturas pendientes dentro del TTL
+    // $1 = TTL interval (e.g. '3 hours')
+    getPendingInvoicesForBatch: `
+      SELECT e.electronic_sale_invoice_id, e.key_number, e.created_at,
+             s.tenant_id
+      FROM pos_schema.electronic_sale_invoice e
+      INNER JOIN pos_schema.sale s USING(sale_id)
+      INNER JOIN general_schema.tenant t ON t.tenant_id = s.tenant_id
+      WHERE e.status_id = 1
+        AND t.tax_regime = 'traditional'
+        AND e.created_at > NOW() - $1::interval
+      ORDER BY e.created_at
+    `,
     // $1 = electronic_sale_invoice_id, $2 = check_attempts, $3 = next_check_at
     updateCheckAttempt: `
       UPDATE pos_schema.electronic_sale_invoice
