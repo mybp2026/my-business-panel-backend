@@ -14,6 +14,7 @@ import { TenantModule } from '@/contexts/general/modules/tenant/tenant.module';
 import { ProductCategoryModule } from '@/contexts/general/modules/product_category/product-category.module';
 import { CustomerSegmentMarginModule } from '@/contexts/general/modules/customer_segment_margin/customer_segment_margin.module';
 import { StripeModule } from '@/contexts/general/modules/stripe/stripe.module';
+import { QueueModule } from '@/contexts/general/modules/queue/queue.module';
 import { ProductModule } from '@/contexts/general/modules/product/product.module';
 import { CustomerPaymentModule } from '@/contexts/general/modules/customer_payment/customer-payment.module';
 import { SegmentModule } from '@/contexts/general/modules/segment/segment.module';
@@ -66,6 +67,7 @@ console.log(
     CustomerModule,
     DocumentTypeModule,
     DbModule,
+    QueueModule,
     TenantModule,
     ProductCategoryModule,
     CustomerSegmentMarginModule,
