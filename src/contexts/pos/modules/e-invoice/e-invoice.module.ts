@@ -4,6 +4,7 @@ import { XmlGeneratorEngine } from './engine/xml_generator.engine';
 import { HaciendaService } from './hacienda/hacienda.service';
 import { EInvoiceStatusProcessor } from './queues/einvoice-status.processor';
 import { EInvoiceBatchDispatcher } from './queues/einvoice-batch.dispatcher';
+import { EInvoiceStatusWorker } from './queues/einvoice-status.worker';
 import { QueueFacade } from '@/contexts/general/modules/queue/facade/queue.facade';
 import { einvoiceStatusQueueConfig } from './queues/einvoice-status.queue';
 
@@ -14,6 +15,7 @@ import { einvoiceStatusQueueConfig } from './queues/einvoice-status.queue';
     HaciendaService,
     EInvoiceStatusProcessor,
     EInvoiceBatchDispatcher,
+    EInvoiceStatusWorker,
   ],
   exports: [EInvoiceService],
 })
