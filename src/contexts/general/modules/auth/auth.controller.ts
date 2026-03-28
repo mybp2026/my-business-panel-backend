@@ -4,7 +4,7 @@ import { LoginDto } from './dto/login.dto';
 import { Response } from 'express';
 import { AuthenticationGuard } from '@/common/guards/authentication.guard';
 import { ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
-import { loginDoc, logoutDoc } from '@/docs/contexts/general/auth';
+import { loginDoc, logoutDoc } from '@/docs/general/auth';
 
 @ApiTags('Authentication')
 @Controller('/auth')
