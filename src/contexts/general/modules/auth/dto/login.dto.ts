@@ -1,4 +1,4 @@
-import { loginDoc } from '@/docs/contexts/general/auth/login.doc';
+import { loginDoc } from '@/docs/general/auth';
 import { ApiProperty } from '@nestjs/swagger';
 import { IsString } from 'class-validator';
 
