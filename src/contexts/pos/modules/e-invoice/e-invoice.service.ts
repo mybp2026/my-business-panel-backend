@@ -10,6 +10,7 @@ import { posQueries } from '@pos/pos.queries';
 import { XmlGeneratorEngine } from './engine/xml_generator.engine';
 import { HaciendaService } from './hacienda/hacienda.service';
 import { HaciendaPayload } from './interface';
+import { TenantHaciendaConfigService } from '@/contexts/general/modules/tenant_hacienda_config/tenant-hacienda-config.service';
 
 const { eInvoice } = posQueries;
 
@@ -21,6 +22,7 @@ export class EInvoiceService {
     @Inject(DATABASE) private readonly db: Database,
     private readonly xmlgen: XmlGeneratorEngine,
     private readonly hacienda: HaciendaService,
+    private readonly tenantHaciendaConfig: TenantHaciendaConfigService,
   ) {}
 
   async getEInvoiceByBranch(branchId: string) {
@@ -108,14 +110,13 @@ export class EInvoiceService {
       key,
       consecutive,
     );
-    const p12Base64 = process.env.EINVOICE_P12_BASE64;
-    const p12Pass = process.env.EINVOICE_P12_PASSWORD;
 
-    if (!p12Base64 || !p12Pass)
-      throw new Error('Variables de entorno del certificado no configuradas');
+    const credentials = await this.tenantHaciendaConfig.getCredentials(sale.tenant_id);
+    if (!credentials)
+      throw new BadRequestException('El tenant no tiene credenciales de Hacienda configuradas');
 
-    const p12Buffer = Buffer.from(p12Base64, 'base64');
-    const xmlSigned = this.xmlgen.generate(invoice, p12Buffer, p12Pass);
+    const p12Buffer = Buffer.from(credentials.p12Base64, 'base64');
+    const xmlSigned = this.xmlgen.generate(invoice, p12Buffer, credentials.p12Password);
     const xmlSignedB64 = Buffer.from(xmlSigned).toString('base64');
 
     const haciendaPayload: HaciendaPayload = {
@@ -134,7 +135,7 @@ export class EInvoiceService {
       comprobanteXml: xmlSignedB64,
     };
 
-    await this.hacienda.sendInvoice(haciendaPayload);
+    await this.hacienda.sendInvoice(sale.tenant_id, credentials, haciendaPayload);
 
     const { rows: invoiceRows } = await (dbClient || this.db).query(
       eInvoice.create,

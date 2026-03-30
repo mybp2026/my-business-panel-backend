@@ -1,13 +1,15 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import {
   HaciendaPayload,
   HaciendaStatusResponse,
   TokenCache,
 } from '../interface';
+import { ITenantHaciendaCredentials } from '@/contexts/general/modules/tenant_hacienda_config/tenant-hacienda-config.interface';
 
 @Injectable()
 export class HaciendaService {
-  private tokenCache: TokenCache | null = null;
+  private readonly logger = new Logger(HaciendaService.name);
+  private readonly tokenCacheByTenant = new Map<string, TokenCache>();
 
   private get apiUrl(): string {
     const url = process.env.EINVOICE_API_URL;
@@ -15,19 +17,13 @@ export class HaciendaService {
     return url.endsWith('/') ? url : `${url}/`;
   }
 
-  /**
-   * Obtiene un access token de Hacienda IDP (OAuth2 Resource Owner Password).
-   * El token se cachea en memoria hasta 30 segundos antes de su expiración.
-   *
-   * Variables de entorno requeridas:
-   *   HACIENDA_IDP_URL      — URL del token endpoint (producción o sandbox)
-   *   HACIENDA_CLIENT_ID    — 'api-prod' (producción) | 'api-stag' (sandbox)
-   *   HACIENDA_USERNAME     — Usuario ATV del emisor
-   *   HACIENDA_PASSWORD     — Contraseña ATV del emisor
-   */
-  private async getAccessToken(): Promise<string> {
-    if (this.tokenCache && Date.now() < this.tokenCache.expiresAt) {
-      return this.tokenCache.token;
+  private async getAccessToken(
+    tenantId: string,
+    credentials: ITenantHaciendaCredentials,
+  ): Promise<string> {
+    const cached = this.tokenCacheByTenant.get(tenantId);
+    if (cached && Date.now() < cached.expiresAt) {
+      return cached.token;
     }
 
     if (process.env.HACIENDA_MOCK === 'true') {
@@ -35,30 +31,22 @@ export class HaciendaService {
     }
 
     const idpUrl = process.env.HACIENDA_IDP_URL;
-    const clientId = process.env.HACIENDA_CLIENT_ID ?? 'api-prod';
-    const username = process.env.HACIENDA_USERNAME;
-    const password = process.env.HACIENDA_PASSWORD;
-
-    if (!idpUrl || !username || !password) {
-      throw new Error(
-        'Variables de entorno Hacienda no configuradas: HACIENDA_IDP_URL, HACIENDA_USERNAME, HACIENDA_PASSWORD',
-      );
-    }
+    if (!idpUrl) throw new Error('HACIENDA_IDP_URL no configurado');
 
     const res = await fetch(idpUrl, {
       method: 'POST',
       headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
       body: new URLSearchParams({
-        client_id: clientId,
-        username,
-        password,
+        client_id: credentials.haciendaClientId,
+        username: credentials.haciendaUsername,
+        password: credentials.haciendaPassword,
         grant_type: 'password',
       }).toString(),
     });
 
     if (!res.ok) {
       throw new Error(
-        `Error obteniendo token de Hacienda IDP: ${res.status} ${await res.text()}`,
+        `Error obteniendo token de Hacienda IDP para tenant ${tenantId}: ${res.status} ${await res.text()}`,
       );
     }
 
@@ -67,27 +55,20 @@ export class HaciendaService {
       expires_in: number;
     };
 
-    // Cache con 30 segundos de margen antes del vencimiento
-    this.tokenCache = {
+    this.tokenCacheByTenant.set(tenantId, {
       token: access_token,
       expiresAt: Date.now() + (expires_in - 30) * 1000,
-    };
+    });
 
-    return this.tokenCache.token;
+    return access_token;
   }
 
-  /**
-   * Envía un comprobante al endpoint POST /recepcion de Hacienda.
-   *
-   * Códigos de respuesta:
-   *   201 — Aceptado
-   *   422 — Ya recibido anteriormente (idempotente, se trata como éxito)
-   *   4xx / 5xx — Error; se lanza excepción con el cuerpo de la respuesta
-   */
   async sendInvoice(
+    tenantId: string,
+    credentials: ITenantHaciendaCredentials,
     payload: HaciendaPayload,
   ): Promise<{ accepted: boolean; message?: string }> {
-    const token = await this.getAccessToken();
+    const token = await this.getAccessToken(tenantId, credentials);
 
     if (process.env.HACIENDA_MOCK === 'true') {
       return {
@@ -109,7 +90,6 @@ export class HaciendaService {
       return { accepted: true };
     }
 
-    // 422 = comprobante ya recibido (envío duplicado); Hacienda lo trata como ok
     if (res.status === 422) {
       return {
         accepted: true,
@@ -122,14 +102,12 @@ export class HaciendaService {
     );
   }
 
-  /**
-   * Consulta el estado de un comprobante previamente enviado.
-   * GET /recepcion/{clave}
-   *
-   * indEstado posibles: 'recibido' | 'procesando' | 'aceptado' | 'rechazado'
-   */
-  async checkInvoiceStatus(clave: string): Promise<HaciendaStatusResponse> {
-    const token = await this.getAccessToken();
+  async checkInvoiceStatus(
+    tenantId: string,
+    credentials: ITenantHaciendaCredentials,
+    clave: string,
+  ): Promise<HaciendaStatusResponse> {
+    const token = await this.getAccessToken(tenantId, credentials);
 
     if (process.env.HACIENDA_MOCK === 'true') {
       const mockMensajeHacienda = `<?xml version="1.0" encoding="UTF-8"?><MensajeHacienda><Clave>${clave}</Clave><NombreEmisor>Mock Emisor</NombreEmisor><TipoIdentificacionEmisor>01</TipoIdentificacionEmisor><NumeroCedulaEmisor>000000000</NumeroCedulaEmisor><IndEstado>aceptado</IndEstado><DetalleMensaje>Comprobante aceptado (mock local)</DetalleMensaje></MensajeHacienda>`;

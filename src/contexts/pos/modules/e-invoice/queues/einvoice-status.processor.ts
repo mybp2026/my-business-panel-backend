@@ -7,6 +7,7 @@ import { IEInvoiceJobData } from '../interface';
 import { posQueries } from '@pos/pos.queries';
 import { QueueFacade } from '@/contexts/general/modules/queue/facade/queue.facade';
 import { EINVOICE_STATUS_QUEUE } from './einvoice-status.queue';
+import { TenantHaciendaConfigService } from '@/contexts/general/modules/tenant_hacienda_config/tenant-hacienda-config.service';
 
 const { eInvoice } = posQueries;
 
@@ -22,10 +23,11 @@ export class EInvoiceStatusProcessor {
     @Inject(DATABASE) private readonly db: Database,
     private readonly hacienda: HaciendaService,
     private readonly queueFacade: QueueFacade,
+    private readonly tenantHaciendaConfig: TenantHaciendaConfigService,
   ) {}
 
   async processJob(job: IEInvoiceJobData): Promise<void> {
-    const { electronicInvoiceId, keyNumber, createdAt } = job;
+    const { electronicInvoiceId, keyNumber, tenantId, createdAt } = job;
 
     if (this.isExpired(createdAt)) {
       this.logger.warn(`Job ${keyNumber} expired (TTL ${TTL_HOURS}hrs), marking as timeout`);
@@ -37,9 +39,15 @@ export class EInvoiceStatusProcessor {
       return;
     }
 
+    const credentials = await this.tenantHaciendaConfig.getCredentials(tenantId);
+    if (!credentials) {
+      this.logger.error(`No Hacienda credentials for tenant ${tenantId}, skipping`);
+      return;
+    }
+
     try {
       const status: HaciendaStatusResponse =
-        await this.hacienda.checkInvoiceStatus(keyNumber);
+        await this.hacienda.checkInvoiceStatus(tenantId, credentials, keyNumber);
       const statusId = this.mapIndEstadoToStatusId(status.indEstado);
 
       if (statusId !== 1) {
