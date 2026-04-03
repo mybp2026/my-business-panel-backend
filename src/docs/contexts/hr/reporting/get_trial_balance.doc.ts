@@ -2,13 +2,12 @@
 export const getTrialBalanceDoc = {
   operation: {
     summary: 'Balance de comprobación',
-    description: 'Cuentas contables con débitos y créditos del período.',
+    description: 'Devuelve el balance de comprobación con cuentas, débitos y créditos.',
   },
-
   responses: {
     200: {
       status: 200,
-      description: 'Balance generado.',
+      description: 'Balance de comprobación.',
       schema: {
         type: 'array',
         items: {
@@ -24,7 +23,7 @@ export const getTrialBalanceDoc = {
     },
     401: {
       status: 401,
-      description: 'No autorizado.',
+      description: 'No autorizado — token ausente o inválido.',
       schema: {
         type: 'object',
         properties: {
