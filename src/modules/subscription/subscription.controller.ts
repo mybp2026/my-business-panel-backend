@@ -7,19 +7,32 @@ import {
   Req,
   Res,
 } from '@nestjs/common';
+import { ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
 import { SubscriptionService } from './subscription.service';
 import { NewSubscriptionDto } from './dto/newSubscription.dto';
 import { Response } from 'express';
+import {
+  createSubscriptionDoc,
+  handleWebhookDoc,
+} from '@/docs/contexts/general/subscription';
 
+@ApiTags('Subscription')
 @Controller('subscription')
 export class SubscriptionController {
   constructor(private readonly subscriptionService: SubscriptionService) {}
 
+  @ApiOperation(createSubscriptionDoc.operation)
+  @ApiResponse(createSubscriptionDoc.responses[201])
+  @ApiResponse(createSubscriptionDoc.responses[400])
+  @ApiResponse(createSubscriptionDoc.responses[404])
   @Post('create')
   async createSubscription(@Body() req: NewSubscriptionDto) {
     return this.subscriptionService.createSubscription(req);
   }
 
+  @ApiOperation(handleWebhookDoc.operation)
+  @ApiResponse(handleWebhookDoc.responses[200])
+  @ApiResponse(handleWebhookDoc.responses[400])
   @Post('webhook')
   async handleWebhook(
     @Req() req: RawBodyRequest<any>,
