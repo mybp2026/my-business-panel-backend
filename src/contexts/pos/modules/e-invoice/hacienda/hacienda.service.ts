@@ -6,6 +6,9 @@ import {
 } from '../interface';
 import { ITenantHaciendaCredentials } from '@/contexts/general/modules/tenant_hacienda_config/tenant-hacienda-config.interface';
 
+const FETCH_TIMEOUT_MS = 30_000;
+const MAX_RETRIES = 3;
+
 @Injectable()
 export class HaciendaService {
   private readonly logger = new Logger(HaciendaService.name);
@@ -15,6 +18,49 @@ export class HaciendaService {
     const url = process.env.EINVOICE_API_URL;
     if (!url) throw new Error('EINVOICE_API_URL no configurado');
     return url.endsWith('/') ? url : `${url}/`;
+  }
+
+  private async fetchWithTimeout(
+    url: string,
+    options: RequestInit,
+  ): Promise<Response> {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS);
+
+    try {
+      return await fetch(url, { ...options, signal: controller.signal });
+    } finally {
+      clearTimeout(timeout);
+    }
+  }
+
+  private async fetchWithRetry(
+    url: string,
+    options: RequestInit,
+  ): Promise<Response> {
+    let lastError: Error | null = null;
+
+    for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
+      try {
+        const res = await this.fetchWithTimeout(url, options);
+
+        if (res.status >= 500 && attempt < MAX_RETRIES) {
+          this.logger.warn(`Hacienda returned ${res.status}, retry ${attempt}/${MAX_RETRIES}`);
+          await this.sleep(1000 * attempt);
+          continue;
+        }
+
+        return res;
+      } catch (err: any) {
+        lastError = err;
+        if (attempt < MAX_RETRIES) {
+          this.logger.warn(`Fetch failed (${err.message}), retry ${attempt}/${MAX_RETRIES}`);
+          await this.sleep(1000 * attempt);
+        }
+      }
+    }
+
+    throw lastError ?? new Error('Fetch failed after retries');
   }
 
   private async getAccessToken(
@@ -33,7 +79,7 @@ export class HaciendaService {
     const idpUrl = process.env.HACIENDA_IDP_URL;
     if (!idpUrl) throw new Error('HACIENDA_IDP_URL no configurado');
 
-    const res = await fetch(idpUrl, {
+    const res = await this.fetchWithRetry(idpUrl, {
       method: 'POST',
       headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
       body: new URLSearchParams({
@@ -77,7 +123,7 @@ export class HaciendaService {
       };
     }
 
-    const res = await fetch(`${this.apiUrl}recepcion`, {
+    const res = await this.fetchWithRetry(`${this.apiUrl}recepcion`, {
       method: 'POST',
       headers: {
         Authorization: `Bearer ${token}`,
@@ -122,7 +168,7 @@ export class HaciendaService {
       };
     }
 
-    const res = await fetch(`${this.apiUrl}recepcion/${clave}`, {
+    const res = await this.fetchWithRetry(`${this.apiUrl}recepcion/${clave}`, {
       headers: { Authorization: `Bearer ${token}` },
     });
 
@@ -133,5 +179,9 @@ export class HaciendaService {
     }
 
     return res.json() as Promise<HaciendaStatusResponse>;
+  }
+
+  private sleep(ms: number): Promise<void> {
+    return new Promise((resolve) => setTimeout(resolve, ms));
   }
 }
