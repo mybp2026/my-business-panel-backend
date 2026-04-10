@@ -61,7 +61,7 @@ export const posQueryDefs = {
       INNER JOIN general_schema.tenant_customer tc USING(tenant_customer_id)
       INNER JOIN general_schema.currency c USING(currency_id)
       INNER JOIN general_schema.tenant t ON t.tenant_id = tc.tenant_id
-      WHERE i.digital_sale_invoice_id = $1
+      WHERE i.sale_id = $1
     `,
     deleteDInvoice:
       'DELETE FROM pos_schema.digital_sale_invoice WHERE digital_sale_invoice_id = $1 RETURNING digital_sale_invoice_id',

@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import {
   HaciendaPayload,
   HaciendaStatusResponse,
@@ -7,12 +7,42 @@ import {
 
 @Injectable()
 export class HaciendaService {
+  private readonly logger = new Logger(HaciendaService.name);
   private tokenCache: TokenCache | null = null;
 
   private get apiUrl(): string {
     const url = process.env.EINVOICE_API_URL;
     if (!url) throw new Error('EINVOICE_API_URL no configurado');
     return url.endsWith('/') ? url : `${url}/`;
+  }
+
+  /**
+   * Decodifica un JWT para inspeccionar su contenido (sin verificar firma).
+   * Útil para diagnóstico y debugging.
+   */
+  private decodeJWT(token: string): {
+    header: any;
+    payload: any;
+    valid: boolean;
+  } {
+    try {
+      const parts = token.split('.');
+      if (parts.length !== 3) {
+        return { header: null, payload: null, valid: false };
+      }
+
+      const header = JSON.parse(
+        Buffer.from(parts[0], 'base64').toString('utf-8'),
+      );
+      const payload = JSON.parse(
+        Buffer.from(parts[1], 'base64').toString('utf-8'),
+      );
+
+      return { header, payload, valid: true };
+    } catch (e) {
+      this.logger.warn(`Error decodificando JWT: ${(e as Error).message}`);
+      return { header: null, payload: null, valid: false };
+    }
   }
 
   /**
@@ -45,6 +75,9 @@ export class HaciendaService {
       );
     }
 
+    this.logger.debug(`Solicitando token a IDP: ${idpUrl}`);
+    this.logger.debug(`Cliente: ${clientId}, Usuario: ${username}`);
+
     const res = await fetch(idpUrl, {
       method: 'POST',
       headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
@@ -57,15 +90,55 @@ export class HaciendaService {
     });
 
     if (!res.ok) {
+      const errorBody = await res.text();
+      this.logger.error(
+        `Error obteniendo token de Hacienda IDP [${res.status}]: ${errorBody}`,
+      );
       throw new Error(
-        `Error obteniendo token de Hacienda IDP: ${res.status} ${await res.text()}`,
+        `Error obteniendo token de Hacienda IDP: ${res.status} ${errorBody}`,
       );
     }
 
-    const { access_token, expires_in } = (await res.json()) as {
+    const responseData = (await res.json()) as {
       access_token: string;
       expires_in: number;
+      [key: string]: any;
     };
+
+    const { access_token, expires_in } = responseData;
+
+    this.logger.log(
+      `✓ Token obtenido de Hacienda IDP. Expira en: ${expires_in}s`,
+    );
+    this.logger.debug(`Token length: ${access_token?.length || 0} caracteres`);
+    this.logger.debug(`Token data: ${access_token || 'N/A'}`);
+
+    // Intentar decodificar como JWT si es posible
+    const jwtDecoded = this.decodeJWT(access_token);
+    if (jwtDecoded.valid) {
+      this.logger.debug(`Token es un JWT válido`);
+      this.logger.debug(`JWT Header: ${JSON.stringify(jwtDecoded.header)}`);
+      this.logger.debug(
+        `JWT Payload: ${JSON.stringify(jwtDecoded.payload, null, 2)}`,
+      );
+    } else {
+      this.logger.debug(
+        `Token NO es un JWT válido (no tiene estructura HS256)`,
+      );
+    }
+
+    // Campos adicionales en la respuesta
+    const additionalFields = Object.keys(responseData).filter(
+      (k) => k !== 'access_token' && k !== 'expires_in',
+    );
+    if (additionalFields.length > 0) {
+      this.logger.debug(
+        `Campos adicionales en respuesta del IDP: ${additionalFields.join(', ')}`,
+      );
+      additionalFields.forEach((field) => {
+        this.logger.debug(`  ${field}: ${responseData[field]}`);
+      });
+    }
 
     // Cache con 30 segundos de margen antes del vencimiento
     this.tokenCache = {
@@ -90,27 +163,68 @@ export class HaciendaService {
     const token = await this.getAccessToken();
 
     if (process.env.HACIENDA_MOCK === 'true') {
+      this.logger.log('Modo MOCK habilitado - comprobante aceptado localmente');
       return {
         accepted: true,
         message: 'Mock: comprobante aceptado localmente',
       };
     }
 
+    const trimmedToken = token.trim();
+    const authorizationHeader = `bearer ${trimmedToken}`;
+
+    this.logger.log(`Enviando comprobante a Hacienda...`);
+    this.logger.debug(`Endpoint: ${this.apiUrl}recepcion`);
+    this.logger.debug(`Token length: ${trimmedToken.length} caracteres`);
+    this.logger.debug(
+      `Primeros 50 caracteres del token: ${trimmedToken.substring(0, 50)}...`,
+    );
+    this.logger.debug(
+      `Authorization header: ${authorizationHeader.substring(0, 100)}...`,
+    );
+
+    // Log del payload (sin comprobanteXml que es muy grande)
+    const payloadLog = {
+      clave: payload.clave,
+      fecha: payload.fecha,
+      emisor: payload.emisor,
+      receptor: payload.receptor,
+      comprobanteXml: `[Base64 - ${payload.comprobanteXml.length} caracteres]`,
+    };
+    this.logger.debug(`Payload: ${JSON.stringify(payloadLog, null, 2)}`);
+
     const res = await fetch(`${this.apiUrl}recepcion`, {
       method: 'POST',
       headers: {
-        Authorization: `Bearer ${token}`,
+        Authorization: authorizationHeader,
         'Content-Type': 'application/json',
       },
       body: JSON.stringify(payload),
     });
 
+    const errorText =
+      res.status !== 201 && res.status !== 422 ? await res.text() : '';
+
+    this.logger.log(`Respuesta de Hacienda: ${res.status}`);
+
+    if (res.status !== 201 && res.status !== 422) {
+      this.logger.error(`Hacienda rechazó la solicitud [${res.status}]`);
+      this.logger.error(
+        `Response headers: ${JSON.stringify(Object.fromEntries(res.headers.entries()))}`,
+      );
+      this.logger.error(`Response body: ${errorText}`);
+    }
+
     if (res.status === 201) {
+      this.logger.log('✓ Comprobante aceptado por Hacienda (201)');
       return { accepted: true };
     }
 
     // 422 = comprobante ya recibido (envío duplicado); Hacienda lo trata como ok
     if (res.status === 422) {
+      this.logger.log(
+        '✓ Comprobante ya recibido por Hacienda (422 - duplicado)',
+      );
       return {
         accepted: true,
         message: 'Comprobante ya recibido por Hacienda',
@@ -118,7 +232,7 @@ export class HaciendaService {
     }
 
     throw new Error(
-      `Hacienda rechazó la factura [${res.status}]: ${await res.text()}`,
+      `Hacienda rechazó la factura [${res.status}]: ${errorText}`,
     );
   }
 
@@ -144,16 +258,30 @@ export class HaciendaService {
       };
     }
 
+    const authHeader = `bearer ${token.trim()}`;
+    this.logger.debug(
+      `Consultando estado de comprobante [${clave}] en Hacienda`,
+    );
+    this.logger.debug(`Endpoint: ${this.apiUrl}recepcion/${clave}`);
+
     const res = await fetch(`${this.apiUrl}recepcion/${clave}`, {
-      headers: { Authorization: `Bearer ${token}` },
+      headers: { Authorization: authHeader },
     });
 
     if (!res.ok) {
+      const errorBody = await res.text();
+      this.logger.error(
+        `Error consultando estado en Hacienda [${res.status}]: ${errorBody}`,
+      );
       throw new Error(
-        `Error consultando estado en Hacienda [${res.status}]: ${await res.text()}`,
+        `Error consultando estado en Hacienda [${res.status}]: ${errorBody}`,
       );
     }
 
-    return res.json() as Promise<HaciendaStatusResponse>;
+    const response = (await res.json()) as HaciendaStatusResponse;
+    this.logger.log(
+      `✓ Estado del comprobante [${clave}]: ${response.indEstado}`,
+    );
+    return response;
   }
 }

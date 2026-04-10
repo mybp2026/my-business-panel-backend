@@ -63,3 +63,5 @@ report.[0-9]*.[0-9]*.[0-9]*.[0-9]*.json
 *.xlsx
 *.~*
 cabys_tree.json
+
+certificado.p12

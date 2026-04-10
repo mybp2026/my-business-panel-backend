@@ -179,15 +179,15 @@ export const generalQueryDefs = {
     UPDATE general_schema.branch SET 
     branch_name = COALESCE($2, branch_name),
     branch_number = COALESCE($3, branch_number),
-    address = COALESCE($3, address),
-    contact_email = COALESCE($4, contact_email),
-    is_main_branch = COALESCE($5, is_main_branch),
+    branch_address = COALESCE($4, branch_address),
+    contact_email = COALESCE($5, contact_email),
+    is_main_branch = COALESCE($6, is_main_branch),
     updated_at = NOW()
     WHERE branch_id = $1
     RETURNING *
     `,
     create: `
-    INSERT INTO general_schema.branch (tenant_id, branch_name, branch_number, address, contact_email, is_main_branch, created_at, updated_at)
+    INSERT INTO general_schema.branch (tenant_id, branch_name, branch_number, branch_address, contact_email, is_main_branch, created_at, updated_at)
     VALUES ($1, $2, $3, $4, $5, $6, NOW(), NOW())
     RETURNING *
     `,

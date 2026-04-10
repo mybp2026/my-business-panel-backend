@@ -17,7 +17,7 @@ export class CreateBranchDto {
 
   @IsOptional()
   @IsString()
-  address?: string;
+  branch_address?: string;
 
   @IsOptional()
   @IsString()

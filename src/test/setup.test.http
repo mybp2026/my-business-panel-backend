@@ -1,0 +1,262 @@
+### ==============================================================
+### Setup Test - AMH Solutions Tenant
+### ==============================================================
+
+@baseUrl = http://localhost:3000/api/v1
+@tenantName = AMH Solutions
+@tenantId = 3e668234-c171-440d-9b14-c47908ec1bb3
+@contactEmail = admin@amhsolutions.com
+@regionId = 1
+@tenantIdentification = 3140001694
+@economicActivity = 6311
+@signName = AMH_SOLUTIONS
+
+### ==============================================================
+### 0. PRE-REQUISITOS / ACCESO SISTEMA
+### ==============================================================
+
+### LOGIN DE SISTEMA (ADMINISTRADOR GLOBAL)
+# @name systemLogin
+POST {{baseUrl}}/auth/login
+Content-Type: application/json
+
+{
+  "email": "david@amh.com",
+  "password": "SecurePassword123!"
+}
+
+@systemToken = {{systemLogin.response.body.token}}
+
+POST {{baseUrl}}/user
+Content-Type: application/json
+Authorization: Bearer {{systemToken}}
+
+{
+  "email": "daniel@amhsolutions.com",
+  "password": "SupportPassword123!",
+  "role_id": 2
+}
+
+### ==============================================================
+### 1. CREAR TENANT
+### ==============================================================
+# @name createTenant
+POST {{baseUrl}}/tenant
+Content-Type: application/json
+
+{
+  "tenant_name": "{{tenantName}}",
+  "contact_email": "{{contactEmail}}",
+  "region_id": "{{regionId}}",
+  "identification": "{{tenantIdentification}}",
+  "economic_activity": "{{economicActivity}}",
+  "sign": "{{signName}}"
+}
+
+# @tenantId = {{createTenant.response.body.tenant_id}}
+
+### ==============================================================
+### 2. CREAR RAMA PRINCIPAL (BRANCH)
+### ==============================================================
+# @name createBranch
+POST {{baseUrl}}/branch
+Content-Type: application/json
+
+{
+  "tenant_id": "{{tenantId}}",
+  "branch_name": "Oficina Principal",
+  "branch_number": "001",
+  "branch_address": "Calle Principal 123, San José, Costa Rica",
+  "contact_email": "{{contactEmail}}",
+  "is_main_branch": true
+}
+
+@branchId = 859cc745-185e-4af3-82fc-9c5b8d6e6f26 
+
+### ==============================================================
+### 3. CREAR USUARIO ADMINISTRADOR DEL TENANT
+### ==============================================================
+POST {{baseUrl}}/user
+Content-Type: application/json
+
+{
+  "tenant_id": "{{tenantId}}",
+  "email": "{{contactEmail}}",
+  "password": "AdminPassword123!",
+  "role_id": 2, 
+  "employeeInfo": {
+    "tenant_id": "{{tenantId}}",
+    "branch_id": "{{branchId}}",
+    "first_name": "Juan",
+    "last_name": "Administrador",
+    "doc_number": "1001234567",
+    "phone": "88776655",
+    "email": "{{contactEmail}}",
+    "payment_schedule_id": 1,
+    "contractData": {
+      "start_date": "2026-01-01",
+      "end_date": "2027-12-31",      
+      "hours": 8,
+      "base_salary": 1500000,
+      "duties": "Administración del Tenant",
+      "turn_type": 1,
+      "turn_id": 1
+    }
+  }
+}
+
+
+### ==============================================================
+### 4. LOGIN DEL TENANT (SESIÓN DE ADMINISTRADOR)
+### ==============================================================
+# @name tenantLogin
+POST {{baseUrl}}/auth/login
+Content-Type: application/json
+
+{
+  "email": "{{contactEmail}}",
+  "password": "AdminPassword123!"
+}
+
+# @authToken = {{tenantLogin.response.body.token}}
+
+### ==============================================================
+### 5. CREAR PRODUCTOS (INVENTARIO)
+### ==============================================================
+POST {{baseUrl}}/product
+Content-Type: application/json
+Authorization: Bearer {{authToken}}
+
+{
+  "products": [
+    {
+      "tenant_id": "{{tenantId}}",
+      "sku": "PROD-001",
+      "variant_name": "Laptop Dell XPS 13",
+      "cabys_code": "0111100000100",
+      "unit_price": 1500000
+    },
+    {
+      "tenant_id": "{{tenantId}}",
+      "sku": "PROD-002",
+      "variant_name": "Teclado Mecánico",
+      "cabys_code": "0111100000100",
+      "unit_price": 150000
+    },
+    {
+      "tenant_id": "{{tenantId}}",
+      "sku": "PROD-003",
+      "variant_name": "Mouse inalámbrico",
+      "cabys_code": "0111100000100",
+      "unit_price": 50000
+    },
+    {
+      "tenant_id": "{{tenantId}}",
+      "sku": "PROD-004",
+      "variant_name": "Monitor LG 27 pulgadas",
+      "cabys_code": "0111100000100",
+      "unit_price": 800000
+    },
+    {
+      "tenant_id": "{{tenantId}}",
+      "sku": "PROD-005",
+      "variant_name": "Cargador rápido USB-C",
+      "cabys_code": "0111100000100",
+      "unit_price": 30000
+    }
+  ]
+}
+
+### ==============================================================
+### 6. CREAR CLIENTES
+### ==============================================================
+### Crea clientes para realizar ventas
+### document_type_id: 1 = Cédula física, 2 = Cédula jurídica, etc.
+
+POST {{baseUrl}}/customers
+Content-Type: application/json
+Authorization: Bearer {{authToken}}
+
+{
+  "tenant_id": "{{tenantId}}",
+  "first_name": "Roberto",
+  "last_name": "Pérez García",
+  "document_type_id": 1,
+  "document_number": "1234567890",
+  "economic_activity": "6311",
+  "email": "roberto.perez@email.com",
+  "phone": "87654321",
+  "address": "San José, Provincia de San José, Costa Rica",
+  "birthdate": "1985-06-15",
+  "is_tenant": false
+}
+
+### ==============================================================
+### 7. CREAR SEGUNDO CLIENTE
+### ==============================================================
+
+POST {{baseUrl}}/customers
+Content-Type: application/json
+Authorization: Bearer {{authToken}}
+
+{
+  "tenant_id": "{{tenantId}}",
+  "first_name": "Sandra",
+  "last_name": "López Rodríguez",
+  "document_type_id": 1,
+  "document_number": "9876543210",
+  "economic_activity": "6311",
+  "email": "sandra.lopez@email.com",
+  "phone": "87654322",
+  "address": "Heredia, Provincia de Heredia, Costa Rica",
+  "birthdate": "1990-03-22",
+  "is_tenant": false
+}
+
+### ==============================================================
+### 8. CREAR CLIENTE EMPRESA (PERSONA JURÍDICA)
+### ==============================================================
+
+POST {{baseUrl}}/customers
+Content-Type: application/json
+Authorization: Bearer {{authToken}}
+
+{
+  "tenant_id": "{{tenantId}}",
+  "first_name": "TechCorp",
+  "last_name": "S.A.",
+  "document_type_id": 2,
+  "document_number": "3105123456",
+  "economic_activity": "6311",
+  "email": "contacto@techcorp.cr",
+  "phone": "25551234",
+  "address": "San José, Provincia de San José, Costa Rica",
+  "is_tenant": false
+}
+
+### ==============================================================
+### REFERENCIAS Y NOTAS
+### ==============================================================
+###
+### IDs a guardar después de la ejecución:
+### @tenantId = ID del tenant AMH Solutions
+### @branchId = ID de la rama principal
+### @adminUserId = ID del usuario administrador
+### @authToken = Token JWT para autenticación
+###
+### Roles disponibles (role_id):
+### 1 = Operador
+### 2 = Administrador/Contador (Según configuración actual)
+### 3 = Vendedor
+### 4 = Administrador Global
+###
+### Tipos de documento (document_type_id):
+### 1 = Cédula Física
+### 2 = Cédula Jurídica
+### 3 = DIMEX
+### 4 = Pasaporte
+###
+### Actividades económicas (economic_activity):
+### 6311 = Procesamiento de datos
+###
+### ==============================================================

@@ -120,7 +120,6 @@ export class EInvoiceService {
     const xmlSigned = this.xmlgen.generate(invoice, p12Buffer, p12Pass);
     const xmlSignedB64 = Buffer.from(xmlSigned).toString('base64');
 
-    // Usa invoice.fechaEmision directamente → coincide exactamente con el XML.
     const haciendaPayload: HaciendaPayload = {
       clave: key,
       fecha: invoice.fechaEmision,

@@ -42,7 +42,7 @@ export class BranchService {
       tenant_id,
       branch_name,
       branch_number,
-      address,
+      branch_address,
       contact_email,
       is_main_branch,
     } = createBranchDto;
@@ -54,7 +54,7 @@ export class BranchService {
       tenant_id,
       branch_name,
       branch_number,
-      address || null,
+      branch_address || null,
       contact_email || null,
       is_main_branch,
     ]);
@@ -74,7 +74,7 @@ export class BranchService {
     const {
       branch_name,
       branch_number,
-      address,
+      branch_address,
       contact_email,
       is_main_branch,
     } = updateBranchDto;
@@ -85,7 +85,7 @@ export class BranchService {
       branch_id,
       branch_name,
       branch_number,
-      address || null,
+      branch_address || null,
       contact_email || null,
       is_main_branch,
     ]);
