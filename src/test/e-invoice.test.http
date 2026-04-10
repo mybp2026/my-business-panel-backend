@@ -117,7 +117,7 @@ Authorization: Bearer {{tenantToken}}
   ]
 }
 
-@saleId = c0cbda22-19ad-4a88-822b-b96af009a093
+@saleId = f388cdc5-9765-4fd9-8cd7-3514c14f6056
 
 ### ==============================================================
 ### 2. VERIFICAR VENTA CREADA

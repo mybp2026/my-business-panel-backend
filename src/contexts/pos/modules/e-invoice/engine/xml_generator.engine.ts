@@ -254,10 +254,9 @@ export class XmlGeneratorEngine {
       .update(Buffer.from(certDerBytes, 'binary'))
       .digest('base64');
 
-    // 2. Construir el fragmento XAdES-BES QualifyingProperties e inyectarlo antes del cierre raíz
+    // 2. Construir el fragmento XAdES-BES (Object) para inyectarlo luego dentro de la firma
     const signingTime = this.formatCRDateTime(new Date());
-    const xadesFragment = [
-      `<ds:Object>`,
+    const xadesObject = [
       `<xades:QualifyingProperties xmlns:xades="http://uri.etsi.org/01903/v1.3.2#" Target="#Signature">`,
       `<xades:SignedProperties Id="xades-signed-properties">`,
       `<xades:SignedSignatureProperties>`,
@@ -270,22 +269,27 @@ export class XmlGeneratorEngine {
       `</xades:CertDigest>`,
       `</xades:Cert>`,
       `</xades:SigningCertificateV2>`,
+      `<xades:SignaturePolicyIdentifier>`,
+      `<xades:SignaturePolicyId>`,
+      `<xades:SigPolicyId>`,
+      `<xades:Identifier>https://www.hacienda.go.cr/ATV/ComprobanteElectronico/CodigoResoluci%C3%B3nDGT-R-48-2016.pdf</xades:Identifier>`,
+      `<xades:Description>Política de Firma para Comprobantes Electrónicos</xades:Description>`,
+      `</xades:SigPolicyId>`,
+      `<xades:SigPolicyHash>`,
+      `<ds:DigestMethod Algorithm="http://www.w3.org/2001/04/xmlenc#sha256"/>`,
+      `<ds:DigestValue>V8/id4re4y0yoBv/vXBK989vB836Xm/vP5F072S7E7u4X0=</ds:DigestValue>`,
+      `</xades:SigPolicyHash>`,
+      `</xades:SignaturePolicyId>`,
+      `</xades:SignaturePolicyIdentifier>`,
       `</xades:SignedSignatureProperties>`,
       `<xades:SignedDataObjectProperties>`,
-      `<xades:DataObjectFormat ObjectReference="#">`,
+      `<xades:DataObjectFormat ObjectReference="#r-id-1">`,
       `<xades:MimeType>text/xml</xades:MimeType>`,
       `</xades:DataObjectFormat>`,
       `</xades:SignedDataObjectProperties>`,
       `</xades:SignedProperties>`,
       `</xades:QualifyingProperties>`,
-      `</ds:Object>`,
     ].join('');
-
-    const closingTag = '</FacturaElectronica>';
-    const xmlWithXades = xmlString.replace(
-      closingTag,
-      `${xadesFragment}${closingTag}`,
-    );
 
     // Helper: BigInteger de node-forge → base64 sin byte de signo (prefijo 0x00)
     const biToB64 = (bi: any): string => {
@@ -332,7 +336,8 @@ export class XmlGeneratorEngine {
       ],
       digestAlgorithm: 'http://www.w3.org/2001/04/xmlenc#sha256',
       uri: '',
-    });
+      attrs: { Id: 'r-id-1' },
+    } as any);
 
     // Referencia 2: propiedades XAdES (xades:SignedProperties)
     sig.addReference({
@@ -342,13 +347,28 @@ export class XmlGeneratorEngine {
       uri: '#xades-signed-properties',
     });
 
+    // Para que la firma sea válida XAdES, el nodo xades-signed-properties DEBE estar en el XML
+    // antes de llamar a computeSignature, de lo contrario el digest será erróneo.
+    const xadesFullObject = `<ds:Object>${xadesObject}</ds:Object>`;
+    const closingTag = '</FacturaElectronica>';
+    const xmlWithXades = xmlString.replace(closingTag, `${xadesFullObject}${closingTag}`);
+
     sig.computeSignature(xmlWithXades, {
       location: { reference: '/*', action: 'append' },
       prefix: 'ds',
       attrs: { Id: 'Signature' },
     });
 
-    return sig.getSignedXml();
+    // Ahora movemos el ds:Object de ser un hermano de la firma a ser un hijo de la firma
+    // Esto es lo que Hacienda requiere estrictamente para XAdES
+    let signedXml = sig.getSignedXml();
+    
+    // 1. Eliminar el objeto que quedó fuera
+    signedXml = signedXml.replace(xadesFullObject, '');
+    
+    // 2. Insertarlo dentro de la firma
+    const signatureEndTag = '</ds:Signature>';
+    return signedXml.replace(signatureEndTag, `${xadesFullObject}${signatureEndTag}`);
   }
 
   /**

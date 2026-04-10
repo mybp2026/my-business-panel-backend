@@ -203,11 +203,11 @@ export class HaciendaService {
     });
 
     const errorText =
-      res.status !== 201 && res.status !== 422 ? await res.text() : '';
+      res.status !== 201 && res.status !== 202 && res.status !== 422 ? await res.text() : '';
 
     this.logger.log(`Respuesta de Hacienda: ${res.status}`);
 
-    if (res.status !== 201 && res.status !== 422) {
+    if (res.status !== 201 && res.status !== 202 && res.status !== 422) {
       this.logger.error(`Hacienda rechazó la solicitud [${res.status}]`);
       this.logger.error(
         `Response headers: ${JSON.stringify(Object.fromEntries(res.headers.entries()))}`,
@@ -215,8 +215,8 @@ export class HaciendaService {
       this.logger.error(`Response body: ${errorText}`);
     }
 
-    if (res.status === 201) {
-      this.logger.log('✓ Comprobante aceptado por Hacienda (201)');
+    if (res.status === 201 || res.status === 202) {
+      this.logger.log(`✓ Comprobante aceptado por Hacienda (${res.status})`);
       return { accepted: true };
     }
 
@@ -278,7 +278,16 @@ export class HaciendaService {
       );
     }
 
-    const response = (await res.json()) as HaciendaStatusResponse;
+    const rawResponse = await res.json();
+    
+    // Mapear campos de kebab-case (Hacienda) a camelCase (nuestra interfaz)
+    const response: HaciendaStatusResponse = {
+      ...rawResponse,
+      indEstado: rawResponse['ind-estado'],
+      respuestaXml: rawResponse['respuesta-xml'],
+      respuestaTxt: rawResponse['detalle-mensaje'],
+    };
+
     this.logger.log(
       `✓ Estado del comprobante [${clave}]: ${response.indEstado}`,
     );
