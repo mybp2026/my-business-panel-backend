@@ -55,7 +55,7 @@ Authorization: Bearer {{tenantToken}}
 ### - Subtotal: 1,500,000 + 300,000 + 50,000 = 1,850,000
 ### - IVA (13%): 1,850,000 × 0.13 = 240,500
 ### - Total: 2,090,500
-
+@saleId = a0fdd10e-bde1-488e-987b-acd8e9b5d0b7
 # @name createSale
 POST {{baseUrl}}/sale
 Content-Type: application/json
@@ -117,8 +117,6 @@ Authorization: Bearer {{tenantToken}}
   ]
 }
 
-@saleId = f388cdc5-9765-4fd9-8cd7-3514c14f6056
-
 ### ==============================================================
 ### 2. VERIFICAR VENTA CREADA
 ### ==============================================================
@@ -136,24 +134,17 @@ Authorization: Bearer {{tenantToken}}
 GET {{baseUrl}}/invoice/details/{{saleId}}
 Authorization: Bearer {{tenantToken}}
 
-### ==============================================================
 ### 4. CREAR FACTURA ELECTRÓNICA Y ENVIAR A HACIENDA
-### ==============================================================
-### Crea la factura electrónica y la envía al servicio de Hacienda
-### El sistema:
-### 1. Genera XML firmado digitalmente
-### 2. Lo envía a Hacienda
-### 3. Genera clave y código QR
-### 4. Realiza un quick-poll a los 3 segundos
-### 5. Si está pendiente, usa backoff exponencial para reintentosActualizando con el saleId generado anteriormente
-
+  ### 1. Genera XML firmado digitalmente
+  ### 2. Lo envía a Hacienda
+  ### 3. Genera clave y código QR
+  ### 4. Realiza un quick-poll a los 3 segundos
+  ### 5. Si está pendiente, usa backoff exponencial para reintentosActualizando con el saleId generado anteriormente
+  
 POST {{baseUrl}}/sale/{{saleId}}/e-invoice
 Content-Type: application/json
 
-### ==============================================================
 ### 5. OBTENER FACTURA ELECTRÓNICA CREADA
-### ==============================================================
-### Obtiene los detalles de la factura electrónica creada
 
 # @name getEInvoice
 GET {{baseUrl}}/sale/{{saleId}}/e-invoice

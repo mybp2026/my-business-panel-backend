@@ -254,11 +254,15 @@ export class XmlGeneratorEngine {
       .update(Buffer.from(certDerBytes, 'binary'))
       .digest('base64');
 
-    // 2. Construir el fragmento XAdES-BES (Object) para inyectarlo luego dentro de la firma
+    // 2. Construir el fragmento XAdES-BES (Object) para inyectarlo dentro de la firma
     const signingTime = this.formatCRDateTime(new Date());
+    // Generar IDs ANTES de construir xadesObject para que coincidan exactamente
+    const signatureId = `id-${crypto.randomBytes(8).toString('hex')}`;
+    const xadesSignedPropsId = `xades-${crypto.randomBytes(8).toString('hex')}`;
+
     const xadesObject = [
-      `<xades:QualifyingProperties xmlns:xades="http://uri.etsi.org/01903/v1.3.2#" Target="#Signature">`,
-      `<xades:SignedProperties Id="xades-signed-properties">`,
+      `<xades:QualifyingProperties xmlns:xades="http://uri.etsi.org/01903/v1.3.2#" Target="#${signatureId}">`,
+      `<xades:SignedProperties Id="${xadesSignedPropsId}">`,
       `<xades:SignedSignatureProperties>`,
       `<xades:SigningTime>${signingTime}</xades:SigningTime>`,
       `<xades:SigningCertificateV2>`,
@@ -277,14 +281,14 @@ export class XmlGeneratorEngine {
       `</xades:SigPolicyId>`,
       `<xades:SigPolicyHash>`,
       `<ds:DigestMethod Algorithm="http://www.w3.org/2001/04/xmlenc#sha256"/>`,
-      `<ds:DigestValue>V8/id4re4y0yoBv/vXBK989vB836Xm/vP5F072S7E7u4X0=</ds:DigestValue>`,
+      `<ds:DigestValue>a5aV6NckKzC/0CR4tQeTg2ULnhUNK2uDxsO5VuRInTE=</ds:DigestValue>`,
       `</xades:SigPolicyHash>`,
       `</xades:SignaturePolicyId>`,
       `</xades:SignaturePolicyIdentifier>`,
       `</xades:SignedSignatureProperties>`,
       `<xades:SignedDataObjectProperties>`,
       `<xades:DataObjectFormat ObjectReference="#r-id-1">`,
-      `<xades:MimeType>text/xml</xades:MimeType>`,
+      `<xades:MimeType>application/octet-stream</xades:MimeType>`,
       `</xades:DataObjectFormat>`,
       `</xades:SignedDataObjectProperties>`,
       `</xades:SignedProperties>`,
@@ -341,10 +345,10 @@ export class XmlGeneratorEngine {
 
     // Referencia 2: propiedades XAdES (xades:SignedProperties)
     sig.addReference({
-      xpath: "//*[@Id='xades-signed-properties']",
+      xpath: `//*[@Id='${xadesSignedPropsId}']`,
       transforms: ['http://www.w3.org/TR/2001/REC-xml-c14n-20010315'],
       digestAlgorithm: 'http://www.w3.org/2001/04/xmlenc#sha256',
-      uri: '#xades-signed-properties',
+      uri: `#${xadesSignedPropsId}`,
     });
 
     // Para que la firma sea válida XAdES, el nodo xades-signed-properties DEBE estar en el XML
@@ -356,19 +360,34 @@ export class XmlGeneratorEngine {
     sig.computeSignature(xmlWithXades, {
       location: { reference: '/*', action: 'append' },
       prefix: 'ds',
-      attrs: { Id: 'Signature' },
+      attrs: { Id: signatureId },
     });
 
     // Ahora movemos el ds:Object de ser un hermano de la firma a ser un hijo de la firma
-    // Esto es lo que Hacienda requiere estrictamente para XAdES
     let signedXml = sig.getSignedXml();
-    
-    // 1. Eliminar el objeto que quedó fuera
-    signedXml = signedXml.replace(xadesFullObject, '');
-    
-    // 2. Insertarlo dentro de la firma
+
+    // Remover el objeto que está afuera de la firma (lo insertaremos dentro)
+    // Buscar la última ocurrencia de xadesFullObject y removerla
+    const lastIndexOfObject = signedXml.lastIndexOf(xadesFullObject);
+    if (lastIndexOfObject !== -1) {
+      signedXml =
+        signedXml.substring(0, lastIndexOfObject) +
+        signedXml.substring(lastIndexOfObject + xadesFullObject.length);
+    }
+
+    // Insertarlo dentro de la firma (antes del cierre de ds:Signature)
     const signatureEndTag = '</ds:Signature>';
-    return signedXml.replace(signatureEndTag, `${xadesFullObject}${signatureEndTag}`);
+    const lastSignatureEnd = signedXml.lastIndexOf(signatureEndTag);
+    if (lastSignatureEnd !== -1) {
+      return (
+        signedXml.substring(0, lastSignatureEnd) +
+        xadesFullObject +
+        signedXml.substring(lastSignatureEnd)
+      );
+    }
+
+    // Si no se puede encontrar la estructura esperada, retornar como está
+    return signedXml;
   }
 
   /**
