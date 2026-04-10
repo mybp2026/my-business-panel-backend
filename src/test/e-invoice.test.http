@@ -50,12 +50,8 @@ Authorization: Bearer {{tenantToken}}
 ### - 1 Laptop Dell XPS 13 @ 1,500,000 CRC
 ### - 2 Teclados Mecánicos @ 150,000 CRC c/u
 ### - 1 Mouse inalámbrico @ 50,000 CRC
-###
-### Cálculos:
-### - Subtotal: 1,500,000 + 300,000 + 50,000 = 1,850,000
-### - IVA (13%): 1,850,000 × 0.13 = 240,500
-### - Total: 2,090,500
-@saleId = a0fdd10e-bde1-488e-987b-acd8e9b5d0b7
+
+@saleId = 593f3f23-efc7-4026-8475-ea75eeba0f6e
 # @name createSale
 POST {{baseUrl}}/sale
 Content-Type: application/json
@@ -140,7 +136,7 @@ Authorization: Bearer {{tenantToken}}
   ### 3. Genera clave y código QR
   ### 4. Realiza un quick-poll a los 3 segundos
   ### 5. Si está pendiente, usa backoff exponencial para reintentosActualizando con el saleId generado anteriormente
-  
+
 POST {{baseUrl}}/sale/{{saleId}}/e-invoice
 Content-Type: application/json
 

@@ -7,7 +7,8 @@ import { create } from 'xmlbuilder2';
 import * as crypto from 'crypto';
 import encodeQR from 'qr';
 import * as forge from 'node-forge';
-import { SignedXml } from 'xml-crypto';
+import { ExclusiveCanonicalization } from 'xml-crypto';
+import { DOMParser } from '@xmldom/xmldom';
 
 @Injectable()
 export class XmlGeneratorEngine {
@@ -29,7 +30,6 @@ export class XmlGeneratorEngine {
           'https://cdn.comprobanteselectronicos.go.cr/xml-schemas/v4.4/facturaElectronica',
         'xmlns:ds': 'http://www.w3.org/2000/09/xmldsig#',
         'xmlns:xs': 'http://www.w3.org/2001/XMLSchema',
-        version: '4.4',
       },
     );
 
@@ -37,8 +37,11 @@ export class XmlGeneratorEngine {
       .ele('Clave')
       .txt(content.clave)
       .up()
-      .ele('CodigoActividad')
-      .txt(content.codigoActividad)
+      .ele('ProveedorSistemas')
+      .txt(content.emisor.identificacion.numero)
+      .up()
+      .ele('CodigoActividadEmisor')
+      .txt(content.codigoActividad.padStart(6, '0'))
       .up()
       .ele('NumeroConsecutivo')
       .txt(content.numeroConsecutivo)
@@ -57,7 +60,14 @@ export class XmlGeneratorEngine {
     ubicacion.ele('Provincia').txt(content.emisor.ubicacion.provincia).up();
     ubicacion.ele('Canton').txt(content.emisor.ubicacion.canton).up();
     ubicacion.ele('Distrito').txt(content.emisor.ubicacion.distrito).up();
-    ubicacion.ele('OtrasSenas').txt(content.emisor.ubicacion.otrasSenas).up();
+    ubicacion
+      .ele('OtrasSenas')
+      .txt(
+        content.emisor.ubicacion.otrasSenas.length >= 5
+          ? content.emisor.ubicacion.otrasSenas
+          : 'Otras señas de ubicación',
+      )
+      .up();
     ubicacion.up();
     if (content.emisor.telefono?.numero) {
       const tel = emisor.ele('Telefono');
@@ -83,8 +93,7 @@ export class XmlGeneratorEngine {
     }
 
     xml.ele('CondicionVenta').txt(content.condicionVenta).up();
-    if (content.plazoVenta) xml.ele('PlazoVenta').txt(content.plazoVenta).up();
-    content.medioPago.forEach((medio) => xml.ele('MedioPago').txt(medio).up());
+    if (content.plazoVenta) xml.ele('PlazoCredito').txt(content.plazoVenta.toString()).up();
 
     const detalleNode = xml.ele('DetalleServicio');
     for (const line of content.detalle) {
@@ -110,16 +119,25 @@ export class XmlGeneratorEngine {
 
       linea.ele('SubTotal').txt(line.subTotal.toFixed(5)).up();
 
+      // v4.4: BaseImponible es obligatoria antes de Impuesto
+      linea.ele('BaseImponible').txt(line.subTotal.toFixed(5)).up();
+
+      let totalImpuestosLinea = new Decimal(0);
       if (line.impuestos && line.impuestos.length > 0) {
         line.impuestos.forEach((tax) => {
+          totalImpuestosLinea = totalImpuestosLinea.plus(tax.monto);
           const imp = linea.ele('Impuesto');
           imp.ele('Codigo').txt(tax.codigo).up();
-          imp.ele('CodigoTarifa').txt(tax.codigoTarifa).up();
+          imp.ele('CodigoTarifaIVA').txt(tax.codigoTarifa).up();
           imp.ele('Tarifa').txt(tax.tarifa.toFixed(2)).up();
           imp.ele('Monto').txt(tax.monto.toFixed(5)).up();
           imp.up();
         });
       }
+
+      // v4.4: Campos adicionales requeridos en el detalle
+      linea.ele('ImpuestoAsumidoEmisorFabrica').txt('0.00000').up();
+      linea.ele('ImpuestoNeto').txt(totalImpuestosLinea.toFixed(5)).up();
 
       linea.ele('MontoTotalLinea').txt(line.montoTotalLinea.toFixed(5)).up();
       linea.up();
@@ -142,7 +160,7 @@ export class XmlGeneratorEngine {
       .ele('TotalServExentos')
       .txt(content.resumenFactura.totalServExentos.toFixed(5))
       .up()
-      .ele('TotalServExonerados')
+      .ele('TotalServExonerado')
       .txt(content.resumenFactura.totalServExonerados.toFixed(5))
       .up()
       .ele('TotalMercanciasGravadas')
@@ -151,16 +169,16 @@ export class XmlGeneratorEngine {
       .ele('TotalMercanciasExentas')
       .txt(content.resumenFactura.totalMercanciasExentas.toFixed(5))
       .up()
-      .ele('TotalMercanciasExoneradas')
+      .ele('TotalMercExonerada')
       .txt(content.resumenFactura.totalMercanciasExoneradas.toFixed(5))
       .up()
-      .ele('TotalGravados')
+      .ele('TotalGravado')
       .txt(content.resumenFactura.totalGravados.toFixed(5))
       .up()
-      .ele('TotalExentos')
+      .ele('TotalExento')
       .txt(content.resumenFactura.totalExentos.toFixed(5))
       .up()
-      .ele('TotalExonerados')
+      .ele('TotalExonerado')
       .txt(content.resumenFactura.totalExonerados.toFixed(5))
       .up()
       .ele('TotalVenta')
@@ -174,7 +192,16 @@ export class XmlGeneratorEngine {
       .up()
       .ele('TotalImpuesto')
       .txt(content.resumenFactura.totalImpuestos.toFixed(5))
-      .up()
+      .up();
+
+    // v4.4: MedioPago ahora dentro de ResumenFactura
+    content.medioPago.forEach((medio) => {
+      const mp = res.ele('MedioPago');
+      mp.ele('TipoMedioPago').txt(medio).up();
+      mp.up();
+    });
+
+    res
       .ele('TotalComprobante')
       .txt(content.resumenFactura.totalComprobante.toFixed(5))
       .up();
@@ -254,15 +281,30 @@ export class XmlGeneratorEngine {
       .update(Buffer.from(certDerBytes, 'binary'))
       .digest('base64');
 
-    // 2. Construir el fragmento XAdES-BES (Object) para inyectarlo dentro de la firma
-    const signingTime = this.formatCRDateTime(new Date());
-    // Generar IDs ANTES de construir xadesObject para que coincidan exactamente
-    const signatureId = `id-${crypto.randomBytes(8).toString('hex')}`;
-    const xadesSignedPropsId = `xades-${crypto.randomBytes(8).toString('hex')}`;
+    // Helper: BigInteger de node-forge → base64 sin byte de signo (prefijo 0x00)
+    const biToB64 = (bi: any): string => {
+      const bytes: number[] = bi.toByteArray();
+      const start = bytes[0] === 0 ? 1 : 0;
+      const bin = bytes
+        .slice(start)
+        .map((b: number) => String.fromCharCode(b & 0xff))
+        .join('');
+      return forge.util.encode64(bin);
+    };
 
-    const xadesObject = [
-      `<xades:QualifyingProperties xmlns:xades="http://uri.etsi.org/01903/v1.3.2#" Target="#${signatureId}">`,
-      `<xades:SignedProperties Id="${xadesSignedPropsId}">`,
+    const rsaKey = cert.publicKey as forge.pki.rsa.PublicKey;
+    const modulusB64 = biToB64(rsaKey.n);
+    const exponentB64 = biToB64(rsaKey.e);
+
+    // 2. Generar IDs únicos
+    const signatureId = `id-${crypto.randomBytes(16).toString('hex')}`;
+    const signedPropsId = `xades-${signatureId}`;
+    const refDocId = `r-id-1`;
+
+    // 3. Construir xades:SignedProperties
+    const signingTime = this.formatCRDateTime(new Date());
+    const signedPropsXml = [
+      `<xades:SignedProperties xmlns:xades="http://uri.etsi.org/01903/v1.3.2#" xmlns:ds="http://www.w3.org/2000/09/xmldsig#" Id="${signedPropsId}">`,
       `<xades:SignedSignatureProperties>`,
       `<xades:SigningTime>${signingTime}</xades:SigningTime>`,
       `<xades:SigningCertificateV2>`,
@@ -287,107 +329,87 @@ export class XmlGeneratorEngine {
       `</xades:SignaturePolicyIdentifier>`,
       `</xades:SignedSignatureProperties>`,
       `<xades:SignedDataObjectProperties>`,
-      `<xades:DataObjectFormat ObjectReference="#r-id-1">`,
+      `<xades:DataObjectFormat ObjectReference="#${refDocId}">`,
       `<xades:MimeType>application/octet-stream</xades:MimeType>`,
       `</xades:DataObjectFormat>`,
       `</xades:SignedDataObjectProperties>`,
       `</xades:SignedProperties>`,
-      `</xades:QualifyingProperties>`,
     ].join('');
 
-    // Helper: BigInteger de node-forge → base64 sin byte de signo (prefijo 0x00)
-    const biToB64 = (bi: any): string => {
-      const bytes: number[] = bi.toByteArray();
-      const start = bytes[0] === 0 ? 1 : 0;
-      const bin = bytes
-        .slice(start)
-        .map((b: number) => String.fromCharCode(b & 0xff))
-        .join('');
-      return forge.util.encode64(bin);
+    // Helper: canonicalizar un fragmento XML con Exclusive C14N
+    const c14n = new ExclusiveCanonicalization();
+    const canonicalize = (xmlFragment: string): string => {
+      const doc = new DOMParser().parseFromString(xmlFragment, 'text/xml');
+      return c14n.process(doc.documentElement, {}).toString();
     };
 
-    const rsaKey = cert.publicKey as forge.pki.rsa.PublicKey;
-    const modulusB64 = biToB64(rsaKey.n);
-    const exponentB64 = biToB64(rsaKey.e);
+    // Helper: SHA-256 en base64
+    const sha256b64 = (data: string): string =>
+      crypto.createHash('sha256').update(data, 'utf8').digest('base64');
 
-    // 3. Firmar con xml-crypto (XMLDSig enveloped, RSA-SHA256)
-    const sig = new SignedXml({
-      privateKey: privateKeyPem,
-      signatureAlgorithm: 'http://www.w3.org/2001/04/xmldsig-more#rsa-sha256',
-      canonicalizationAlgorithm:
-        'http://www.w3.org/TR/2001/REC-xml-c14n-20010315',
-      getKeyInfoContent: ({ prefix } = {}) => {
-        const p = prefix ?? 'ds';
-        return (
-          `<${p}:X509Data><${p}:X509Certificate>${certDerBase64}</${p}:X509Certificate></${p}:X509Data>` +
-          `<${p}:KeyValue><${p}:RSAKeyValue>` +
-          `<${p}:Modulus>${modulusB64}</${p}:Modulus>` +
-          `<${p}:Exponent>${exponentB64}</${p}:Exponent>` +
-          `</${p}:RSAKeyValue></${p}:KeyValue>`
-        );
-      },
-    });
+    // 4. Calcular digest de Reference 1 (documento sin firma)
+    // La enveloped-signature transform excluye ds:Signature, pero como la firma
+    // aún no existe, simplemente canonicalizamos el documento tal cual.
+    const docDigest = sha256b64(canonicalize(xmlString));
 
-    // Reconocer el atributo 'Id' para resolver referencias URI por ID (necesario para XAdES)
-    sig.idAttributes = ['Id', 'id', 'ID'];
+    // 5. Calcular digest de Reference 2 (xades:SignedProperties)
+    const propsDigest = sha256b64(canonicalize(signedPropsXml));
 
-    // Referencia 1: documento completo con transformación enveloped-signature
-    sig.addReference({
-      xpath: '/*',
-      transforms: [
-        'http://www.w3.org/2000/09/xmldsig#enveloped-signature',
-        'http://www.w3.org/TR/2001/REC-xml-c14n-20010315',
-      ],
-      digestAlgorithm: 'http://www.w3.org/2001/04/xmlenc#sha256',
-      uri: '',
-      attrs: { Id: 'r-id-1' },
-    } as any);
+    // 6. Construir ds:SignedInfo con ambos digests ya calculados
+    const signedInfoXml = [
+      `<ds:SignedInfo xmlns:ds="http://www.w3.org/2000/09/xmldsig#">`,
+      `<ds:CanonicalizationMethod Algorithm="http://www.w3.org/2001/10/xml-exc-c14n#"/>`,
+      `<ds:SignatureMethod Algorithm="http://www.w3.org/2001/04/xmldsig-more#rsa-sha256"/>`,
+      `<ds:Reference Id="${refDocId}" URI="">`,
+      `<ds:Transforms>`,
+      `<ds:Transform Algorithm="http://www.w3.org/2000/09/xmldsig#enveloped-signature"/>`,
+      `<ds:Transform Algorithm="http://www.w3.org/2001/10/xml-exc-c14n#"/>`,
+      `</ds:Transforms>`,
+      `<ds:DigestMethod Algorithm="http://www.w3.org/2001/04/xmlenc#sha256"/>`,
+      `<ds:DigestValue>${docDigest}</ds:DigestValue>`,
+      `</ds:Reference>`,
+      `<ds:Reference Type="http://uri.etsi.org/01903#SignedProperties" URI="#${signedPropsId}">`,
+      `<ds:Transforms>`,
+      `<ds:Transform Algorithm="http://www.w3.org/2001/10/xml-exc-c14n#"/>`,
+      `</ds:Transforms>`,
+      `<ds:DigestMethod Algorithm="http://www.w3.org/2001/04/xmlenc#sha256"/>`,
+      `<ds:DigestValue>${propsDigest}</ds:DigestValue>`,
+      `</ds:Reference>`,
+      `</ds:SignedInfo>`,
+    ].join('');
 
-    // Referencia 2: propiedades XAdES (xades:SignedProperties)
-    sig.addReference({
-      xpath: `//*[@Id='${xadesSignedPropsId}']`,
-      transforms: ['http://www.w3.org/TR/2001/REC-xml-c14n-20010315'],
-      digestAlgorithm: 'http://www.w3.org/2001/04/xmlenc#sha256',
-      uri: `#${xadesSignedPropsId}`,
-    });
+    // 7. Canonicalizar SignedInfo y firmar con la clave privada (RSA-SHA256)
+    const canonSignedInfo = canonicalize(signedInfoXml);
+    const signer = crypto.createSign('RSA-SHA256');
+    signer.update(canonSignedInfo);
+    const signatureValue = signer.sign(privateKeyPem, 'base64');
 
-    // Para que la firma sea válida XAdES, el nodo xades-signed-properties DEBE estar en el XML
-    // antes de llamar a computeSignature, de lo contrario el digest será erróneo.
-    const xadesFullObject = `<ds:Object>${xadesObject}</ds:Object>`;
-    const closingTag = '</FacturaElectronica>';
-    const xmlWithXades = xmlString.replace(closingTag, `${xadesFullObject}${closingTag}`);
+    // 8. Ensamblar ds:Signature completa (sin manipulación post-firma)
+    const signatureXml = [
+      `<ds:Signature xmlns:ds="http://www.w3.org/2000/09/xmldsig#" Id="${signatureId}">`,
+      signedInfoXml,
+      `<ds:SignatureValue>${signatureValue}</ds:SignatureValue>`,
+      `<ds:KeyInfo>`,
+      `<ds:X509Data>`,
+      `<ds:X509Certificate>${certDerBase64}</ds:X509Certificate>`,
+      `</ds:X509Data>`,
+      `<ds:KeyValue>`,
+      `<ds:RSAKeyValue>`,
+      `<ds:Modulus>${modulusB64}</ds:Modulus>`,
+      `<ds:Exponent>${exponentB64}</ds:Exponent>`,
+      `</ds:RSAKeyValue>`,
+      `</ds:KeyValue>`,
+      `</ds:KeyInfo>`,
+      `<ds:Object>`,
+      `<xades:QualifyingProperties xmlns:xades="http://uri.etsi.org/01903/v1.3.2#" Target="#${signatureId}">`,
+      signedPropsXml,
+      `</xades:QualifyingProperties>`,
+      `</ds:Object>`,
+      `</ds:Signature>`,
+    ].join('');
 
-    sig.computeSignature(xmlWithXades, {
-      location: { reference: '/*', action: 'append' },
-      prefix: 'ds',
-      attrs: { Id: signatureId },
-    });
-
-    // Ahora movemos el ds:Object de ser un hermano de la firma a ser un hijo de la firma
-    let signedXml = sig.getSignedXml();
-
-    // Remover el objeto que está afuera de la firma (lo insertaremos dentro)
-    // Buscar la última ocurrencia de xadesFullObject y removerla
-    const lastIndexOfObject = signedXml.lastIndexOf(xadesFullObject);
-    if (lastIndexOfObject !== -1) {
-      signedXml =
-        signedXml.substring(0, lastIndexOfObject) +
-        signedXml.substring(lastIndexOfObject + xadesFullObject.length);
-    }
-
-    // Insertarlo dentro de la firma (antes del cierre de ds:Signature)
-    const signatureEndTag = '</ds:Signature>';
-    const lastSignatureEnd = signedXml.lastIndexOf(signatureEndTag);
-    if (lastSignatureEnd !== -1) {
-      return (
-        signedXml.substring(0, lastSignatureEnd) +
-        xadesFullObject +
-        signedXml.substring(lastSignatureEnd)
-      );
-    }
-
-    // Si no se puede encontrar la estructura esperada, retornar como está
-    return signedXml;
+    // 9. Insertar la firma antes de cerrar el documento raíz
+    return xmlString.replace('</FacturaElectronica>', `${signatureXml}</FacturaElectronica>`);
   }
 
   /**

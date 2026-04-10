@@ -182,9 +182,9 @@ export class EInvoiceService {
     }
 
     if (statusId === 3) {
-      throw new Error(
-        `Hacienda rechazó el comprobante: ${respuestaTxt ?? 'sin detalle'}`,
-      );
+      const errorMsg = `Hacienda rechazó el comprobante: ${respuestaTxt ?? 'sin detalle'}`;
+      this.logger.error(errorMsg);
+      throw new Error(errorMsg);
     }
 
     for (const item of items) {
