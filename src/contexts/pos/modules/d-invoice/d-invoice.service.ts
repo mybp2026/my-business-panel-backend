@@ -66,6 +66,12 @@ export class DInvoiceService {
     return result.rows[0];
   }
 
+  async getDInvoiceBySaleId(saleId: string): Promise<FullInvoice> {
+    const result = await this.db.query(dInvoice.getDInvoiceBySaleId, [saleId]);
+    if (result.rows.length == 0) throw new InvalidInvoice();
+    return result.rows[0];
+  }
+
   async deleteDInvoice(invoiceId: string) {
     const result = await this.db.query(dInvoice.deleteDInvoice, [invoiceId]);
     if (result.rows.length == 0)

@@ -15,6 +15,11 @@ export class DInvoiceController {
     return this.invoiceService.getDInvoiceById(id);
   }
 
+  @Get('sale/:saleId')
+  async getDInvoiceBySaleId(@Param('saleId') saleId: string) {
+    return this.invoiceService.getDInvoiceBySaleId(saleId);
+  }
+
   @Get()
   async getCustomerDInvoices(
     @Query('id') tenantId: string,
