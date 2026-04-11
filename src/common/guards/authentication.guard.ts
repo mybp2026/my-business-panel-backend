@@ -2,7 +2,7 @@
 import { CanActivate, ExecutionContext, Injectable } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { IRequestWithCookies } from '@/common/interfaces/request_with_cookies.interface';
-import { StateService } from '@/modules/state/state.service';
+import { StateService } from '@/contexts/general/modules/state/state.service';
 import { InvalidSessionError } from '@/common/errors/invalid_session.error';
 
 @Injectable()

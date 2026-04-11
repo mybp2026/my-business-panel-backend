@@ -1,7 +1,7 @@
 import { CanActivate, ExecutionContext, Injectable } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
 import { LEVELS_KEY } from '@/common/decorators/level_metadata.decorator';
-import { StateService } from '@/modules/state/state.service';
+import { StateService } from '@/contexts/general/modules/state/state.service';
 import { IUserSession } from '../interfaces/user_session.interface';
 import { InvalidSessionError } from '../errors/invalid_session.error';
 

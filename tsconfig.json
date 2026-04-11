@@ -19,6 +19,10 @@
     "noFallthroughCasesInSwitch": true,
     "paths": {
       "@/*": ["./src/*"],
+      "@purchase/*": ["./src/contexts/purchase/*"],
+      "@pos/*": ["./src/contexts/pos/*"],
+      "@hr/*": ["./src/contexts/hr/*"],
+      "@general/*": ["./src/contexts/general/*"],
       "@tests/*": ["./tests/*"]
     }
   }
