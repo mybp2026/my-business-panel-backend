@@ -25,7 +25,7 @@ Content-Type: application/json
   "password": "SecurePassword123!"
 }
 
-@systemToken = {{systemLogin.response.body.token}}
+# @systemToken = {{systemLogin.response.body.token}}
 
 POST {{baseUrl}}/user
 Content-Type: application/json

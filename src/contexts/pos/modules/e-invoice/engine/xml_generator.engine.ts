@@ -99,9 +99,6 @@ export class XmlGeneratorEngine {
     for (const line of content.detalle) {
       const linea = detalleNode.ele('LineaDetalle');
       linea.ele('NumeroLinea').txt(line.numeroLinea.toString()).up();
-      if (line.partidaArancelaria)
-        linea.ele('PartidaArancelaria').txt(line.partidaArancelaria).up();
-
       linea.ele('CodigoCABYS').txt(line.codigo).up();
 
       linea.ele('Cantidad').txt(line.cantidad.toFixed(5)).up();
@@ -163,6 +160,9 @@ export class XmlGeneratorEngine {
       .ele('TotalServExonerado')
       .txt(content.resumenFactura.totalServExonerados.toFixed(5))
       .up()
+      .ele('TotalServNoSujeto')
+      .txt('0.00000')
+      .up()
       .ele('TotalMercanciasGravadas')
       .txt(content.resumenFactura.totalMercanciasGravadas.toFixed(5))
       .up()
@@ -171,6 +171,9 @@ export class XmlGeneratorEngine {
       .up()
       .ele('TotalMercExonerada')
       .txt(content.resumenFactura.totalMercanciasExoneradas.toFixed(5))
+      .up()
+      .ele('TotalMercNoSujeta')
+      .txt('0.00000')
       .up()
       .ele('TotalGravado')
       .txt(content.resumenFactura.totalGravados.toFixed(5))
@@ -181,6 +184,9 @@ export class XmlGeneratorEngine {
       .ele('TotalExonerado')
       .txt(content.resumenFactura.totalExonerados.toFixed(5))
       .up()
+      .ele('TotalNoSujeto')
+      .txt('0.00000')
+      .up()
       .ele('TotalVenta')
       .txt(content.resumenFactura.totalVenta.toFixed(5))
       .up()
@@ -189,9 +195,40 @@ export class XmlGeneratorEngine {
       .up()
       .ele('TotalVentaNeta')
       .txt(content.resumenFactura.totalVentaNeta.toFixed(5))
-      .up()
+      .up();
+
+    // v4.4: Desglose de impuestos por código y tarifa
+    const taxBreakdown = new Map<string, { codigo: string; tarifaIva: string; monto: Decimal }>();
+    for (const line of content.detalle) {
+      if (line.impuestos) {
+        for (const tax of line.impuestos) {
+          const key = `${tax.codigo}-${tax.codigoTarifa}`;
+          if (!taxBreakdown.has(key)) {
+            taxBreakdown.set(key, {
+              codigo: tax.codigo,
+              tarifaIva: tax.codigoTarifa,
+              monto: new Decimal(0),
+            });
+          }
+          taxBreakdown.get(key)!.monto = taxBreakdown.get(key)!.monto.plus(tax.monto);
+        }
+      }
+    }
+
+    taxBreakdown.forEach((val) => {
+      const tdi = res.ele('TotalDesgloseImpuesto');
+      tdi.ele('Codigo').txt(val.codigo).up();
+      tdi.ele('CodigoTarifaIVA').txt(val.tarifaIva).up();
+      tdi.ele('TotalMontoImpuesto').txt(val.monto.toFixed(5)).up();
+      tdi.up();
+    });
+
+    res
       .ele('TotalImpuesto')
       .txt(content.resumenFactura.totalImpuestos.toFixed(5))
+      .up()
+      .ele('TotalOtrosCargos')
+      .txt((content.resumenFactura.totalOtrosCargos || 0).toFixed(5))
       .up();
 
     // v4.4: MedioPago ahora dentro de ResumenFactura

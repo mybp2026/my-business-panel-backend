@@ -11,6 +11,16 @@ async function bootstrap() {
   const app = await NestFactory.create(AppModule, {
     rawBody: true,
   });
+
+  const allowedOrigins = process.env.ALLOWED_ORIGINS
+    ? process.env.ALLOWED_ORIGINS.split(',').map((origin) => origin.trim())
+    : ['http://localhost:5173', 'http://localhost:3000'];
+
+  app.enableCors({
+    origin: allowedOrigins,
+    credentials: true,
+  });
+
   app.setGlobalPrefix('api/v1');
   app.use(cookieParser());
   app.useGlobalInterceptors(new ResponseInterceptor());

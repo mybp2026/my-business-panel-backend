@@ -32,6 +32,7 @@ export class SubscriptionService {
       payment_method_id,
       payment_amount,
       details,
+      stripe_payment_method_id,
       plan,
       start_date,
       end_date,
@@ -66,6 +67,14 @@ export class SubscriptionService {
       await this.db.query(tenant.updateStripeId, [tenantStripeId, tenant_id]);
     }
 
+    // Adjuntar el payment method de Stripe al customer
+    await this.stripe.paymentMethods.attach(stripe_payment_method_id, {
+      customer: tenantStripeId,
+    });
+    await this.stripe.customers.update(tenantStripeId, {
+      invoice_settings: { default_payment_method: stripe_payment_method_id },
+    });
+
     // Creacion del tenant_payment en bd
     const paymentResult = await this.db.query(tenantPayment.create, [
       tenant_id,
@@ -80,15 +89,27 @@ export class SubscriptionService {
     const subscription = await this.stripe.subscriptions.create({
       customer: tenantStripeId,
       items: [{ price: priceId }],
+      default_payment_method: stripe_payment_method_id,
       payment_behavior: 'default_incomplete',
+      payment_settings: {
+        payment_method_types: ['card'],
+        save_default_payment_method: 'on_subscription',
+      },
       metadata: { tenantPaymentId: tenantPaymentId, tenantId: tenant_id },
-      expand: ['latest_invoice.payment_intent'],
+      expand: ['latest_invoice.confirmation_secret'],
     });
 
-    const invoice = subscription.latest_invoice as Stripe.Invoice & {
-      payment_intent?: Stripe.PaymentIntent | string | null;
-    };
-    // const paymentIntent = invoice.payment_intent as Stripe.PaymentIntent;
+    const invoice = subscription.latest_invoice as Stripe.Invoice;
+
+    if (!invoice) {
+      throw new Error('No invoice found on subscription');
+    }
+
+    const clientSecret = invoice.confirmation_secret?.client_secret ?? null;
+
+    if (!clientSecret) {
+      throw new Error('Could not obtain payment client_secret from Stripe');
+    }
 
     const newSub = await this.db.query(subscriptions.createSubscription, [
       tenant_id,
@@ -100,6 +121,7 @@ export class SubscriptionService {
     return {
       idOnDb: newSub.rows[0].subscription_id,
       subscriptionId: subscription.id,
+      clientSecret,
       invoice: invoice.id,
       status: subscription.status,
     };

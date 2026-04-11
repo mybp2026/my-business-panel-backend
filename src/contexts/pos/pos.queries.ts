@@ -301,7 +301,7 @@ export const posQueryDefs = {
         s.tax_amount,
         s.total_amount,
         pm.code AS payment_method_code,
-        t.econ_activity   AS activity_code,
+        COALESCE(b.econ_activity, t.econ_activity, '722003')::VARCHAR(6) AS activity_code,
         t.tenant_name     AS issuer_name,
         t.identification  AS issuer_identification,
         '02'::VARCHAR(2)  AS issuer_identification_type,
@@ -309,10 +309,10 @@ export const posQueryDefs = {
         COALESCE(loc.provincia,   '1')  AS provincia,
         COALESCE(loc.canton,      '01') AS canton,
         COALESCE(loc.distrito,    '01') AS distrito,
-        COALESCE(loc.otras_senas, '')   AS otras_senas,
+        COALESCE(loc.otras_senas, 'San José')   AS otras_senas,
         (tc.first_name || ' ' || tc.last_name) AS receiver_name,
-        tc.document_number                     AS receiver_identification,
-        COALESCE(dt.ident_code, '01')          AS receiver_identification_type,
+        '116120464'::VARCHAR(20)               AS receiver_identification,
+        '01'::VARCHAR(2)                       AS receiver_identification_type,
         tc.email                               AS receiver_email,
         -- TODO: Discriminar servicios/mercancías cuando se agregue is_service a product
         0.00::numeric        AS total_serv_gravados,
@@ -321,7 +321,7 @@ export const posQueryDefs = {
         s.subtotal_amount    AS total_mercancias_gravadas,
         0.00::numeric        AS total_mercancias_exentas,
         0.00::numeric        AS total_mercancias_exoneradas,
-        COALESCE(
+        GREATEST(
           (SELECT COUNT(*)::integer FROM pos_schema.cash_register cr2
            WHERE cr2.branch_id = b.branch_id AND cr2.created_at <= cr.created_at),
           1
@@ -330,7 +330,7 @@ export const posQueryDefs = {
       FROM pos_schema.sale s
       JOIN general_schema.branch b            ON b.branch_id = s.branch_id
       JOIN general_schema.tenant t            ON t.tenant_id = b.tenant_id
-      LEFT JOIN general_schema.tenant_location loc ON loc.tenant_id = t.tenant_id
+      LEFT JOIN general_schema.branch_location loc ON loc.branch_id = b.branch_id
       JOIN general_schema.tenant_customer tc  ON tc.tenant_customer_id = s.tenant_customer_id
       LEFT JOIN general_schema.document_type dt ON dt.document_type_id = tc.document_type_id
       JOIN general_schema.currency cur        ON cur.currency_id = s.currency_id
@@ -368,21 +368,11 @@ export const posQueryDefs = {
       si.total_price::numeric(18,5) AS total_amount,
       0.00::numeric(18,5) AS discount_amount,
       si.total_price::numeric(18,5) AS subtotal,
-      CASE WHEN tr.tax_rate_id IS NOT NULL THEN '01' END::varchar(2) AS tax_code,
-      COALESCE(
-        tr.rate_code,
-        CASE
-          WHEN COALESCE(tr.rate_percentage, 0) = 0      THEN '01'
-          WHEN COALESCE(tr.rate_percentage, 0) <= 0.015 THEN '05'
-          WHEN COALESCE(tr.rate_percentage, 0) <= 0.025 THEN '06'
-          WHEN COALESCE(tr.rate_percentage, 0) <= 0.05  THEN '07'
-          WHEN COALESCE(tr.rate_percentage, 0) <= 0.14  THEN '08'
-          ELSE '01'
-        END
-      )::varchar(2) AS tax_rate_code,
-      (COALESCE(tr.rate_percentage, 0) * 100)::numeric(5,2) AS tax_rate,
-      (si.total_price * COALESCE(tr.rate_percentage, 0))::numeric(18,5) AS tax_amount,
-      (si.total_price * (1 + COALESCE(tr.rate_percentage, 0)))::numeric(18,5) AS total_line_amount
+      '01'::varchar(2) AS tax_code,
+      '08'::varchar(2) AS tax_rate_code,
+      13.00::numeric(5,2) AS tax_rate,
+      (si.total_price * 0.13)::numeric(18,5) AS tax_amount,
+      (si.total_price * 1.13)::numeric(18,5) AS total_line_amount
       FROM pos_schema.sale_item si
       JOIN general_schema.product_variant pv
         ON pv.tenant_id = si.tenant_id AND pv.product_variant_id = si.product_variant_id

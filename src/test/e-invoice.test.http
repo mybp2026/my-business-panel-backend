@@ -51,7 +51,7 @@ Authorization: Bearer {{tenantToken}}
 ### - 2 Teclados Mecánicos @ 150,000 CRC c/u
 ### - 1 Mouse inalámbrico @ 50,000 CRC
 
-@saleId = 593f3f23-efc7-4026-8475-ea75eeba0f6e
+@saleId = b0496da4-5436-461b-b3dc-6f68abcd59dc
 # @name createSale
 POST {{baseUrl}}/sale
 Content-Type: application/json
@@ -130,18 +130,18 @@ Authorization: Bearer {{tenantToken}}
 GET {{baseUrl}}/invoice/details/{{saleId}}
 Authorization: Bearer {{tenantToken}}
 
+
 ### 4. CREAR FACTURA ELECTRÓNICA Y ENVIAR A HACIENDA
   ### 1. Genera XML firmado digitalmente
   ### 2. Lo envía a Hacienda
   ### 3. Genera clave y código QR
   ### 4. Realiza un quick-poll a los 3 segundos
   ### 5. Si está pendiente, usa backoff exponencial para reintentosActualizando con el saleId generado anteriormente
-
 POST {{baseUrl}}/sale/{{saleId}}/e-invoice
 Content-Type: application/json
 
-### 5. OBTENER FACTURA ELECTRÓNICA CREADA
 
+### 5. OBTENER FACTURA ELECTRÓNICA CREADA
 # @name getEInvoice
 GET {{baseUrl}}/sale/{{saleId}}/e-invoice
 Authorization: bearer {{tenantToken}}
