@@ -19,6 +19,7 @@ import { ProductModule } from '@/contexts/general/modules/product/product.module
 import { CustomerPaymentModule } from '@/contexts/general/modules/customer_payment/customer-payment.module';
 import { SegmentModule } from '@/contexts/general/modules/segment/segment.module';
 import { BranchModule } from '@/contexts/general/modules/branch/branch.module';
+import { TenantHaciendaConfigModule } from '@/contexts/general/modules/tenant_hacienda_config/tenant-hacienda-config.module';
 
 // POS Modules
 import { SaleModule } from '@/contexts/pos/modules/sale/sale.module';
@@ -100,6 +101,7 @@ console.log(
     FoulModule,
     TardinessModule,
     EInvoiceModule,
+    TenantHaciendaConfigModule,
     AccountingModule,
     ExpenseModule,
     ReportingModule,
