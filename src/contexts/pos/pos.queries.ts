@@ -63,6 +63,13 @@ export const posQueryDefs = {
       INNER JOIN general_schema.tenant t ON t.tenant_id = tc.tenant_id
       WHERE i.digital_sale_invoice_id = $1
     `,
+    getDInvoiceBySaleId: `
+      SELECT t.tenant_name, tc.first_name, tc.last_name, tc.document_number, tc.email, i.subtotal_amount, i.total_amount, i.invoiced_at FROM pos_schema.digital_sale_invoice i
+      INNER JOIN general_schema.tenant_customer tc USING(tenant_customer_id)
+      INNER JOIN general_schema.currency c USING(currency_id)
+      INNER JOIN general_schema.tenant t ON t.tenant_id = tc.tenant_id
+      WHERE i.sale_id = $1
+    `,
     deleteDInvoice:
       'DELETE FROM pos_schema.digital_sale_invoice WHERE digital_sale_invoice_id = $1 RETURNING digital_sale_invoice_id',
     updateAmount: `
@@ -221,10 +228,11 @@ export const posQueryDefs = {
     // $1 = TTL interval (e.g. '3 hours')
     getPendingInvoicesForBatch: `
       SELECT e.electronic_sale_invoice_id, e.key_number, e.created_at,
-             s.tenant_id
+             b.tenant_id
       FROM pos_schema.electronic_sale_invoice e
       INNER JOIN pos_schema.sale s USING(sale_id)
-      INNER JOIN general_schema.tenant t ON t.tenant_id = s.tenant_id
+      INNER JOIN general_schema.branch b USING(branch_id)
+      INNER JOIN general_schema.tenant t ON t.tenant_id = b.tenant_id
       WHERE e.status_id = 1
         AND t.tax_regime = 'traditional'
         AND e.created_at > NOW() - $1::interval
