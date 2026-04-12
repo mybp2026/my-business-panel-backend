@@ -234,7 +234,7 @@ async getStockByWarehouse(
     throw new NotFoundException(`Tenant with ID ${tenant_id} not found`);
 
   // Verifica que el warehouse pertenezca al tenant
-  const warehouse = await this.db.query(warehouseQueries.byTenantAndId, [
+  const warehouse = await this.db.query(inventoryQueries.byTenantAndId, [
     warehouse_id,
     tenant_id,
   ]);
@@ -243,7 +243,7 @@ async getStockByWarehouse(
       `Warehouse with ID ${warehouse_id} not found for Tenant with ID ${tenant_id}`,
     );
 
-  const { rows } = await this.db.query(warehouseQueries.countAllInWarehouse, [
+  const { rows } = await this.db.query(inventoryQueries.countAllInWarehouse, [
     warehouse_id,
     tenant_id,
   ]);
@@ -304,13 +304,8 @@ async getStockByWarehouse(
       );
 
     const { rows } = await this.db.query(
-<<<<<<< HEAD:src/modules/warehouse/warehouse.service.ts
-      warehouseQueries.getAllDiscrepancyReports,
-      [warehouse_id, tenant_id],
-=======
       inventoryQueries.getAllDiscrepancyReports,
       [tenant_id, warehouse_id],
->>>>>>> 5eb6eaf1cf7ad37bd0ffda50807eb2c1b02a3178:src/contexts/inventory/modules/warehouse/warehouse.service.ts
     );
     return rows;
   }
@@ -324,13 +319,8 @@ async getStockByWarehouse(
       throw new NotFoundException(`Tenant with ID ${tenant_id} not found`);
 
     const { rows } = await this.db.query(
-<<<<<<< HEAD:src/modules/warehouse/warehouse.service.ts
-      warehouseQueries.getDiscrepancyReportById,
-      [discrepancy_count_id, tenant_id],
-=======
       inventoryQueries.getDiscrepancyReportById,
       [tenant_id, discrepancy_count_id],
->>>>>>> 5eb6eaf1cf7ad37bd0ffda50807eb2c1b02a3178:src/contexts/inventory/modules/warehouse/warehouse.service.ts
     );
     if (rows.length === 0)
       throw new NotFoundException(
@@ -340,24 +330,6 @@ async getStockByWarehouse(
     return rows[0];
   }
 
-<<<<<<< HEAD:src/modules/warehouse/warehouse.service.ts
- 
-  async applyDiscrepancyAdjustment(
-  discrepancyCountId: string,
-  tenantId: string,
-) {
-  const tenant = this.state.getTenant(tenantId);
-  if (!tenant)
-    throw new NotFoundException(`Tenant with ID ${tenantId} not found`);
-
-  const { rows } = await this.db.query(
-    warehouseQueries.getDiscrepancyReportById,
-    [discrepancyCountId, tenantId],
-  );
-  if (rows.length === 0)
-    throw new NotFoundException(
-      `Discrepancy Report with ID ${discrepancyCountId} not found`,
-=======
   async receiveStockFromPurchase(
     warehouse_id: string,
     product_variant_id: string,
@@ -409,63 +381,50 @@ async getStockByWarehouse(
     ]);
   }
 
-  // TODO: envolver en transacción con this.db.transaction()
-  // TODO: se debe registrar el movimiento IN en inventory_log y el movimiento OUT también
-  async moveProductToWarehouse(
-    origin_warehouse_id: string,
-    destination_warehouse_id: string,
-    tenant_id: string,
-    products: InventoryTransferProduct[],
+  async applyDiscrepancyAdjustment(
+    discrepancyCountId: string,
+    tenantId: string,
   ) {
-    const tenant = this.state.getTenant(tenant_id);
+    const tenant = this.state.getTenant(tenantId);
     if (!tenant)
-      throw new NotFoundException(`Tenant with ID ${tenant_id} not found`);
+      throw new NotFoundException(`Tenant with ID ${tenantId} not found`);
 
-    const transfer_creator = await this.db.query(
-      inventoryQueries.createInventoryTransfer,
-      [tenant_id, origin_warehouse_id, destination_warehouse_id],
->>>>>>> 5eb6eaf1cf7ad37bd0ffda50807eb2c1b02a3178:src/contexts/inventory/modules/warehouse/warehouse.service.ts
+    const { rows } = await this.db.query(
+      inventoryQueries.getDiscrepancyReportById,
+      [tenantId, discrepancyCountId],
     );
+    if (rows.length === 0)
+      throw new NotFoundException(
+        `Discrepancy Report with ID ${discrepancyCountId} not found`,
+      );
 
-  const report = rows[0];
+    const report = rows[0];
 
-<<<<<<< HEAD:src/modules/warehouse/warehouse.service.ts
-  if (report.is_applied)
-     throw new ConflictException(
-      `Discrepancy Report ${discrepancyCountId} has already been applied`,
-    );
+    if (report.is_applied)
+      throw new ConflictException(
+        `Discrepancy Report ${discrepancyCountId} has already been applied`,
+      );
 
-  const { warehouse_id, product_variant_id, stored_quantity, physical_quantity } = report;
-  const delta = physical_quantity - stored_quantity;
+    const { warehouse_id, product_variant_id, stored_quantity, physical_quantity } = report;
+    const delta = physical_quantity - stored_quantity;
 
-  // Usar transacción manual
-  const txn = await this.db.transaction();
-  try {
-    if (delta > 0) {
-      await txn.query(warehouseQueries.addStock, [delta, warehouse_id, product_variant_id, tenantId]);
-      await txn.query(warehouseQueries.logInventoryMovement, [1, warehouse_id, tenantId, product_variant_id, delta]);
-    } else if (delta < 0) {
-      await txn.query(warehouseQueries.removeStock, [Math.abs(delta), warehouse_id, product_variant_id, tenantId]);
-      await txn.query(warehouseQueries.logInventoryMovement, [2, warehouse_id, tenantId, product_variant_id, Math.abs(delta)]);
-=======
-    for (const product of products) {
-      await this.db.query(inventoryQueries.addProductToInventoryTransfer, [
-        transfer.inventory_transfer_id,
-        tenant_id,
-        product.product_id,
-        product.amount,
-      ]);
->>>>>>> 5eb6eaf1cf7ad37bd0ffda50807eb2c1b02a3178:src/contexts/inventory/modules/warehouse/warehouse.service.ts
+    const txn = await this.db.transaction();
+    try {
+      if (delta > 0) {
+        await txn.query(inventoryQueries.addStock, [delta, warehouse_id, product_variant_id, tenantId]);
+        await txn.query(inventoryQueries.logInventoryMovement, [1, warehouse_id, tenantId, product_variant_id, delta]);
+      } else if (delta < 0) {
+        await txn.query(inventoryQueries.removeStock, [Math.abs(delta), warehouse_id, product_variant_id, tenantId]);
+        await txn.query(inventoryQueries.logInventoryMovement, [2, warehouse_id, tenantId, product_variant_id, Math.abs(delta)]);
+      }
+      await txn.query(inventoryQueries.applyDiscrepancyReport, [discrepancyCountId, tenantId]);
+      await txn.commit();
+      return { success: true };
+    } catch (error) {
+      await txn.rollback();
+      throw error;
     }
-    await txn.query(warehouseQueries.applyDiscrepancyReport, [discrepancyCountId, tenantId]);
-    await txn.commit();
-    // Obtener el resultado final si es necesario (puedes ajustar según lo que devuelva applyDiscrepancyReport)
-    return { success: true };
-  } catch (error) {
-    await txn.rollback();
-    throw error;
   }
-}
 
    async moveProductToWarehouse(
     originWarehouseId: string,
@@ -477,7 +436,7 @@ async getStockByWarehouse(
     if (!tenant)
       throw new NotFoundException(`Tenant with ID ${tenantId} not found`);
 
-    const originWarehouse = await this.db.query(warehouseQueries.byId, [
+    const originWarehouse = await this.db.query(inventoryQueries.byId, [
       originWarehouseId,
     ]);
     if (originWarehouse.rowCount === 0)
@@ -485,7 +444,7 @@ async getStockByWarehouse(
         `Origin warehouse with ID ${originWarehouseId} not found`,
       );
 
-    const destinationWarehouse = await this.db.query(warehouseQueries.byId, [
+    const destinationWarehouse = await this.db.query(inventoryQueries.byId, [
       destinationWarehouseId,
     ]);
     if (destinationWarehouse.rowCount === 0)
@@ -500,7 +459,7 @@ async getStockByWarehouse(
     const txn = await this.db.transaction();
     try {
       // Crear transferencia de inventario
-      const transferRes = await txn.query(warehouseQueries.createInventoryTransfer, [originWarehouseId, destinationWarehouseId]);
+      const transferRes = await txn.query(inventoryQueries.createInventoryTransfer, [originWarehouseId, destinationWarehouseId]);
       const transferId = transferRes.rows[0]?.id ?? null;
 
       for (const p of products) {
@@ -517,14 +476,14 @@ async getStockByWarehouse(
           );
 
         // Remover stock del origen
-        await txn.query(warehouseQueries.removeStock, [p.amount, originWarehouseId, p.product_id, tenantId]);
+        await txn.query(inventoryQueries.removeStock, [p.amount, originWarehouseId, p.product_id, tenantId]);
         // Agregar stock al destino
-        await txn.query(warehouseQueries.addStock, [p.amount, destinationWarehouseId, p.product_id, tenantId]);
+        await txn.query(inventoryQueries.addStock, [p.amount, destinationWarehouseId, p.product_id, tenantId]);
         // Registrar producto en la transferencia
-        await txn.query(warehouseQueries.addProductToInventoryTransfer, [transferId, tenantId, p.product_id, p.amount]);
+        await txn.query(inventoryQueries.addProductToInventoryTransfer, [transferId, tenantId, p.product_id, p.amount]);
         // Log movimientos
-        await txn.query(warehouseQueries.logInventoryMovement, [2, originWarehouseId, tenantId, p.product_id, p.amount]);
-        await txn.query(warehouseQueries.logInventoryMovement, [1, destinationWarehouseId, tenantId, p.product_id, p.amount]);
+        await txn.query(inventoryQueries.logInventoryMovement, [2, originWarehouseId, tenantId, p.product_id, p.amount]);
+        await txn.query(inventoryQueries.logInventoryMovement, [1, destinationWarehouseId, tenantId, p.product_id, p.amount]);
       }
       await txn.commit();
       return { transferId };
@@ -543,7 +502,7 @@ async getStockByWarehouse(
     throw new NotFoundException(`Tenant with ID ${tenant_id} not found`);
 
   const { rows } = await this.db.query(
-    warehouseQueries.getExpiringStock,
+    inventoryQueries.getExpiringStock,
     [tenant_id, days],
   );
   return rows;
