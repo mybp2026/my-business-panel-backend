@@ -56,12 +56,16 @@ export const generalQueryDefs = {
       'DELETE FROM general_schema.tenant_customer WHERE tenant_customer_id = $1',
   },
 
+  region: {
+    all: 'SELECT * FROM general_schema.region ORDER BY region_id',
+  },
+
   tenant: {
     all: 'SELECT * FROM general_schema.tenant',
     byId: 'SELECT * FROM general_schema.tenant WHERE tenant_id = $1',
     create: `
-    INSERT INTO general_schema.tenant (tenant_name, contact_email, identification, econ_activity, sign, is_subscribed, created_at, updated_at, region_id)
-    VALUES ($1, $2, $3, $4, $5, $6, NOW(), NOW(), $7)
+    INSERT INTO general_schema.tenant (tenant_name, contact_email, contact_phone, identification, econ_activity, sign, is_subscribed, created_at, updated_at, region_id)
+    VALUES ($1, $2, $3, $4, $5, $6, $7, NOW(), NOW(), $8)
     RETURNING *
     `,
     delete: 'DELETE FROM general_schema.tenant WHERE tenant_id = $1',

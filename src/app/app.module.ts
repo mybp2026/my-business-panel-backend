@@ -20,6 +20,7 @@ import { CustomerPaymentModule } from '@/contexts/general/modules/customer_payme
 import { SegmentModule } from '@/contexts/general/modules/segment/segment.module';
 import { BranchModule } from '@/contexts/general/modules/branch/branch.module';
 import { TenantHaciendaConfigModule } from '@/contexts/general/modules/tenant_hacienda_config/tenant-hacienda-config.module';
+import { RegionModule } from '@/contexts/general/modules/region/region.module';
 
 // POS Modules
 import { SaleModule } from '@/contexts/pos/modules/sale/sale.module';
@@ -102,6 +103,7 @@ console.log(
     TardinessModule,
     EInvoiceModule,
     TenantHaciendaConfigModule,
+    RegionModule,
     AccountingModule,
     ExpenseModule,
     ReportingModule,

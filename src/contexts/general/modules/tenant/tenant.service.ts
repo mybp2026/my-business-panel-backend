@@ -26,6 +26,7 @@ export class TenantService {
     const {
       tenant_name,
       contact_email,
+      contact_phone,
       is_subscribed,
       region_id,
       economic_activity,
@@ -40,6 +41,7 @@ export class TenantService {
       const { rows } = await txn.query(tenant.create, [
         tenant_name,
         contact_email,
+        contact_phone ?? null,
         identification,
         economic_activity,
         sign,
