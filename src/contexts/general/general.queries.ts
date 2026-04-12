@@ -222,6 +222,35 @@ export const generalQueryDefs = {
       RETURNING customer_segment_id
     `,
   },
+
+  tenantHaciendaConfig: {
+    getByTenantId: `
+      SELECT * FROM general_schema.tenant_hacienda_config
+      WHERE tenant_id = $1 AND is_active = TRUE
+      LIMIT 1
+    `,
+    create: `
+      INSERT INTO general_schema.tenant_hacienda_config
+      (tenant_id, hacienda_username, hacienda_password, hacienda_client_id, p12_base64, p12_password)
+      VALUES ($1, $2, $3, $4, $5, $6)
+      RETURNING tenant_hacienda_config_id
+    `,
+    update: `
+      UPDATE general_schema.tenant_hacienda_config
+      SET hacienda_username = $2,
+          hacienda_password = $3,
+          hacienda_client_id = $4,
+          p12_base64 = $5,
+          p12_password = $6,
+          updated_at = NOW()
+      WHERE tenant_id = $1 AND is_active = TRUE
+    `,
+    deactivate: `
+      UPDATE general_schema.tenant_hacienda_config
+      SET is_active = FALSE, updated_at = NOW()
+      WHERE tenant_id = $1
+    `,
+  },
 };
 
 export const generalQueries = createQueries(generalQueryDefs);

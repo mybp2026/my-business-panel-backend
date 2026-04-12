@@ -14,10 +14,12 @@ import { TenantModule } from '@/contexts/general/modules/tenant/tenant.module';
 import { ProductCategoryModule } from '@/contexts/general/modules/product_category/product-category.module';
 import { CustomerSegmentMarginModule } from '@/contexts/general/modules/customer_segment_margin/customer_segment_margin.module';
 import { StripeModule } from '@/contexts/general/modules/stripe/stripe.module';
+import { QueueModule } from '@/contexts/general/modules/queue/queue.module';
 import { ProductModule } from '@/contexts/general/modules/product/product.module';
 import { CustomerPaymentModule } from '@/contexts/general/modules/customer_payment/customer-payment.module';
 import { SegmentModule } from '@/contexts/general/modules/segment/segment.module';
 import { BranchModule } from '@/contexts/general/modules/branch/branch.module';
+import { TenantHaciendaConfigModule } from '@/contexts/general/modules/tenant_hacienda_config/tenant-hacienda-config.module';
 
 // POS Modules
 import { SaleModule } from '@/contexts/pos/modules/sale/sale.module';
@@ -66,6 +68,7 @@ console.log(
     CustomerModule,
     DocumentTypeModule,
     DbModule,
+    QueueModule,
     TenantModule,
     ProductCategoryModule,
     CustomerSegmentMarginModule,
@@ -98,6 +101,7 @@ console.log(
     FoulModule,
     TardinessModule,
     EInvoiceModule,
+    TenantHaciendaConfigModule,
     AccountingModule,
     ExpenseModule,
     ReportingModule,

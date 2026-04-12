@@ -63,3 +63,9 @@ report.[0-9]*.[0-9]*.[0-9]*.[0-9]*.json
 *.xlsx
 *.~*
 cabys_tree.json
+
+# Docker image files 
+
+postgres-data
+redis-data
+redis-insight-data
