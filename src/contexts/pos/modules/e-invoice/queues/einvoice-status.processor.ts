@@ -50,6 +50,8 @@ export class EInvoiceStatusProcessor {
         await this.hacienda.checkInvoiceStatus(tenantId, credentials, keyNumber);
       const statusId = this.mapIndEstadoToStatusId(status.indEstado);
 
+      this.logger.debug(`Invoice ${keyNumber} Hacienda indEstado: "${status.indEstado}" → statusId: ${statusId}${status.respuestaTxt ? ` | msg: ${status.respuestaTxt}` : ''}`);
+
       if (statusId !== 1) {
         await this.db.query(eInvoice.updateHaciendaResponse, [
           electronicInvoiceId,
