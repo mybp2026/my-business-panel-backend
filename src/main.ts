@@ -4,8 +4,8 @@ import * as cookieParser from 'cookie-parser';
 import { ValidationPipe } from '@nestjs/common';
 import * as bodyParser from 'body-parser';
 import { ResponseInterceptor } from './common/interceptors/ResponseFormatter.interceptor';
-import 'dotenv/config';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
+import 'dotenv/config';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule, {

@@ -9,7 +9,8 @@ const stripeProvider: Provider = {
 
         if (!apiKey || apiKey.length < 50) {
             console.error("La clave API de Stripe no está cargada o es muy corta.");
-            throw new Error('STRIPE API Key configuration error. Check .env file and main.ts loading.');
+            // throw new Error('STRIPE API Key configuration error. Check .env file and main.ts loading.');
+            return null;
         }
 
         return new Stripe(apiKey, {

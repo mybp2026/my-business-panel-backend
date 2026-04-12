@@ -1,12 +1,12 @@
 import { Post, Controller, Body, Res, UseGuards } from '@nestjs/common';
+import { ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
 import { AuthService } from '@/contexts/general/modules/auth/auth.service';
 import { LoginDto } from './dto/login.dto';
 import { Response } from 'express';
 import { AuthenticationGuard } from '@/common/guards/authentication.guard';
-import { ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
-import { loginDoc, logoutDoc } from '@/docs/general/auth';
+import { loginDoc, logoutDoc } from '@/docs/contexts/general/auth';
 
-@ApiTags('Authentication')
+@ApiTags('Auth')
 @Controller('/auth')
 export class AuthController {
   constructor(private readonly authService: AuthService) {}

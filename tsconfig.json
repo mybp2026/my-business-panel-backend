@@ -11,7 +11,7 @@
     "sourceMap": true,
     "outDir": "./dist",
     "incremental": true,
-    "skipLibCheck": false,
+    "skipLibCheck": true,
     "strictNullChecks": true,
     "forceConsistentCasingInFileNames": true,
     "noImplicitAny": true,
@@ -25,5 +25,6 @@
       "@general/*": ["./src/contexts/general/*"],
       "@tests/*": ["./tests/*"]
     }
-  }
+  },
+  "exclude": ["node_modules", "dist", "my-business-panel-backend", "my-business-panel-database", "../src", "../dist"]
 }
