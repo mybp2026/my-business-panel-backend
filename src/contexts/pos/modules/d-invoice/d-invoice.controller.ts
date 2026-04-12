@@ -33,6 +33,11 @@ export class DInvoiceController {
   @ApiOperation(getCustomerDInvoicesDoc.operation)
   @ApiResponse(getCustomerDInvoicesDoc.responses[200])
   @ApiResponse(getCustomerDInvoicesDoc.responses[401])
+  @Get('sale/:saleId')
+  async getDInvoiceBySaleId(@Param('saleId') saleId: string) {
+    return this.invoiceService.getDInvoiceBySaleId(saleId);
+  }
+
   @Get()
   async getCustomerDInvoices(
     @Query('id') tenantId: string,
