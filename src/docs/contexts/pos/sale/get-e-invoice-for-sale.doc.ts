@@ -18,5 +18,25 @@ export const getEInvoiceForSaleDoc = {
         },
       },
     },
+    401: {
+      status: 401,
+      description: 'Unauthorized.',
+      schema: {
+        type: 'object',
+        properties: {
+          error: { type: 'string', example: 'Unauthorized' },
+        },
+      },
+    },
+    404: {
+      status: 404,
+      description: 'Factura no encontrada para esta venta.',
+      schema: {
+        type: 'object',
+        properties: {
+          error: { type: 'string', example: 'Not Found' },
+        },
+      },
+    },
   },
 };

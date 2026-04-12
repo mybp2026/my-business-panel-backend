@@ -15,5 +15,25 @@ export const removePaymentAlertDoc = {
         },
       },
     },
+    401: {
+      status: 401,
+      description: 'Unauthorized.',
+      schema: {
+        type: 'object',
+        properties: {
+          error: { type: 'string', example: 'Unauthorized' },
+        },
+      },
+    },
+    404: {
+      status: 404,
+      description: 'Alerta no encontrada.',
+      schema: {
+        type: 'object',
+        properties: {
+          error: { type: 'string', example: 'Not Found' },
+        },
+      },
+    },
   },
 };

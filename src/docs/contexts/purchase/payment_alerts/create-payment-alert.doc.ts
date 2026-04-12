@@ -17,5 +17,25 @@ export const createPaymentAlertDoc = {
         },
       },
     },
+    400: {
+      status: 400,
+      description: 'Bad request.',
+      schema: {
+        type: 'object',
+        properties: {
+          error: { type: 'string', example: 'Bad Request' },
+        },
+      },
+    },
+    401: {
+      status: 401,
+      description: 'Unauthorized.',
+      schema: {
+        type: 'object',
+        properties: {
+          error: { type: 'string', example: 'Unauthorized' },
+        },
+      },
+    },
   },
 };
