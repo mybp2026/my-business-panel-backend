@@ -49,6 +49,7 @@ export class UserController {
   }
 
   @Get()
+  @UseGuards(AuthenticationGuard)
   getSelfInfo(@Session() session: IUserSession) {
     return this.userService.getSelfInfo(session);
   }
