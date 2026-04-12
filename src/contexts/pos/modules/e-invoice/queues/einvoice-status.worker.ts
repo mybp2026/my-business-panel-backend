@@ -30,11 +30,11 @@ export class EInvoiceStatusWorker implements OnModuleInit, OnModuleDestroy {
       },
     );
 
-    this.worker.on('completed', (job) => {
+    this.worker.on('completed', (job: Job) => {
       this.logger.debug(`Job ${job.id} completed`);
     });
 
-    this.worker.on('failed', (job, err) => {
+    this.worker.on('failed', (job: Job | undefined, err: Error) => {
       this.logger.error(`Job ${job?.id} failed: ${err.message}`);
     });
 

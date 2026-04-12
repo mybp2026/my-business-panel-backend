@@ -16,6 +16,16 @@ export const updateLoyalProgramDoc = {
         },
       },
     },
+    400: {
+      status: 400,
+      description: 'Invalid data.',
+      schema: {
+        type: 'object',
+        properties: {
+          error: { type: 'string', example: 'Bad Request' },
+        },
+      },
+    },
     401: {
       status: 401,
       description: 'Unauthorized.',

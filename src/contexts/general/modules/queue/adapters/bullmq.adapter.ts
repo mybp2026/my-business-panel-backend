@@ -61,7 +61,7 @@ export class BullMQAdapter implements IQueueService {
 
     const results = await queue.addBulk(bulkJobs);
 
-    return results.map((job) => ({
+    return results.map((job: any) => ({
       id: job.id!,
       name: job.name,
       data: job.data as T,
@@ -73,7 +73,7 @@ export class BullMQAdapter implements IQueueService {
     const queue = this.getQueue(queueName);
     const jobs = await queue.getJobs(statuses);
 
-    return jobs.map((job) => ({
+    return jobs.map((job: any) => ({
       id: job.id!,
       name: job.name,
       data: job.data,

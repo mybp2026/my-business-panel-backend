@@ -17,6 +17,7 @@ import { CreateFullEmployeeError } from '@/common/errors/create_full_employee.er
 
 const { users } = generalQueries;
 const { employee } = hrQueries;
+type TransactionClient = Awaited<ReturnType<Database['transaction']>>;
 
 @Injectable()
 export class UserService {
@@ -25,6 +26,17 @@ export class UserService {
     private readonly state: StateService,
     private readonly employeeService: EmployeeService,
   ) {}
+
+  private async rollbackSafely(
+    txn: TransactionClient,
+    context: string,
+  ): Promise<void> {
+    try {
+      await txn.rollback();
+    } catch (rollbackError) {
+      console.error(`[UserService.${context}] Rollback failed:`, rollbackError);
+    }
+  }
 
   async getUserByEmail(email: string): Promise<IUserResult | null> {
     const fetchedData = await this.db.query(users.byEmailWithPassword, [email]);
@@ -52,11 +64,12 @@ export class UserService {
 
   async createUser(createUserDto: CreateUserDto) {
     const password_hash = await hash(
-        createUserDto.password,
-        this.state.getConstant<number>('PASSWORD_SALT_ROUNDS'),
-      ),
-      { tenant_id, email, role_id, employeeInfo } = createUserDto,
-      txn = await this.db.transaction();
+      createUserDto.password,
+      this.state.getConstant<number>('PASSWORD_SALT_ROUNDS'),
+    );
+    const { tenant_id, email, role_id, employeeInfo } = createUserDto;
+    const txn = await this.db.transaction();
+    let committed = false;
 
     try {
       const newUser = await txn.query(users.create, [
@@ -105,10 +118,11 @@ export class UserService {
       }
 
       await txn.commit();
+      committed = true;
       return { message: 'user created successfully!' };
     } catch (error) {
-      await txn.rollback();
-      console.error('Error creating user:', error);
+      if (!committed) await this.rollbackSafely(txn, 'createUser');
+      console.error('[UserService.createUser] Transaction failed:', error);
       throw error;
     }
   }
@@ -123,8 +137,9 @@ export class UserService {
         const password_hash = hashSync(dto.password, saltRounds);
 
         return [dto.tenant_id, dto.email, password_hash, dto.role_id];
-      }),
-      txn = await this.db.transaction();
+      });
+    const txn = await this.db.transaction();
+    let committed = false;
 
     try {
       const userResult = await txn.bulkInsert(
@@ -234,6 +249,7 @@ export class UserService {
       );
 
       await txn.commit();
+      committed = true;
       return {
         message: 'users created successfully!',
         count: rows.length,
@@ -243,9 +259,8 @@ export class UserService {
         })),
       };
     } catch (error) {
-      await txn.rollback();
-      console.error('Error bulk creating users:', error);
-      console.error('Error details:', JSON.stringify(error, null, 2));
+      if (!committed) await this.rollbackSafely(txn, 'createUsersBulk');
+      console.error('[UserService.createUsersBulk] Transaction failed:', error);
       throw error;
     }
   }

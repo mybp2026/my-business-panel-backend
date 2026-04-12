@@ -105,6 +105,16 @@ export const createFullSaleDoc = {
         },
       },
     },
+    401: {
+      status: 401,
+      description: 'Unauthorized.',
+      schema: {
+        type: 'object',
+        properties: {
+          error: { type: 'string', example: 'Unauthorized' },
+        },
+      },
+    },
     500: {
       status: 500,
       description: 'Error interno al crear la venta.',

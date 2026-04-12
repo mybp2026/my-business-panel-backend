@@ -11,7 +11,7 @@ import { TenantHaciendaConfigService } from '@/contexts/general/modules/tenant_h
 
 const { eInvoice } = posQueries;
 
-const REQUEUE_DELAY_MS = 2 * 60 * 60 * 1000; // 2 hours
+const REQUEUE_DELAY_MS = Number(process.env.EINVOICE_REQUEUE_DELAY_MS) || 2 * 60 * 60 * 1000; // default: 2 hours
 const GAP_BETWEEN_JOBS_MS = Number(process.env.EINVOICE_REQUEST_GAP_MS) || 5000;
 const TTL_HOURS = Number(process.env.EINVOICE_TTL_HOURS) || 3;
 
@@ -49,6 +49,8 @@ export class EInvoiceStatusProcessor {
       const status: HaciendaStatusResponse =
         await this.hacienda.checkInvoiceStatus(tenantId, credentials, keyNumber);
       const statusId = this.mapIndEstadoToStatusId(status.indEstado);
+
+      this.logger.debug(`Invoice ${keyNumber} Hacienda indEstado: "${status.indEstado}" → statusId: ${statusId}${status.respuestaTxt ? ` | msg: ${status.respuestaTxt}` : ''}`);
 
       if (statusId !== 1) {
         await this.db.query(eInvoice.updateHaciendaResponse, [

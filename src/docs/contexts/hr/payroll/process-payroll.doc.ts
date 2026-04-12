@@ -25,8 +25,8 @@ export const processPayrollDoc = {
   },
 
   responses: {
-    201: {
-      status: 201,
+    200: {
+      status: 200,
       description: 'Payroll processed successfully.',
       schema: {
         type: 'object',
@@ -52,6 +52,16 @@ export const processPayrollDoc = {
         type: 'object',
         properties: {
           error: { type: 'string', example: 'Unauthorized' },
+        },
+      },
+    },
+    404: {
+      status: 404,
+      description: 'Employee or period not found.',
+      schema: {
+        type: 'object',
+        properties: {
+          error: { type: 'string', example: 'Not Found' },
         },
       },
     },

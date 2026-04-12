@@ -18,6 +18,10 @@ export class NewSubscriptionDto {
   details!: string;
 
   @IsString()
+  @IsNotEmpty()
+  stripe_payment_method_id!: string;
+
+  @IsString()
   plan!: string
 
   @IsNumber()

@@ -26,6 +26,7 @@ export class TenantService {
     const {
       tenant_name,
       contact_email,
+      contact_phone,
       is_subscribed,
       region_id,
       economic_activity,
@@ -33,16 +34,37 @@ export class TenantService {
       identification,
     } = tenantInfo;
 
-    const { rows } = await this.db.query(tenant.create, [
-      tenant_name,
-      contact_email,
-      identification,
-      economic_activity,
-      sign,
-      is_subscribed,
-      region_id,
-    ]);
-    return rows[0];
+    const txn = await this.db.transaction();
+    let committed = false;
+
+    try {
+      const { rows } = await txn.query(tenant.create, [
+        tenant_name,
+        contact_email,
+        contact_phone ?? null,
+        identification,
+        economic_activity,
+        sign,
+        is_subscribed,
+        region_id,
+      ]);
+
+      await txn.commit();
+      committed = true;
+      return rows[0];
+    } catch (error) {
+      if (!committed) {
+        try {
+          await txn.rollback();
+        } catch (rollbackError) {
+          console.error(
+            '[TenantService.createTenant] Rollback failed:',
+            rollbackError,
+          );
+        }
+      }
+      throw error;
+    }
   }
 
   async updateTenant(tenantId: string, tenantData: UpdateTenantDto) {

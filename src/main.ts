@@ -6,22 +6,21 @@ import * as bodyParser from 'body-parser';
 import { ResponseInterceptor } from './common/interceptors/ResponseFormatter.interceptor';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import 'dotenv/config';
-import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule, {
     rawBody: true,
   });
 
-  const config = new DocumentBuilder()
-    .setTitle('MyBusiness Panel API')
-    .setDescription('Documentación de endpoints del panel de negocios')
-    .setVersion('1.0')
-    .addCookieAuth('access_token')
-    .build();
+  const allowedOrigins = process.env.ALLOWED_ORIGINS
+    ? process.env.ALLOWED_ORIGINS.split(',').map((origin) => origin.trim())
+    : ['http://localhost:5173', 'http://localhost:3000'];
 
-  const document = SwaggerModule.createDocument(app, config);
-  SwaggerModule.setup('docs', app, document);
+  app.enableCors({
+    origin: allowedOrigins,
+    credentials: true,
+  });
+
   app.setGlobalPrefix('api/v1');
   app.use(cookieParser());
   app.useGlobalInterceptors(new ResponseInterceptor());

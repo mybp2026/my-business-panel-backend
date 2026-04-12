@@ -75,6 +75,7 @@ export class UserController {
   @ApiResponse(getSelfInfoDoc.responses[200])
   @ApiResponse(getSelfInfoDoc.responses[401])
   @Get()
+  @UseGuards(AuthenticationGuard)
   getSelfInfo(@Session() session: IUserSession) {
     return this.userService.getSelfInfo(session);
   }

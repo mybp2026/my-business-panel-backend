@@ -10,6 +10,10 @@ export class NewTenantDto {
   contact_email!: string;
 
   @IsOptional()
+  @IsString()
+  contact_phone?: string;
+
+  @IsOptional()
   @IsBoolean()
   is_subscribed?: boolean;
 

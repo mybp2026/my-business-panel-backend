@@ -45,7 +45,9 @@ export class HaciendaService {
         const res = await this.fetchWithTimeout(url, options);
 
         if (res.status >= 500 && attempt < MAX_RETRIES) {
-          this.logger.warn(`Hacienda returned ${res.status}, retry ${attempt}/${MAX_RETRIES}`);
+          this.logger.warn(
+            `Hacienda returned ${res.status}, retry ${attempt}/${MAX_RETRIES}`,
+          );
           await this.sleep(1000 * attempt);
           continue;
         }
@@ -54,7 +56,9 @@ export class HaciendaService {
       } catch (err: any) {
         lastError = err;
         if (attempt < MAX_RETRIES) {
-          this.logger.warn(`Fetch failed (${err.message}), retry ${attempt}/${MAX_RETRIES}`);
+          this.logger.warn(
+            `Fetch failed (${err.message}), retry ${attempt}/${MAX_RETRIES}`,
+          );
           await this.sleep(1000 * attempt);
         }
       }
@@ -91,6 +95,10 @@ export class HaciendaService {
     });
 
     if (!res.ok) {
+      const errorBody = await res.text();
+      this.logger.error(
+        `Error obteniendo token de Hacienda IDP [${res.status}]: ${errorBody}`,
+      );
       throw new Error(
         `Error obteniendo token de Hacienda IDP para tenant ${tenantId}: ${res.status} ${await res.text()}`,
       );
@@ -117,6 +125,7 @@ export class HaciendaService {
     const token = await this.getAccessToken(tenantId, credentials);
 
     if (process.env.HACIENDA_MOCK === 'true') {
+      this.logger.log('Modo MOCK habilitado - comprobante aceptado localmente');
       return {
         accepted: true,
         message: 'Mock: comprobante aceptado localmente',
@@ -132,11 +141,30 @@ export class HaciendaService {
       body: JSON.stringify(payload),
     });
 
-    if (res.status === 201) {
+    const errorText =
+      res.status !== 201 && res.status !== 202 && res.status !== 422
+        ? await res.text()
+        : '';
+
+    this.logger.log(`Respuesta de Hacienda: ${res.status}`);
+
+    if (res.status !== 201 && res.status !== 202 && res.status !== 422) {
+      this.logger.error(`Hacienda rechazó la solicitud [${res.status}]`);
+      this.logger.error(
+        `Response headers: ${JSON.stringify(Object.fromEntries(res.headers.entries()))}`,
+      );
+      this.logger.error(`Response body: ${errorText}`);
+    }
+
+    if (res.status === 201 || res.status === 202) {
+      this.logger.log(`✓ Comprobante aceptado por Hacienda (${res.status})`);
       return { accepted: true };
     }
 
     if (res.status === 422) {
+      this.logger.log(
+        '✓ Comprobante ya recibido por Hacienda (422 - duplicado)',
+      );
       return {
         accepted: true,
         message: 'Comprobante ya recibido por Hacienda',
@@ -144,7 +172,7 @@ export class HaciendaService {
     }
 
     throw new Error(
-      `Hacienda rechazó la factura [${res.status}]: ${await res.text()}`,
+      `Hacienda rechazó la factura [${res.status}]: ${errorText}`,
     );
   }
 
@@ -168,13 +196,23 @@ export class HaciendaService {
       };
     }
 
+    const authHeader = `bearer ${token.trim()}`;
+    this.logger.debug(
+      `Consultando estado de comprobante [${clave}] en Hacienda`,
+    );
+    this.logger.debug(`Endpoint: ${this.apiUrl}recepcion/${clave}`);
+
     const res = await this.fetchWithRetry(`${this.apiUrl}recepcion/${clave}`, {
       headers: { Authorization: `Bearer ${token}` },
     });
 
     if (!res.ok) {
+      const errorBody = await res.text();
+      this.logger.error(
+        `Error consultando estado en Hacienda [${res.status}]: ${errorBody}`,
+      );
       throw new Error(
-        `Error consultando estado en Hacienda [${res.status}]: ${await res.text()}`,
+        `Error consultando estado en Hacienda [${res.status}]: ${errorBody}`,
       );
     }
 

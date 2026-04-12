@@ -6,6 +6,7 @@ export interface Tenant {
   econ_activity?: string;
   sign?: string;
   contact_email: string;
+  contact_phone?: string;
   is_subscribed: boolean;
   stripe_id: string;
   created_at: string;

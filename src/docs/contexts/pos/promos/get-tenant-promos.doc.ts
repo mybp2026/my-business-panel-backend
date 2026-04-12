@@ -23,5 +23,15 @@ export const getTenantPromosDoc = {
         },
       },
     },
+    401: {
+      status: 401,
+      description: 'Unauthorized.',
+      schema: {
+        type: 'object',
+        properties: {
+          error: { type: 'string', example: 'Unauthorized' },
+        },
+      },
+    },
   },
 };
