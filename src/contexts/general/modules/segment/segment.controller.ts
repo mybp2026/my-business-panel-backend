@@ -15,6 +15,7 @@ export class SegmentController {
 
   @ApiOperation(getSegmentsDoc.operation)
   @ApiResponse(getSegmentsDoc.responses[200])
+  @ApiResponse(getSegmentsDoc.responses[401])
   @Get()
   async getSegments() {
     return this.segmentService.getSegments();
@@ -23,6 +24,7 @@ export class SegmentController {
   @ApiOperation(newSegmentDoc.operation)
   @ApiResponse(newSegmentDoc.responses[201])
   @ApiResponse(newSegmentDoc.responses[400])
+  @ApiResponse(newSegmentDoc.responses[401])
   @Post()
   async newSegment(@Body() req: NewSegmentDto) {
     return this.segmentService.newSegment(req);
@@ -30,7 +32,8 @@ export class SegmentController {
 
   @ApiOperation(deleteSegmentDoc.operation)
   @ApiResponse(deleteSegmentDoc.responses[200])
-  @ApiResponse(deleteSegmentDoc.responses[500])
+  @ApiResponse(deleteSegmentDoc.responses[401])
+  @ApiResponse(deleteSegmentDoc.responses[404])
   @Delete(':id')
   async deleteSegment(@Param('id') id: number) {
     return this.segmentService.deleteSegment(id);

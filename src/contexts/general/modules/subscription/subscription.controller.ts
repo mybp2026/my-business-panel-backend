@@ -24,7 +24,7 @@ export class SubscriptionController {
   @ApiOperation(createSubscriptionDoc.operation)
   @ApiResponse(createSubscriptionDoc.responses[201])
   @ApiResponse(createSubscriptionDoc.responses[400])
-  @ApiResponse(createSubscriptionDoc.responses[404])
+  @ApiResponse(createSubscriptionDoc.responses[401])
   @Post('create')
   async createSubscription(@Body() req: NewSubscriptionDto) {
     return this.subscriptionService.createSubscription(req);

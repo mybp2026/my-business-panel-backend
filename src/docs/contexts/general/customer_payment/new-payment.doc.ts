@@ -1,40 +1,18 @@
+// src/docs/contexts/general/customer_payment/new-payment.doc.ts
 export const newPaymentDoc = {
   dto: {
-    tenant_customer_id: {
-      description: 'UUID del cliente asociado al tenant',
-      example: '123e4567-e89b-12d3-a456-426614174000',
-    },
-    sale_id: {
-      description: 'UUID de la venta asociada al pago (opcional)',
-      example: '456e7890-e89b-12d3-a456-426614174001',
-    },
-    payment_method_id: {
-      description: 'ID del método de pago (ej: 1=Efectivo, 2=Tarjeta)',
-      example: 1,
-    },
-    payment_amount: {
-      description: 'Monto del pago',
-      example: 15000,
-    },
-    payment_date: {
-      description: 'Fecha del pago en formato ISO',
-      example: '2026-03-30T12:00:00.000Z',
-    },
-    currency_id: {
-      description: 'ID de la moneda utilizada (ej: 1=CRC, 2=USD)',
-      example: 1,
-    },
-    verified: {
-      description: 'Indica si el pago fue verificado',
-      example: false,
-    },
+    tenant_customer_id: { description: 'UUID of the customer making the payment.', example: '123e4567-e89b-12d3-a456-426614174000' },
+    sale_id: { description: 'UUID of the associated sale. Optional.', example: 'abc12345-e89b-12d3-a456-426614174000' },
+    payment_method_id: { description: 'ID of the payment method used.', example: 1 },
+    payment_amount: { description: 'Amount paid.', example: 5000 },
+    payment_date: { description: 'Date and time the payment was made.', example: '2024-04-01T10:00:00.000Z' },
+    currency_id: { description: 'ID of the currency used.', example: 1 },
+    verified: { description: 'Whether the payment has been verified.', example: true },
   },
-  operation: {
-    summary: 'Registrar nuevo pago de cliente',
-    description: 'Crea un nuevo registro de pago de cliente en el sistema.',
-  },
+  operation: { summary: 'Register a new customer payment', description: 'Creates a new customer payment record.' },
   responses: {
-    201: { status: 201, description: 'Pago creado exitosamente' },
-    400: { status: 400, description: 'Datos inválidos o faltantes en el body' },
+    201: { status: 201, description: 'Payment registered.', schema: { type: 'object', properties: { payment_id: { type: 'string', example: 'uuid' } } } },
+    400: { status: 400, description: 'Invalid data.', schema: { type: 'object', properties: { error: { type: 'string', example: 'Bad Request' } } } },
+    401: { status: 401, description: 'Unauthorized.', schema: { type: 'object', properties: { error: { type: 'string', example: 'Unauthorized' } } } },
   },
 };

@@ -1,13 +1,50 @@
+// src/docs/contexts/pos/loyal-program/update-loyal-program.doc.ts
 export const updateLoyalProgramDoc = {
-  dto: {
-    minimum_purchase_for_points: { description: 'Nuevo monto mínimo de compra para ganar puntos', example: 7500 },
-  },
   operation: {
-    summary: 'Actualizar programa de lealtad',
-    description: 'Actualiza la configuración de un programa de lealtad existente dado su ID.',
+    summary: 'Update loyalty program',
+    description: 'Updates the configuration of an existing loyalty program.',
   },
+
   responses: {
-    200: { status: 200, description: 'Programa de lealtad actualizado exitosamente' },
-    404: { status: 404, description: 'Programa de lealtad no encontrado' },
+    200: {
+      status: 200,
+      description: 'Loyalty program updated.',
+      schema: {
+        type: 'object',
+        properties: {
+          message: { type: 'string', example: 'Loyal program updated successfully' },
+        },
+      },
+    },
+    400: {
+      status: 400,
+      description: 'Invalid data.',
+      schema: {
+        type: 'object',
+        properties: {
+          error: { type: 'string', example: 'Bad Request' },
+        },
+      },
+    },
+    401: {
+      status: 401,
+      description: 'Unauthorized.',
+      schema: {
+        type: 'object',
+        properties: {
+          error: { type: 'string', example: 'Unauthorized' },
+        },
+      },
+    },
+    404: {
+      status: 404,
+      description: 'Loyalty program not found.',
+      schema: {
+        type: 'object',
+        properties: {
+          error: { type: 'string', example: 'Loyal program not found' },
+        },
+      },
+    },
   },
 };

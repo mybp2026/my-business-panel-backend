@@ -1,6 +1,6 @@
-export * from './get-tenant-promos.doc';
-export * from './get-promo-info.doc';
-export * from './get-promo-types.doc';
-export * from './create-promo.doc';
-export * from './update-promo.doc';
-export * from './delete-promo.doc';
+export { getTenantPromosDoc } from './get-tenant-promos.doc';
+export { getPromoInfoDoc } from './get-promo-info.doc';
+export { getPromoTypesDoc } from './get-promo-types.doc';
+export { createPromoWithRuleDoc } from './create-promo-with-rule.doc';
+export { updatePromotionDoc } from './update-promotion.doc';
+export { deletePromotionDoc } from './delete-promotion.doc';

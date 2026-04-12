@@ -1,12 +1,9 @@
+// src/docs/contexts/general/customer_payment/get-customer-payments.doc.ts
 export const getCustomerPaymentsDoc = {
-  operation: {
-    summary: 'Obtener pagos de un cliente',
-    description: 'Retorna todos los pagos asociados a un cliente específico usando su ID.',
-  },
-  params: {
-    id: { description: 'ID del cliente', example: '123e4567-e89b-12d3-a456-426614174000' },
-  },
+  operation: { summary: 'Get payments for a customer', description: 'Returns all payments made by a specific customer.' },
   responses: {
-    200: { status: 200, description: 'Pagos del cliente obtenidos exitosamente' },
+    200: { status: 200, description: 'List of customer payments.', schema: { type: 'array', items: { type: 'object', properties: { payment_id: { type: 'string', example: 'uuid' }, payment_amount: { type: 'number', example: 5000 } } } } },
+    401: { status: 401, description: 'Unauthorized.', schema: { type: 'object', properties: { error: { type: 'string', example: 'Unauthorized' } } } },
+    404: { status: 404, description: 'Customer not found.', schema: { type: 'object', properties: { error: { type: 'string', example: 'Customer not found' } } } },
   },
 };

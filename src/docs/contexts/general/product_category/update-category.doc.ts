@@ -1,19 +1,9 @@
-export const updateCategoryDoc = {
-  dto: {
-    name: {
-      description: 'Nuevo nombre de la categoría',
-      example: 'Bebidas Frías',
-    },
-  },
-  operation: {
-    summary: 'Actualizar categoría de producto',
-    description: 'Actualiza el nombre de una categoría de producto existente.',
-  },
-  params: {
-    id: { description: 'ID de la categoría a actualizar', example: '1' },
-  },
+// src/docs/contexts/general/product_category/update-category.doc.ts
+export const updateProductCategoryDoc = {
+  operation: { summary: 'Update a product category', description: 'Updates the name of an existing product category.' },
   responses: {
-    200: { status: 200, description: 'Categoría actualizada exitosamente' },
-    400: { status: 400, description: 'Datos inválidos o faltantes' },
+    200: { status: 200, description: 'Category updated.', schema: { type: 'object', properties: { message: { type: 'string', example: 'Category updated' } } } },
+    401: { status: 401, description: 'Unauthorized.', schema: { type: 'object', properties: { error: { type: 'string', example: 'Unauthorized' } } } },
+    404: { status: 404, description: 'Category not found.', schema: { type: 'object', properties: { error: { type: 'string', example: 'Category not found' } } } },
   },
 };

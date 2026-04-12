@@ -1,29 +1,53 @@
+// src/docs/contexts/purchase/suppliers/create-supplier.doc.ts
 export const createSupplierDoc = {
   dto: {
     supplier_name: {
-      description: 'Nombre del proveedor',
+      description: 'Nombre del proveedor.',
       example: 'Distribuidora Nacional S.A.',
     },
     supplier_contact_info: {
-      description: 'Información de contacto del proveedor (teléfono, email, etc.)',
-      example: 'Tel: 2222-3333 | contacto@distribuidora.com',
+      description: 'Información de contacto del proveedor (teléfono, correo, etc.).',
+      example: 'contacto@distribuidora.com | +506-0000-0000',
     },
     supplier_address: {
-      description: 'Dirección física del proveedor',
-      example: 'San José, Costa Rica, Barrio Los Yoses',
+      description: 'Dirección física del proveedor.',
+      example: 'Calle 5, San José, Costa Rica',
     },
     supplier_notes: {
-      description: 'Notas adicionales sobre el proveedor (opcional)',
+      description: 'Notas adicionales opcionales sobre el proveedor.',
       example: 'Entrega los martes y jueves',
     },
   },
+
   operation: {
     summary: 'Crear proveedor',
-    description: 'Crea un nuevo proveedor asociado al tenant del usuario autenticado. Requiere autenticación.',
+    description: 'Registra un nuevo proveedor para el tenant del usuario autenticado.',
   },
+
   responses: {
-    201: { status: 201, description: 'Proveedor creado exitosamente' },
-    400: { status: 400, description: 'Datos inválidos o sesión inválida' },
-    401: { status: 401, description: 'No autorizado' },
+    201: {
+      status: 201,
+      description: 'Proveedor creado exitosamente.',
+      schema: {
+        type: 'object',
+        properties: {
+          supplier_id: { type: 'string', example: '123e4567-e89b-12d3-a456-426614174000' },
+          supplier_name: { type: 'string', example: 'Distribuidora Nacional S.A.' },
+          supplier_contact_info: { type: 'string', example: 'contacto@distribuidora.com | +506-0000-0000' },
+          supplier_address: { type: 'string', example: 'Calle 5, San José, Costa Rica' },
+          supplier_notes: { type: 'string', example: 'Entrega los martes y jueves' },
+        },
+      },
+    },
+    401: {
+      status: 401,
+      description: 'No autorizado — token ausente o inválido.',
+      schema: {
+        type: 'object',
+        properties: {
+          error: { type: 'string', example: 'Unauthorized' },
+        },
+      },
+    },
   },
 };

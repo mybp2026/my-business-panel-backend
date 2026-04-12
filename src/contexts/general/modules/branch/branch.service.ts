@@ -42,7 +42,7 @@ export class BranchService {
       tenant_id,
       branch_name,
       branch_number,
-      address,
+      branch_address,
       contact_email,
       is_main_branch,
     } = createBranchDto;
@@ -50,16 +50,35 @@ export class BranchService {
     if (user_tenant_id !== tenant_id)
       throw new InvalidSessionError('UNAUTHORIZED');
 
-    const { rows } = await this.db.query(branch.create, [
-      tenant_id,
-      branch_name,
-      branch_number,
-      address || null,
-      contact_email || null,
-      is_main_branch,
-    ]);
+    const txn = await this.db.transaction();
+    let committed = false;
 
-    return rows[0];
+    try {
+      const { rows } = await txn.query(branch.create, [
+        tenant_id,
+        branch_name,
+        branch_number,
+        branch_address || null,
+        contact_email || null,
+        is_main_branch,
+      ]);
+
+      await txn.commit();
+      committed = true;
+      return rows[0];
+    } catch (error) {
+      if (!committed) {
+        try {
+          await txn.rollback();
+        } catch (rollbackError) {
+          console.error(
+            '[BranchService.createBranch] Rollback failed:',
+            rollbackError,
+          );
+        }
+      }
+      throw error;
+    }
   }
 
   async deleteBranch(branchId: string): Promise<Branch> {
@@ -74,7 +93,7 @@ export class BranchService {
     const {
       branch_name,
       branch_number,
-      address,
+      branch_address,
       contact_email,
       is_main_branch,
     } = updateBranchDto;
@@ -85,7 +104,7 @@ export class BranchService {
       branch_id,
       branch_name,
       branch_number,
-      address || null,
+      branch_address || null,
       contact_email || null,
       is_main_branch,
     ]);

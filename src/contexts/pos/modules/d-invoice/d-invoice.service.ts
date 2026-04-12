@@ -12,6 +12,7 @@ import {
 } from './interface/d-invoice.interface';
 import { posQueries } from '@pos/pos.queries';
 import { InvalidInvoice } from '@/common/errors/invalid_bill.error';
+import { InvoiceNotFound } from '@/common/errors/invoice_not_found.error';
 
 const { dInvoice } = posQueries;
 
@@ -60,8 +61,14 @@ export class DInvoiceService {
     return result.rows;
   }
 
-  async getDInvoiceById(invoiceId: string): Promise<FullInvoice> {
-    const result = await this.db.query(dInvoice.getDInvoiceById, [invoiceId]);
+  async getDInvoiceById(saleId: string): Promise<FullInvoice> {
+    const result = await this.db.query(dInvoice.getDInvoiceById, [saleId]);
+    if (result.rows.length == 0) throw new InvoiceNotFound();
+    return result.rows[0];
+  }
+
+  async getDInvoiceBySaleId(saleId: string): Promise<FullInvoice> {
+    const result = await this.db.query(dInvoice.getDInvoiceBySaleId, [saleId]);
     if (result.rows.length == 0) throw new InvalidInvoice();
     return result.rows[0];
   }

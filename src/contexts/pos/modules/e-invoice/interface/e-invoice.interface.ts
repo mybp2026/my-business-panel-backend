@@ -86,5 +86,6 @@ export interface IInvoiceResume {
   totalDescuentos: Decimal;
   totalVentaNeta: Decimal;
   totalImpuestos: Decimal;
+  totalOtrosCargos?: Decimal;
   totalComprobante: Decimal;
 }

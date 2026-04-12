@@ -19,7 +19,7 @@ import { LevelAuthorizationGuard } from '@/common/guards/level_authorization.gua
 import {
   getMarginsInfoDoc,
   getMarginsByTenantDoc,
-  createNewMarginDoc,
+  createMarginDoc,
   updateMarginDoc,
   deleteMarginDoc,
 } from '@/docs/contexts/general/customer_segment_margin';
@@ -34,6 +34,7 @@ export class CustomerSegmentMarginController {
   //Tomorrow ill optimize this endpoint
   @ApiOperation(getMarginsInfoDoc.operation)
   @ApiResponse(getMarginsInfoDoc.responses[200])
+  @ApiResponse(getMarginsInfoDoc.responses[401])
   @Get()
   async getMarginsInfo() {
     return this.csegmentService.getMarginInfo();
@@ -41,14 +42,16 @@ export class CustomerSegmentMarginController {
 
   @ApiOperation(getMarginsByTenantDoc.operation)
   @ApiResponse(getMarginsByTenantDoc.responses[200])
+  @ApiResponse(getMarginsByTenantDoc.responses[401])
   @Get(':tenantId')
   async getMarginsByTenant(@Param('tenantId') tenantId: string) {
     return this.csegmentService.getTenantMarginsInfo(tenantId);
   }
 
-  @ApiOperation(createNewMarginDoc.operation)
-  @ApiResponse(createNewMarginDoc.responses[201])
-  @ApiResponse(createNewMarginDoc.responses[400])
+  @ApiOperation(createMarginDoc.operation)
+  @ApiResponse(createMarginDoc.responses[201])
+  @ApiResponse(createMarginDoc.responses[400])
+  @ApiResponse(createMarginDoc.responses[401])
   @Post()
   async createNewMargin(@Body() req: NewMarginDto) {
     return this.csegmentService.createMargins(req);
@@ -57,7 +60,8 @@ export class CustomerSegmentMarginController {
   @ApiOperation(updateMarginDoc.operation)
   @ApiResponse(updateMarginDoc.responses[200])
   @ApiResponse(updateMarginDoc.responses[400])
-  @ApiResponse(updateMarginDoc.responses[500])
+  @ApiResponse(updateMarginDoc.responses[401])
+  @ApiResponse(updateMarginDoc.responses[404])
   @Patch(':id')
   async updateMargin(@Param('id') id: string, @Body() req: UpdateMarginDto) {
     return this.csegmentService.updateMargins(id, req);
@@ -65,7 +69,8 @@ export class CustomerSegmentMarginController {
 
   @ApiOperation(deleteMarginDoc.operation)
   @ApiResponse(deleteMarginDoc.responses[200])
-  @ApiResponse(deleteMarginDoc.responses[400])
+  @ApiResponse(deleteMarginDoc.responses[401])
+  @ApiResponse(deleteMarginDoc.responses[404])
   @Delete(':id')
   async deleteMargin(@Param('id') id: string) {
     return this.csegmentService.deleteMargin(id);

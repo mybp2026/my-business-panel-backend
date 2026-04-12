@@ -22,7 +22,7 @@ export class CreateBranchDto {
   @ApiPropertyOptional(createBranchDoc.dto.address)
   @IsOptional()
   @IsString()
-  address?: string;
+  branch_address?: string;
 
   @ApiPropertyOptional(createBranchDoc.dto.contact_email)
   @IsOptional()

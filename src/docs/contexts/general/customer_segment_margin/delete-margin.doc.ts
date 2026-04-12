@@ -1,13 +1,9 @@
+// src/docs/contexts/general/customer_segment_margin/delete-margin.doc.ts
 export const deleteMarginDoc = {
-  operation: {
-    summary: 'Eliminar margen de segmento',
-    description: 'Elimina un margen de segmento del sistema usando su ID.',
-  },
-  params: {
-    id: { description: 'ID del margen a eliminar', example: '123e4567-e89b-12d3-a456-426614174000' },
-  },
+  operation: { summary: 'Delete a segment margin', description: 'Permanently deletes a customer segment margin.' },
   responses: {
-    200: { status: 200, description: 'Margen eliminado exitosamente' },
-    400: { status: 400, description: 'ID inválido' },
+    200: { status: 200, description: 'Margin deleted.', schema: { type: 'object', properties: { message: { type: 'string', example: 'Margin deleted' } } } },
+    401: { status: 401, description: 'Unauthorized.', schema: { type: 'object', properties: { error: { type: 'string', example: 'Unauthorized' } } } },
+    404: { status: 404, description: 'Margin not found.', schema: { type: 'object', properties: { error: { type: 'string', example: 'Margin not found' } } } },
   },
 };

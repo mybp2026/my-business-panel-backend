@@ -1,45 +1,19 @@
+// src/docs/contexts/general/subscription/create-subscription.doc.ts
 export const createSubscriptionDoc = {
   dto: {
-    tenant_id: {
-      description: 'UUID del tenant que se suscribe',
-      example: '123e4567-e89b-12d3-a456-426614174000',
-    },
-    payment_method_id: {
-      description: 'ID del método de pago registrado',
-      example: 1,
-    },
-    payment_amount: {
-      description: 'Monto del pago de la suscripción',
-      example: 29900,
-    },
-    details: {
-      description: 'Detalles adicionales del pago',
-      example: 'Suscripción mensual plan Standard',
-    },
-    plan: {
-      description: 'Plan de suscripción a contratar. Valores válidos: "standard", "premium", "test"',
-      example: 'standard',
-    },
-    subscription_type_id: {
-      description: 'ID del tipo de suscripción en la base de datos',
-      example: 1,
-    },
-    start_date: {
-      description: 'Fecha de inicio de la suscripción en formato ISO',
-      example: '2026-04-01',
-    },
-    end_date: {
-      description: 'Fecha de vencimiento de la suscripción en formato ISO',
-      example: '2026-05-01',
-    },
+    tenant_id: { description: 'UUID of the tenant subscribing.', example: '123e4567-e89b-12d3-a456-426614174000' },
+    payment_method_id: { description: 'ID of the payment method.', example: 1 },
+    payment_amount: { description: 'Amount to charge for the subscription.', example: 29.99 },
+    details: { description: 'Details or notes about the subscription.', example: 'Monthly plan - Pro tier' },
+    plan: { description: 'Plan name or code.', example: 'pro' },
+    subscription_type_id: { description: 'ID of the subscription type.', example: 2 },
+    start_date: { description: 'Subscription start date (ISO 8601).', example: '2024-01-01' },
+    end_date: { description: 'Subscription end date (ISO 8601).', example: '2024-12-31' },
   },
-  operation: {
-    summary: 'Crear suscripción de tenant',
-    description: 'Crea una nueva suscripción para un tenant. Si el tenant no existe en Stripe se registra automáticamente como customer. Retorna el ID de la suscripción, ID de la factura y el estado de la suscripción en Stripe.',
-  },
+  operation: { summary: 'Create a new subscription', description: 'Creates a Stripe subscription for a tenant.' },
   responses: {
-    201: { status: 201, description: 'Suscripción creada exitosamente' },
-    400: { status: 400, description: 'Datos inválidos o faltantes' },
-    404: { status: 404, description: 'Tenant no encontrado' },
+    201: { status: 201, description: 'Subscription created.', schema: { type: 'object', properties: { subscription_id: { type: 'string', example: 'sub_abc123' } } } },
+    400: { status: 400, description: 'Invalid data.', schema: { type: 'object', properties: { error: { type: 'string', example: 'Bad Request' } } } },
+    401: { status: 401, description: 'Unauthorized.', schema: { type: 'object', properties: { error: { type: 'string', example: 'Unauthorized' } } } },
   },
 };

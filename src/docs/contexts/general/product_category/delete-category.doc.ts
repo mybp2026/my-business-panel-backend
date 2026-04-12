@@ -1,13 +1,9 @@
-export const deleteCategoryDoc = {
-  operation: {
-    summary: 'Eliminar categoría de producto',
-    description: 'Elimina una categoría de producto del sistema usando su ID.',
-  },
-  params: {
-    id: { description: 'ID de la categoría a eliminar', example: '1' },
-  },
+// src/docs/contexts/general/product_category/delete-category.doc.ts
+export const deleteProductCategoryDoc = {
+  operation: { summary: 'Delete a product category', description: 'Permanently deletes a product category.' },
   responses: {
-    200: { status: 200, description: 'Categoría eliminada exitosamente' },
-    400: { status: 400, description: 'ID inválido' },
+    200: { status: 200, description: 'Category deleted.', schema: { type: 'object', properties: { message: { type: 'string', example: 'Category deleted' } } } },
+    401: { status: 401, description: 'Unauthorized.', schema: { type: 'object', properties: { error: { type: 'string', example: 'Unauthorized' } } } },
+    404: { status: 404, description: 'Category not found.', schema: { type: 'object', properties: { error: { type: 'string', example: 'Category not found' } } } },
   },
 };

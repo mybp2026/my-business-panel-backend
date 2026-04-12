@@ -1,29 +1,41 @@
+﻿// src/docs/contexts/purchase/suppliers/create-suppliers-bulk.doc.ts
 export const createSuppliersBulkDoc = {
-  dto: {
-    supplier_name: {
-      description: 'Nombre del proveedor',
-      example: 'Distribuidora Nacional S.A.',
-    },
-    supplier_contact_info: {
-      description: 'Información de contacto del proveedor (teléfono, email, etc.)',
-      example: 'Tel: 2222-3333 | contacto@distribuidora.com',
-    },
-    supplier_address: {
-      description: 'Dirección física del proveedor',
-      example: 'San José, Costa Rica, Barrio Los Yoses',
-    },
-    supplier_notes: {
-      description: 'Notas adicionales sobre el proveedor (opcional)',
-      example: 'Entrega los martes y jueves',
-    },
-  },
   operation: {
     summary: 'Crear proveedores en lote',
-    description: 'Inserta múltiples proveedores en una sola operación atómica asociados al tenant del usuario autenticado. Retorna el conteo y lista de proveedores creados. Requiere autenticación.',
+    description: 'Crea multiples proveedores a la vez para el tenant del usuario autenticado.',
   },
+
   responses: {
-    201: { status: 201, description: 'Proveedores creados exitosamente' },
-    400: { status: 400, description: 'Datos inválidos o sesión inválida' },
-    401: { status: 401, description: 'No autorizado' },
+    201: {
+      status: 201,
+      description: 'Proveedores creados exitosamente.',
+      schema: {
+        type: 'object',
+        properties: {
+          message: { type: 'string', example: 'suppliers added successfully!' },
+          count: { type: 'number', example: 3 },
+          suppliers: {
+            type: 'array',
+            items: {
+              type: 'object',
+              properties: {
+                supplier_id: { type: 'string', example: '123e4567-e89b-12d3-a456-426614174000' },
+                supplier_name: { type: 'string', example: 'Distribuidora Nacional S.A.' },
+              },
+            },
+          },
+        },
+      },
+    },
+    401: {
+      status: 401,
+      description: 'No autorizado - token ausente o invalido.',
+      schema: {
+        type: 'object',
+        properties: {
+          error: { type: 'string', example: 'Unauthorized' },
+        },
+      },
+    },
   },
 };

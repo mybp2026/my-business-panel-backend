@@ -1,12 +1,8 @@
+// src/docs/contexts/general/customer_segment_margin/get-margins-by-tenant.doc.ts
 export const getMarginsByTenantDoc = {
-  operation: {
-    summary: 'Obtener márgenes por tenant',
-    description: 'Retorna los márgenes de segmentos configurados para un tenant específico.',
-  },
-  params: {
-    tenantId: { description: 'UUID del tenant', example: '123e4567-e89b-12d3-a456-426614174000' },
-  },
+  operation: { summary: 'Get segment margins by tenant', description: 'Returns all margin configurations for a specific tenant.' },
   responses: {
-    200: { status: 200, description: 'Márgenes del tenant obtenidos exitosamente' },
+    200: { status: 200, description: 'List of margins for the tenant.', schema: { type: 'array', items: { type: 'object', properties: { margin_id: { type: 'string', example: 'uuid' } } } } },
+    401: { status: 401, description: 'Unauthorized.', schema: { type: 'object', properties: { error: { type: 'string', example: 'Unauthorized' } } } },
   },
 };

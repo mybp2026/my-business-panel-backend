@@ -1,7 +1,6 @@
-import { Body, Controller, Get, Post, Param } from '@nestjs/common';
-import { BranchService } from './branch.service';
-import { UseGuards } from '@nestjs/common';
+import { Body, Controller, Get, Post, Param, UseGuards } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
+import { BranchService } from './branch.service';
 import { AuthenticationGuard } from '@/common/guards/authentication.guard';
 import { LevelAuthorizationGuard } from '@/common/guards/level_authorization.guard';
 import { RequiredLevel } from '@/common/decorators/level_metadata.decorator';
@@ -24,7 +23,7 @@ export class BranchController {
   @ApiOperation(findBranchByIdDoc.operation)
   @ApiResponse(findBranchByIdDoc.responses[200])
   @ApiResponse(findBranchByIdDoc.responses[401])
-  @ApiResponse(findBranchByIdDoc.responses[403])
+  @ApiResponse(findBranchByIdDoc.responses[404])
   @Get('/:id')
   @RequiredLevel(2)
   findById(@Param('id') id: string) {
@@ -34,7 +33,6 @@ export class BranchController {
   @ApiOperation(findAllBranchesDoc.operation)
   @ApiResponse(findAllBranchesDoc.responses[200])
   @ApiResponse(findAllBranchesDoc.responses[401])
-  @ApiResponse(findAllBranchesDoc.responses[403])
   @Get('/')
   @RequiredLevel(2)
   findAll(@Session() session: IUserSession) {
@@ -45,13 +43,11 @@ export class BranchController {
   @ApiResponse(createBranchDoc.responses[201])
   @ApiResponse(createBranchDoc.responses[400])
   @ApiResponse(createBranchDoc.responses[401])
-  @ApiResponse(createBranchDoc.responses[403])
   @Post('/')
-  @RequiredLevel(3)
-  async createBranch(
-    @Session() user: IUserSession,
-    @Body() createBranchDto: CreateBranchDto,
-  ) {
-    return this.branchService.createBranch(user.tenant_id, createBranchDto);
+  async createBranch(@Body() createBranchDto: CreateBranchDto) {
+    return this.branchService.createBranch(
+      createBranchDto.tenant_id,
+      createBranchDto,
+    );
   }
 }

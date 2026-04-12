@@ -16,6 +16,7 @@ export class DocumentTypeController {
 
   @ApiOperation(getAllDocumentTypesDoc.operation)
   @ApiResponse(getAllDocumentTypesDoc.responses[200])
+  @ApiResponse(getAllDocumentTypesDoc.responses[401])
   @Get()
   getAll() {
     return this.documentTypeService.getAll();
@@ -23,7 +24,8 @@ export class DocumentTypeController {
 
   @ApiOperation(getOneDocumentTypeDoc.operation)
   @ApiResponse(getOneDocumentTypeDoc.responses[200])
-  @ApiResponse(getOneDocumentTypeDoc.responses[400])
+  @ApiResponse(getOneDocumentTypeDoc.responses[401])
+  @ApiResponse(getOneDocumentTypeDoc.responses[404])
   @Get(':id')
   getOne(@Param('id') id: string) {
     return this.documentTypeService.getById(id);
@@ -31,7 +33,8 @@ export class DocumentTypeController {
 
   @ApiOperation(deleteDocumentTypeDoc.operation)
   @ApiResponse(deleteDocumentTypeDoc.responses[200])
-  @ApiResponse(deleteDocumentTypeDoc.responses[400])
+  @ApiResponse(deleteDocumentTypeDoc.responses[401])
+  @ApiResponse(deleteDocumentTypeDoc.responses[404])
   @Delete(':id')
   delete(@Param('id') id: string) {
     return this.documentTypeService.delete(id);

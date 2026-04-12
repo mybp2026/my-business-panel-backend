@@ -25,6 +25,10 @@ export class NewSubscriptionDto {
 
   @ApiProperty(createSubscriptionDoc.dto.plan)
   @IsString()
+  @IsNotEmpty()
+  stripe_payment_method_id!: string;
+
+  @IsString()
   plan!: string;
 
   @ApiProperty(createSubscriptionDoc.dto.subscription_type_id)

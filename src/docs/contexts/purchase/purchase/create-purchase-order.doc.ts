@@ -1,36 +1,68 @@
+// src/docs/contexts/purchase/purchase/create-purchase-order.doc.ts
 export const createPurchaseOrderDoc = {
   dto: {
     supplier_id: {
-      description: 'UUID del proveedor al que se le realiza la orden',
+      description: 'UUID del proveedor.',
       example: '123e4567-e89b-12d3-a456-426614174000',
     },
     warehouse_id: {
-      description: 'UUID del almacén destino de los productos',
-      example: '123e4567-e89b-12d3-a456-426614174001',
+      description: 'UUID del almacén de destino.',
+      example: '223e4567-e89b-12d3-a456-426614174000',
     },
     expected_delivery_date: {
-      description: 'Fecha esperada de entrega (ISO 8601)',
-      example: '2026-04-20',
+      description: 'Fecha de entrega esperada en formato ISO 8601.',
+      example: '2026-05-01',
     },
     items: {
-      description: 'Lista de productos a ordenar con product_variant_id, quantity_ordered y unit_price',
+      description: 'Arreglo de productos a ordenar.',
+      example: [
+        {
+          product_variant_id: '323e4567-e89b-12d3-a456-426614174000',
+          quantity_ordered: 10,
+          unit_price: 25.5,
+        },
+      ],
     },
     has_invoice: {
-      description: 'Indica si la orden viene acompañada de factura del proveedor (opcional)',
+      description: 'Indica si la orden incluye factura del proveedor.',
       example: true,
     },
     payment_condition: {
-      description: 'Condición de pago: CREDIT o IN_FULL (opcional)',
+      description: 'Condición de pago: CREDIT o IN_FULL.',
       example: 'CREDIT',
     },
   },
+
   operation: {
     summary: 'Crear orden de compra',
-    description: 'Crea una nueva orden de compra hacia un proveedor con los productos e items especificados. Requiere autenticación.',
+    description: 'Registra una nueva orden de compra para un proveedor con los productos y detalles de entrega especificados.',
   },
+
   responses: {
-    201: { status: 201, description: 'Orden de compra creada exitosamente' },
-    400: { status: 400, description: 'Datos inválidos' },
-    401: { status: 401, description: 'No autorizado' },
+    201: {
+      status: 201,
+      description: 'Orden de compra creada exitosamente.',
+      schema: {
+        type: 'object',
+        properties: {
+          purchase_order_id: { type: 'string', example: '123e4567-e89b-12d3-a456-426614174000' },
+          supplier_id: { type: 'string', example: '123e4567-e89b-12d3-a456-426614174000' },
+          warehouse_id: { type: 'string', example: '223e4567-e89b-12d3-a456-426614174000' },
+          purchase_order_status_id: { type: 'number', example: 1 },
+          expected_delivery_date: { type: 'string', example: '2026-05-01' },
+          payment_condition: { type: 'string', example: 'CREDIT' },
+        },
+      },
+    },
+    401: {
+      status: 401,
+      description: 'No autorizado — token ausente o inválido.',
+      schema: {
+        type: 'object',
+        properties: {
+          error: { type: 'string', example: 'Unauthorized' },
+        },
+      },
+    },
   },
 };

@@ -1,13 +1,9 @@
+// src/docs/contexts/general/segment/delete-segment.doc.ts
 export const deleteSegmentDoc = {
-  operation: {
-    summary: 'Eliminar segmento de clientes',
-    description: 'Elimina un segmento del sistema usando su ID.',
-  },
-  params: {
-    id: { description: 'ID numérico del segmento a eliminar', example: 1 },
-  },
+  operation: { summary: 'Delete a customer segment', description: 'Permanently deletes a customer segment by its ID.' },
   responses: {
-    200: { status: 200, description: 'Segmento eliminado exitosamente' },
-    500: { status: 500, description: 'Error interno: el segmento no existe o no pudo ser eliminado' },
+    200: { status: 200, description: 'Segment deleted.', schema: { type: 'object', properties: { message: { type: 'string', example: 'Segment deleted successfully' } } } },
+    401: { status: 401, description: 'Unauthorized.', schema: { type: 'object', properties: { error: { type: 'string', example: 'Unauthorized' } } } },
+    404: { status: 404, description: 'Segment not found.', schema: { type: 'object', properties: { error: { type: 'string', example: 'Segment not found' } } } },
   },
 };
