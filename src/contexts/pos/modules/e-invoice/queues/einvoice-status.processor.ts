@@ -8,6 +8,7 @@ import { posQueries } from '@pos/pos.queries';
 import { QueueFacade } from '@/contexts/general/modules/queue/facade/queue.facade';
 import { EINVOICE_STATUS_QUEUE } from './einvoice-status.queue';
 import { TenantHaciendaConfigService } from '@/contexts/general/modules/tenant_hacienda_config/tenant-hacienda-config.service';
+import { encrypt } from '@/common/crypto/aes-256-gcm';
 
 const { eInvoice } = posQueries;
 
@@ -53,9 +54,10 @@ export class EInvoiceStatusProcessor {
       this.logger.debug(`Invoice ${keyNumber} Hacienda indEstado: "${status.indEstado}" → statusId: ${statusId}${status.respuestaTxt ? ` | msg: ${status.respuestaTxt}` : ''}`);
 
       if (statusId !== 1) {
+        const encryptedResponse = status.respuestaXml ? encrypt(status.respuestaXml) : null;
         await this.db.query(eInvoice.updateHaciendaResponse, [
           electronicInvoiceId,
-          status.respuestaXml ?? null,
+          encryptedResponse,
           statusId,
         ]);
         this.logger.log(`Invoice ${keyNumber} resolved: ${status.indEstado}`);
