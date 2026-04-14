@@ -29,22 +29,23 @@ export class EInvoiceService {
     private readonly queueFacade: QueueFacade,
   ) {}
 
-  async getEInvoiceByBranch(branchId: string) {
+  async getEInvoiceByBranch(branchId: string, tenantId: string) {
     const { rows } = await this.db.query(eInvoice.getEInvoicesByBranch, [
       branchId,
+      tenantId,
     ]);
 
     return rows.map(this.decryptInvoiceRow);
   }
 
-  async getEInvoiceForSale(saleId: string) {
-    const { rows } = await this.db.query(eInvoice.getEInvoiceForSale, [saleId]);
+  async getEInvoiceForSale(saleId: string, tenantId: string) {
+    const { rows } = await this.db.query(eInvoice.getEInvoiceForSale, [saleId, tenantId]);
 
     return rows.map(this.decryptInvoiceRow);
   }
 
-  async getEInvoiceById(invoiceId: string) {
-    const { rows } = await this.db.query(eInvoice.getEInvoiceById, [invoiceId]);
+  async getEInvoiceById(invoiceId: string, tenantId: string) {
+    const { rows } = await this.db.query(eInvoice.getEInvoiceById, [invoiceId, tenantId]);
     return rows[0] ? this.decryptInvoiceRow(rows[0]) : undefined;
   }
 
@@ -90,11 +91,8 @@ export class EInvoiceService {
 
     const itemsWithoutCabys = items.filter((i: any) => !i.cabys_code);
     if (itemsWithoutCabys.length > 0) {
-      const ids = itemsWithoutCabys
-        .map((i: any) => i.product_variant_id)
-        .join(', ');
       throw new BadRequestException(
-        `Los siguientes productos no tienen código CABYS asignado: ${ids}`,
+        'Algunos productos no tienen código CABYS asignado',
       );
     }
 
@@ -128,7 +126,7 @@ export class EInvoiceService {
     );
     if (!credentials)
       throw new BadRequestException(
-        'El tenant no tiene credenciales de Hacienda configuradas',
+        'Configuración de facturación electrónica incompleta',
       );
 
     const p12Buffer = Buffer.from(credentials.p12Base64, 'base64');

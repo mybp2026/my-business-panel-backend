@@ -268,17 +268,20 @@ export const posQueryDefs = {
     getEInvoicesByBranch: `
       SELECT * FROM pos_schema.electronic_sale_invoice e
       INNER JOIN pos_schema.sale s USING(sale_id)
-      WHERE s.branch_id = $1;
+      INNER JOIN general_schema.branch b ON b.branch_id = s.branch_id
+      WHERE s.branch_id = $1 AND b.tenant_id = $2;
     `,
     getEInvoiceForSale: `
       SELECT * FROM pos_schema.electronic_sale_invoice e
       INNER JOIN pos_schema.sale s USING(sale_id)
-      WHERE e.sale_id = $1;
+      INNER JOIN general_schema.branch b ON b.branch_id = s.branch_id
+      WHERE e.sale_id = $1 AND b.tenant_id = $2;
     `,
     getEInvoiceById: `
       SELECT * FROM pos_schema.electronic_sale_invoice e
       INNER JOIN pos_schema.sale s USING(sale_id)
-      WHERE e.electronic_sale_invoice_id = $1; 
+      INNER JOIN general_schema.branch b ON b.branch_id = s.branch_id
+      WHERE e.electronic_sale_invoice_id = $1 AND b.tenant_id = $2;
     `,
     getSaleForEInvoice: `
       SELECT
