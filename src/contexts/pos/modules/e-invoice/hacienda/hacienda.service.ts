@@ -95,12 +95,12 @@ export class HaciendaService {
     });
 
     if (!res.ok) {
-      const errorBody = await res.text();
+      await res.text(); // consume body
       this.logger.error(
-        `Error obteniendo token de Hacienda IDP [${res.status}]: ${errorBody}`,
+        `Error obteniendo token de Hacienda IDP [${res.status}]`,
       );
       throw new Error(
-        `Error obteniendo token de Hacienda IDP para tenant ${tenantId}: ${res.status} ${await res.text()}`,
+        `Error obteniendo token de Hacienda IDP para tenant ${tenantId}: ${res.status}`,
       );
     }
 
@@ -176,15 +176,11 @@ export class HaciendaService {
       }
 
       // Cualquier otro error
-      const errorText = await res.text();
+      await res.text(); // consume body
       this.logger.error(`Hacienda rechazó la solicitud [${res.status}]`);
-      this.logger.error(
-        `Response headers: ${JSON.stringify(Object.fromEntries(res.headers.entries()))}`,
-      );
-      this.logger.error(`Response body: ${errorText}`);
 
       throw new Error(
-        `Hacienda rechazó la factura [${res.status}]: ${errorText}`,
+        `Hacienda rechazó la factura [${res.status}]`,
       );
     }
 
