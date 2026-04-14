@@ -24,9 +24,13 @@ import { TenantHaciendaConfigModule } from '@/contexts/general/modules/tenant_ha
   exports: [EInvoiceService],
 })
 export class EInvoiceModule implements OnModuleInit {
-  constructor(private readonly queueFacade: QueueFacade) {}
+  constructor(
+    private readonly queueFacade: QueueFacade,
+    private readonly batchDispatcher: EInvoiceBatchDispatcher,
+  ) {}
 
-  onModuleInit() {
+  async onModuleInit() {
     this.queueFacade.registerQueue(einvoiceStatusQueueConfig);
+    await this.batchDispatcher.startupReconciliation();
   }
 }
