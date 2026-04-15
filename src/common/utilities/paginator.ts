@@ -24,6 +24,9 @@ interface PaginateParams {
   options?: PaginateOptions;
 }
 
+const VALID_ORDER = new Set(['ASC', 'DESC']);
+const IDENTIFIER_RE = /^[a-zA-Z_][a-zA-Z0-9_.]*$/;
+
 export async function paginate<T = any>({
   dbClient,
   table,
@@ -37,6 +40,14 @@ export async function paginate<T = any>({
     sortBy = 'created_at',
     order = 'DESC',
   } = options;
+
+  if (!IDENTIFIER_RE.test(sortBy)) {
+    throw new Error(`Invalid sortBy value: ${sortBy}`);
+  }
+
+  const safeOrder = VALID_ORDER.has(order.toUpperCase())
+    ? order.toUpperCase()
+    : 'DESC';
 
   const params: any[] = [];
   const conditions: string[] = [];
@@ -63,7 +74,7 @@ export async function paginate<T = any>({
     SELECT ${columns}
     FROM ${table}
     ${whereClause}
-    ORDER BY ${sortBy} ${order}
+    ORDER BY ${sortBy} ${safeOrder}
     LIMIT $${params.length - 1} OFFSET $${params.length}
   `;
 
