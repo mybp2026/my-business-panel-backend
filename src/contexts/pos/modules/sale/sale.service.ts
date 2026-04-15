@@ -210,15 +210,15 @@ export class SaleService {
         try {
           await this.eInvoiceService.createEInvoiceForSale(saleId);
         } catch (eInvoiceError) {
-          console.error('Error generating e-invoice for sale:', eInvoiceError);
-          return { saleId, eInvoiceWarning: (eInvoiceError as Error).message };
+          this.logger.error(`E-invoice generation failed for sale ${saleId}: ${(eInvoiceError as Error).message}`);
+          return { saleId, eInvoiceWarning: 'No se pudo generar la factura electrónica' };
         }
       }
 
       return { saleId };
     } catch (error) {
       if (error instanceof BadRequestException) throw error;
-      console.error('Error creating full sale:', error);
+      this.logger.error(`Error creating full sale: ${(error as Error).message}`);
       throw new SaleCreationError();
     }
   }

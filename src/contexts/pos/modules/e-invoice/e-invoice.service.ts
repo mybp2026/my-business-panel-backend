@@ -13,6 +13,7 @@ import { HaciendaPayload } from './interface';
 import { TenantHaciendaConfigService } from '@/contexts/general/modules/tenant_hacienda_config/tenant-hacienda-config.service';
 import { QueueFacade } from '@/contexts/general/modules/queue/facade/queue.facade';
 import { EINVOICE_STATUS_QUEUE } from './queues/einvoice-status.queue';
+import { encrypt, decrypt } from '@/common/crypto/aes-256-gcm';
 
 const { eInvoice } = posQueries;
 
@@ -28,23 +29,32 @@ export class EInvoiceService {
     private readonly queueFacade: QueueFacade,
   ) {}
 
-  async getEInvoiceByBranch(branchId: string) {
+  async getEInvoiceByBranch(branchId: string, tenantId: string) {
     const { rows } = await this.db.query(eInvoice.getEInvoicesByBranch, [
       branchId,
+      tenantId,
     ]);
 
-    return rows;
+    return rows.map(this.decryptInvoiceRow);
   }
 
-  async getEInvoiceForSale(saleId: string) {
-    const { rows } = await this.db.query(eInvoice.getEInvoiceForSale, [saleId]);
+  async getEInvoiceForSale(saleId: string, tenantId: string) {
+    const { rows } = await this.db.query(eInvoice.getEInvoiceForSale, [saleId, tenantId]);
 
-    return rows;
+    return rows.map(this.decryptInvoiceRow);
   }
 
-  async getEInvoiceById(invoiceId: string) {
-    const { rows } = await this.db.query(eInvoice.getEInvoiceById, [invoiceId]);
-    return rows[0];
+  async getEInvoiceById(invoiceId: string, tenantId: string) {
+    const { rows } = await this.db.query(eInvoice.getEInvoiceById, [invoiceId, tenantId]);
+    return rows[0] ? this.decryptInvoiceRow(rows[0]) : undefined;
+  }
+
+  private decryptInvoiceRow(row: any): any {
+    return {
+      ...row,
+      xml_signed: row.xml_signed ? decrypt(row.xml_signed) : null,
+      hacienda_response_xml: row.hacienda_response_xml ? decrypt(row.hacienda_response_xml) : null,
+    };
   }
 
   // TODO: manejar transaccion con método db.transaction()
@@ -81,11 +91,8 @@ export class EInvoiceService {
 
     const itemsWithoutCabys = items.filter((i: any) => !i.cabys_code);
     if (itemsWithoutCabys.length > 0) {
-      const ids = itemsWithoutCabys
-        .map((i: any) => i.product_variant_id)
-        .join(', ');
       throw new BadRequestException(
-        `Los siguientes productos no tienen código CABYS asignado: ${ids}`,
+        'Algunos productos no tienen código CABYS asignado',
       );
     }
 
@@ -119,7 +126,7 @@ export class EInvoiceService {
     );
     if (!credentials)
       throw new BadRequestException(
-        'El tenant no tiene credenciales de Hacienda configuradas',
+        'Configuración de facturación electrónica incompleta',
       );
 
     const p12Buffer = Buffer.from(credentials.p12Base64, 'base64');
@@ -146,15 +153,13 @@ export class EInvoiceService {
       comprobanteXml: xmlSignedB64,
     };
 
-    await this.hacienda.sendInvoice(
-      sale.tenant_id,
-      credentials,
-      haciendaPayload,
-    );
-
+    // 1. Persistir en BD ANTES de enviar a Hacienda.
+    //    Si el server se cae después del envío pero antes del INSERT,
+    //    la factura queda fantasma en Hacienda sin registro local.
+    //    Insertando primero, la reconciliación la encuentra y chequea estado.
     const { rows: invoiceRows } = await (dbClient || this.db).query(
       eInvoice.create,
-      [saleId, key, consecutive, xmlSignedB64],
+      [saleId, key, consecutive, encrypt(xmlSignedB64)],
     );
     const electronicInvoiceId = invoiceRows[0].electronic_sale_invoice_id;
 
@@ -171,7 +176,23 @@ export class EInvoiceService {
 
     await (dbClient || this.db).query(eInvoice.markSaleAsEInvoiced, [saleId]);
 
-    // Enqueue job para que el processor checkee el estado en Hacienda
+    // 2. Enviar a Hacienda. Si falla, el registro ya existe en BD
+    //    con status=1 (pendiente). El worker lo chequeará igualmente.
+    //    Si Hacienda nunca lo recibió, eventualmente hará timeout (status=4).
+    //    Si Hacienda responde 422 (duplicado), se trata como éxito.
+    try {
+      await this.hacienda.sendInvoice(
+        sale.tenant_id,
+        credentials,
+        haciendaPayload,
+      );
+    } catch (sendError) {
+      this.logger.error(`Error enviando a Hacienda (registro ya en BD): ${sendError}`);
+      // No relanzamos: el registro existe, el worker chequeará si Hacienda lo recibió
+    }
+
+    // 3. Enqueue job para chequear estado
+    const initialDelay = Number(process.env.EINVOICE_INITIAL_CHECK_DELAY_MS) || 5 * 60 * 1000;
     await this.queueFacade.enqueue(
       EINVOICE_STATUS_QUEUE,
       'check-status',
@@ -181,6 +202,7 @@ export class EInvoiceService {
         tenantId: sale.tenant_id,
         createdAt: new Date().toISOString(),
       },
+      { delay: initialDelay },
     );
 
     return {
