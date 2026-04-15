@@ -8,7 +8,8 @@ function getEncryptionKey(): Buffer {
   const key = process.env.ENCRYPTION_KEY;
   if (!key) throw new Error('ENCRYPTION_KEY env var not set');
   const buf = Buffer.from(key, 'hex');
-  if (buf.length !== 32) throw new Error('ENCRYPTION_KEY must be 64 hex chars (32 bytes)');
+  if (buf.length !== 32)
+    throw new Error('ENCRYPTION_KEY must be 64 hex chars (32 bytes)');
   return buf;
 }
 
@@ -40,6 +41,10 @@ export function encrypt(plaintext: string): string {
 export function decrypt(encryptedB64: string): string {
   const key = getEncryptionKey();
   const data = Buffer.from(encryptedB64, 'base64');
+
+  if (data.length < IV_LENGTH + TAG_LENGTH + 1) {
+    throw new Error('Invalid encrypted data: too short');
+  }
 
   const iv = data.subarray(0, IV_LENGTH);
   const tag = data.subarray(data.length - TAG_LENGTH);
