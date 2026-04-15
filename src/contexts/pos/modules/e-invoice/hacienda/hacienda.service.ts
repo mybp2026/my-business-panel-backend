@@ -176,8 +176,8 @@ export class HaciendaService {
       }
 
       // Cualquier otro error
-      await res.text(); // consume body
-      this.logger.error(`Hacienda rechazó la solicitud [${res.status}]`);
+      const errorBody = await res.text();
+      this.logger.error(`Hacienda rechazó la solicitud [${res.status}] — body: ${errorBody}`);
 
       throw new Error(
         `Hacienda rechazó la factura [${res.status}]`,
@@ -246,6 +246,8 @@ export class HaciendaService {
       // Hacienda devuelve campos con guiones (ind-estado, respuesta-xml, etc.)
       // Mapeamos a camelCase para la interface interna
       const raw: Record<string, any> = await res.json();
+
+      this.logger.log(`[checkInvoiceStatus] Hacienda raw response for ${clave}: ${JSON.stringify(raw)}`);
 
       return {
         clave: raw.clave,

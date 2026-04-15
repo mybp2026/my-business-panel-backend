@@ -54,6 +54,12 @@ export class EInvoiceStatusProcessor {
       this.logger.debug(`Invoice ${keyNumber} Hacienda indEstado: "${status.indEstado}" → statusId: ${statusId}${status.respuestaTxt ? ` | msg: ${status.respuestaTxt}` : ''}`);
 
       if (statusId !== 1) {
+        // Decodificar respuestaXml para ver detalle de Hacienda (especialmente en rechazos)
+        if (status.respuestaXml) {
+          const decodedXml = Buffer.from(status.respuestaXml, 'base64').toString('utf-8');
+          this.logger.log(`[Hacienda respuestaXml decoded] Invoice ${keyNumber}:\n${decodedXml}`);
+        }
+
         const encryptedResponse = status.respuestaXml ? encrypt(status.respuestaXml) : null;
         await this.db.query(eInvoice.updateHaciendaResponse, [
           electronicInvoiceId,

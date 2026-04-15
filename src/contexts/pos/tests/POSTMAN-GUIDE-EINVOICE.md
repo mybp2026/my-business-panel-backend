@@ -81,12 +81,12 @@ Content-Type: application/json
 **Body:**
 ```json
 {
-  "tenant_name": "Distribuidora Demo S.A.",
+  "tenant_name": "Daniel Karim Alchaar Saab",
   "contact_email": "demo@distribuidora.cr",
   "region_id": 1,
-  "identification": "3101234567",
+  "identification": "3140001694",
   "economic_activity": "722001",
-  "sign": "DDS",
+  "sign": "DKA",
   "is_subscribed": true
 }
 ```
@@ -95,7 +95,7 @@ Content-Type: application/json
 ```json
 {
   "tenant_id": "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx",
-  "tenant_name": "Distribuidora Demo S.A.",
+  "tenant_name": "Daniel Karim Alchaar Saab",
   ...
 }
 ```
@@ -228,7 +228,7 @@ Cookie: auth_token=<token>
 ```json
 {
   "tenant_id": "{{tenantId}}",
-  "hacienda_username": "cpj-3-101-234567",
+  "hacienda_username": "nite-3140001694@stag.comprobanteselectronicos.go.cr",
   "hacienda_password": "tu-password-de-hacienda",
   "hacienda_client_id": "api-stag",
   "p12_base64": "<contenido base64 de tu archivo .p12>",
@@ -251,6 +251,18 @@ Cookie: auth_token=<token>
 > base64 -w 0 tu-certificado.p12
 > ```
 > (en Windows con Git Bash, o `certutil -encode` en cmd)
+>
+> **Para verificar a quien pertenece el P12**, ejecuta:
+> ```bash
+> openssl pkcs12 -in tu-certificado.p12 -nokeys -clcerts | openssl x509 -subject -noout
+> ```
+>
+> **CRITICO**: El RUC/cedula embebido en el certificado P12 **debe coincidir**
+> con el campo `identification` del tenant (Paso 1). Si no coinciden,
+> Hacienda rechaza con error -60: "El contribuyente que firma la factura
+> electronica no es el emisor." El ROPC (username/password) y el P12 son
+> mecanismos independientes — el token puede funcionar pero la firma ser
+> rechazada si el P12 no pertenece al emisor.
 >
 > **IMPORTANTE**: Si `HACIENDA_MOCK=true`, las credenciales de Hacienda
 > (username/password) no se usan realmente para autenticarse. Pero el
@@ -709,4 +721,5 @@ POST /sale (has_electronic_invoice: true)
 | E-invoice se crea pero status nunca cambia de 1         | Verificar que Redis esta corriendo y el worker esta activo (ver logs del servidor)   |
 | `La venta no tiene factura digital generada`            | El d-invoice se crea dentro de la transaccion. Si falla, revisar logs de error      |
 | `productos no tienen codigo CABYS asignado`             | Ejecutar Paso 4b y verificar que el producto se creo con `cabys_code`               |
+| Hacienda error -60: "firmante no es el emisor"          | El P12 no corresponde al `identification` del tenant. Verificar con `openssl` a quien pertenece el P12 y que coincida con el tenant |
 | 401 en `/cash-register`                                 | La cookie `auth_token` expiro. Repetir Paso 3 (login)                               |

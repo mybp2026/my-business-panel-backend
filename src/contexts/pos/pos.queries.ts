@@ -310,15 +310,15 @@ export const posQueryDefs = {
         COALESCE(b.econ_activity, t.econ_activity, '722003')::VARCHAR(6) AS activity_code,
         t.tenant_name     AS issuer_name,
         t.identification  AS issuer_identification,
-        '02'::VARCHAR(2)  AS issuer_identification_type,
+        COALESCE(dt_t.ident_code, '02')::VARCHAR(2) AS issuer_identification_type,
         t.contact_email   AS issuer_email,
         COALESCE(loc.provincia,   '1')  AS provincia,
         COALESCE(loc.canton,      '01') AS canton,
         COALESCE(loc.distrito,    '01') AS distrito,
         COALESCE(loc.otras_senas, 'San José')   AS otras_senas,
         (tc.first_name || ' ' || tc.last_name) AS receiver_name,
-        '116120464'::VARCHAR(20)               AS receiver_identification,
-        '01'::VARCHAR(2)                       AS receiver_identification_type,
+        tc.document_number::VARCHAR(20)        AS receiver_identification,
+        COALESCE(dt.ident_code, '01')::VARCHAR(2) AS receiver_identification_type,
         tc.email                               AS receiver_email,
         -- TODO: Discriminar servicios/mercancías cuando se agregue is_service a product
         0.00::numeric        AS total_serv_gravados,
@@ -336,6 +336,7 @@ export const posQueryDefs = {
       FROM pos_schema.sale s
       JOIN general_schema.branch b            ON b.branch_id = s.branch_id
       JOIN general_schema.tenant t            ON t.tenant_id = b.tenant_id
+      LEFT JOIN general_schema.document_type dt_t ON dt_t.document_type_id = t.document_type_id
       LEFT JOIN general_schema.branch_location loc ON loc.branch_id = b.branch_id
       JOIN general_schema.tenant_customer tc  ON tc.tenant_customer_id = s.tenant_customer_id
       LEFT JOIN general_schema.document_type dt ON dt.document_type_id = tc.document_type_id
