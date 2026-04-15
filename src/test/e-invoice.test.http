@@ -51,7 +51,7 @@ Authorization: Bearer {{tenantToken}}
 ### - 2 Teclados Mecánicos @ 150,000 CRC c/u
 ### - 1 Mouse inalámbrico @ 50,000 CRC
 
-@saleId = 23dae802-2b7c-4080-b536-1c568bcd4e07
+@saleId = b853e0b3-f540-457c-88d4-a1b6fd042a46
 # @name createSale
 POST {{baseUrl}}/sale
 Content-Type: application/json

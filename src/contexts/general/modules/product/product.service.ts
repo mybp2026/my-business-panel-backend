@@ -27,6 +27,41 @@ export class ProductService {
     return result.rows;
   }
 
+  async getAllProductsPaginated(
+    tenantId: string,
+    page = 1,
+    limit = 100,
+  ): Promise<{ products: Product[]; total: number; page: number; limit: number }> {
+    const offset = (page - 1) * limit;
+    const [dataResult, countResult] = await Promise.all([
+      this.db.query(products.getAllPaginated, [tenantId, limit, offset]),
+      this.db.query(products.countByTenant, [tenantId]),
+    ]);
+    return {
+      products: dataResult.rows,
+      total: countResult.rows[0]?.total ?? 0,
+      page,
+      limit,
+    };
+  }
+
+  async getAllProductsGlobal(
+    page = 1,
+    limit = 100,
+  ): Promise<{ products: Product[]; total: number; page: number; limit: number }> {
+    const offset = (page - 1) * limit;
+    const [dataResult, countResult] = await Promise.all([
+      this.db.query(products.getAllGlobal, [limit, offset]),
+      this.db.query(products.countAll, []),
+    ]);
+    return {
+      products: dataResult.rows,
+      total: countResult.rows[0]?.total ?? 0,
+      page,
+      limit,
+    };
+  }
+
   async getProductBySku(sku: string): Promise<Product> {
     const product = await this.db.query(products.getBySku, [sku]);
     return product.rows[0];

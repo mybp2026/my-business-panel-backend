@@ -4,15 +4,19 @@ import {
   Controller,
   Delete,
   Get,
-  InternalServerErrorException,
   Param,
   Patch,
   Post,
-  Res,
+  Query,
+  UseGuards,
 } from '@nestjs/common';
 import { ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
 import { NewClientDto } from './dto/newClient.dto';
 import { UpdateClientDto } from './dto/updateClient.dto';
+import { AuthenticationGuard } from '@/common/guards/authentication.guard';
+import { Session } from '@/common/decorators/session.decorator';
+import { IUserSession } from '@/common/interfaces/user_session.interface';
+import { StateService } from '@/contexts/general/modules/state/state.service';
 import {
   getAllCustomersForTenantDoc,
   getOneCustomerByIdDoc,
@@ -22,19 +26,43 @@ import {
   deleteCustomerDoc,
 } from '@/docs/contexts/general/customer';
 
-// ? Implement AuthGuard
-//UseGuards(AuthGuard)
+const SUPERUSER_HIERARCHY = 1;
+
 @ApiTags('Customer')
 @Controller('customers')
 export class CustomerController {
-  constructor(private readonly customerService: CustomerService) {}
+  constructor(
+    private readonly customerService: CustomerService,
+    private readonly stateService: StateService,
+  ) {}
+
+  // Global list for superusers — must be declared BEFORE :tenantId
+  @Get('all')
+  @UseGuards(AuthenticationGuard)
+  async getAllCustomersGlobal(
+    @Query('page') page = '1',
+    @Query('limit') limit = '100',
+  ) {
+    return this.customerService.getAllCustomersGlobal(
+      parseInt(page),
+      parseInt(limit),
+    );
+  }
 
   @ApiOperation(getAllCustomersForTenantDoc.operation)
   @ApiResponse(getAllCustomersForTenantDoc.responses[200])
   @ApiResponse(getAllCustomersForTenantDoc.responses[401])
   @Get('tenant/:tenantId')
-  async getAllCustomersForTenant(@Param('tenantId') tenantId: string) {
-    return this.customerService.getAllCustomers(tenantId);
+  async getAllCustomersForTenant(
+    @Param('tenantId') tenantId: string,
+    @Query('page') page = '1',
+    @Query('limit') limit = '100',
+  ) {
+    return this.customerService.getAllCustomersPaginated(
+      tenantId,
+      parseInt(page),
+      parseInt(limit),
+    );
   }
 
   @ApiOperation(getOneCustomerByIdDoc.operation)
@@ -71,8 +99,7 @@ export class CustomerController {
   @Patch(':id')
   async updateCustomer(
     @Param('id') id: string,
-    @Body()
-    request: UpdateClientDto,
+    @Body() request: UpdateClientDto,
   ) {
     return this.customerService.updateCustomer(id, request);
   }

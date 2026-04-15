@@ -1,15 +1,12 @@
-import { RoleAuthorizationGuard } from '@/common/guards/role_authorization.guard';
-import { LevelAuthorizationGuard } from '@/common/guards/level_authorization.guard';
 import {
   Body,
   Controller,
   Delete,
   Get,
-  InternalServerErrorException,
   Param,
   Patch,
   Post,
-  Res,
+  Query,
   UseGuards,
 } from '@nestjs/common';
 import { ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
@@ -17,6 +14,7 @@ import { ProductService } from './product.service';
 import { ProductInsertDto } from './dto/newProduct.dto';
 import { UpdateProductDto } from './dto/updateProduct.dto';
 import { isUUID } from 'class-validator';
+import { AuthenticationGuard } from '@/common/guards/authentication.guard';
 import {
   getAllProductsByTenantDoc,
   getProductBySkuDoc,
@@ -25,23 +23,22 @@ import {
   deleteProductDoc,
 } from '@/docs/contexts/general/product';
 
-// ? @UseGuards(AuthorizationGuard)
 @ApiTags('Product')
 @Controller('product')
 export class ProductController {
   constructor(private readonly productService: ProductService) {}
 
-  // ? Apply pagination
-  @ApiOperation(getAllProductsByTenantDoc.operation)
-  @ApiResponse(getAllProductsByTenantDoc.responses[200])
-  @ApiResponse(getAllProductsByTenantDoc.responses[400])
-  @ApiResponse(getAllProductsByTenantDoc.responses[401])
-  @Get(':tenantId')
-  async getAllProductsByTenant(@Param('tenantId') tenantId: string) {
-    if (!tenantId || !isUUID(tenantId) ) {
-      throw new InternalServerErrorException('Tenant ID is required');
-    }
-    return this.productService.getAllProducts(tenantId);
+  // Global list for superusers — declared BEFORE :tenantId to avoid conflict
+  @Get('all')
+  @UseGuards(AuthenticationGuard)
+  async getAllProductsGlobal(
+    @Query('page') page = '1',
+    @Query('limit') limit = '100',
+  ) {
+    return this.productService.getAllProductsGlobal(
+      parseInt(page),
+      parseInt(limit),
+    );
   }
 
   @ApiOperation(getProductBySkuDoc.operation)
@@ -49,7 +46,30 @@ export class ProductController {
   @ApiResponse(getProductBySkuDoc.responses[401])
   @Get('sku/:sku')
   async getProductBySku(@Param('sku') sku: string) {
-    return this.productService.getProductBySku(sku)
+    return this.productService.getProductBySku(sku);
+  }
+
+  @ApiOperation(getAllProductsByTenantDoc.operation)
+  @ApiResponse(getAllProductsByTenantDoc.responses[200])
+  @ApiResponse(getAllProductsByTenantDoc.responses[400])
+  @ApiResponse(getAllProductsByTenantDoc.responses[401])
+  @Get(':tenantId')
+  async getAllProductsByTenant(
+    @Param('tenantId') tenantId: string,
+    @Query('page') page = '1',
+    @Query('limit') limit = '100',
+  ) {
+    if (!tenantId || !isUUID(tenantId)) {
+      return this.productService.getAllProductsGlobal(
+        parseInt(page),
+        parseInt(limit),
+      );
+    }
+    return this.productService.getAllProductsPaginated(
+      tenantId,
+      parseInt(page),
+      parseInt(limit),
+    );
   }
 
   @ApiOperation(createNewProductDoc.operation)
@@ -66,7 +86,10 @@ export class ProductController {
   @ApiResponse(updateProductDoc.responses[400])
   @ApiResponse(updateProductDoc.responses[401])
   @Patch(':id')
-  async updateProduct(@Param('id') id: string, @Body() req: UpdateProductDto) {
+  async updateProduct(
+    @Param('id') id: string,
+    @Body() req: UpdateProductDto,
+  ) {
     return this.productService.updateProduct(req, id);
   }
 

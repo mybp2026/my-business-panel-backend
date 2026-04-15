@@ -15,6 +15,11 @@ export class ProductCategoryService {
     return categories.rows;
   }
 
+  async getAllCategoriesPaginated(search: string | null, limit: number, offset: number) {
+    const categories = await this.db.query(productCategory.allPaginated, [search || null, limit, offset]);
+    return categories.rows;
+  }
+
   async getCategoryById(id: string) {
     const category = await this.db.query(productCategory.byId, [id]);
     return category.rows[0];

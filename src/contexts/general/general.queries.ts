@@ -38,6 +38,20 @@ export const generalQueryDefs = {
 
   customer: {
     all: 'SELECT * FROM general_schema.tenant_customer WHERE tenant_id = $1',
+    allPaginated: `
+      SELECT * FROM general_schema.tenant_customer
+      WHERE tenant_id = $1
+      ORDER BY created_at DESC
+      LIMIT $2 OFFSET $3
+    `,
+    allGlobal: `
+      SELECT tc.*, t.tenant_name FROM general_schema.tenant_customer tc
+      LEFT JOIN general_schema.tenant t USING(tenant_id)
+      ORDER BY tc.created_at DESC
+      LIMIT $1 OFFSET $2
+    `,
+    countByTenant: 'SELECT COUNT(*)::int AS total FROM general_schema.tenant_customer WHERE tenant_id = $1',
+    countAll: 'SELECT COUNT(*)::int AS total FROM general_schema.tenant_customer',
     byId: 'SELECT * FROM general_schema.tenant_customer WHERE tenant_customer_id = $1',
     getInfo: `
     SELECT tc.first_name, tc.last_name, d.type_name, tc.document_number, tc.econ_activity, t.tenant_name, c.segment_name FROM general_schema.tenant_customer tc
@@ -84,6 +98,13 @@ export const generalQueryDefs = {
 
   productCategory: {
     all: 'SELECT * FROM general_schema.product_category',
+    allPaginated: `
+      SELECT product_category_id, category_name
+      FROM general_schema.product_category
+      WHERE ($1::text IS NULL OR category_name ILIKE '%' || $1 || '%')
+      ORDER BY category_name
+      LIMIT $2 OFFSET $3
+    `,
     byId: 'SELECT * FROM general_schema.product_category WHERE product_category_id = $1',
     create:
       'INSERT INTO general_schema.product_category (category_name) VALUES ($1) RETURNING *',
@@ -117,6 +138,22 @@ export const generalQueryDefs = {
     FROM general_schema.product_variant pv
     WHERE pv.tenant_id = $1
     `,
+    getAllPaginated: `
+      SELECT pv.product_variant_id, pv.sku, pv.variant_name, pv.cabys_code, pv.unit_price, pv.is_active, pv.tenant_id
+      FROM general_schema.product_variant pv
+      WHERE pv.tenant_id = $1
+      ORDER BY pv.sku
+      LIMIT $2 OFFSET $3
+    `,
+    getAllGlobal: `
+      SELECT pv.product_variant_id, pv.sku, pv.variant_name, pv.cabys_code, pv.unit_price, pv.is_active, pv.tenant_id, t.tenant_name
+      FROM general_schema.product_variant pv
+      LEFT JOIN general_schema.tenant t USING(tenant_id)
+      ORDER BY t.tenant_name, pv.sku
+      LIMIT $1 OFFSET $2
+    `,
+    countByTenant: 'SELECT COUNT(*)::int AS total FROM general_schema.product_variant WHERE tenant_id = $1',
+    countAll: 'SELECT COUNT(*)::int AS total FROM general_schema.product_variant',
     getBySku: `
       SELECT pv.product_variant_id, pv.sku, pv.variant_name, pv.cabys_code, pv.unit_price, pv.is_active
       FROM general_schema.product_variant pv
@@ -167,12 +204,29 @@ export const generalQueryDefs = {
     all: `
     SELECT * FROM general_schema.branch
     `,
+    allPaginated: `
+      SELECT b.*, t.tenant_name FROM general_schema.branch b
+      LEFT JOIN general_schema.tenant t USING(tenant_id)
+      ORDER BY t.tenant_name, b.branch_name
+      LIMIT $1 OFFSET $2
+    `,
+    countAll: 'SELECT COUNT(*)::int AS total FROM general_schema.branch',
     byId: `
-    SELECT * FROM general_schema.branch WHERE branch_id = $1 LIMIT 1
+    SELECT b.*, bl.provincia, bl.canton, bl.distrito, bl.otras_senas
+    FROM general_schema.branch b
+    LEFT JOIN general_schema.branch_location bl USING(branch_id)
+    WHERE b.branch_id = $1 LIMIT 1
     `,
     byTenant: `
     SELECT * FROM general_schema.branch WHERE tenant_id = $1
     `,
+    byTenantPaginated: `
+      SELECT * FROM general_schema.branch
+      WHERE tenant_id = $1
+      ORDER BY branch_name
+      LIMIT $2 OFFSET $3
+    `,
+    countByTenant: 'SELECT COUNT(*)::int AS total FROM general_schema.branch WHERE tenant_id = $1',
     byName: `
     SELECT * FROM general_schema.branch WHERE branch_name = $1 LIMIT 1
     `,

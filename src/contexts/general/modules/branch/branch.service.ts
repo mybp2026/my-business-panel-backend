@@ -29,6 +29,41 @@ export class BranchService {
     return rows;
   }
 
+  async findByTenantPaginated(
+    tenantId: string,
+    page = 1,
+    limit = 100,
+  ): Promise<{ branches: Branch[]; total: number; page: number; limit: number }> {
+    const offset = (page - 1) * limit;
+    const [dataResult, countResult] = await Promise.all([
+      this.db.query(branch.byTenantPaginated, [tenantId, limit, offset]),
+      this.db.query(branch.countByTenant, [tenantId]),
+    ]);
+    return {
+      branches: dataResult.rows,
+      total: countResult.rows[0]?.total ?? 0,
+      page,
+      limit,
+    };
+  }
+
+  async findAllGlobal(
+    page = 1,
+    limit = 100,
+  ): Promise<{ branches: Branch[]; total: number; page: number; limit: number }> {
+    const offset = (page - 1) * limit;
+    const [dataResult, countResult] = await Promise.all([
+      this.db.query(branch.allPaginated, [limit, offset]),
+      this.db.query(branch.countAll, []),
+    ]);
+    return {
+      branches: dataResult.rows,
+      total: countResult.rows[0]?.total ?? 0,
+      page,
+      limit,
+    };
+  }
+
   async findBranchByName(branchName: string): Promise<Branch> {
     const { rows } = await this.db.query(branch.byName, [branchName]);
     return rows[0];

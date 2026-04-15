@@ -34,6 +34,7 @@ export class TenantHaciendaConfigController {
 
     return {
       configured: true,
+      hacienda_username: credentials.haciendaUsername,
       hacienda_client_id: credentials.haciendaClientId,
       has_p12: !!credentials.p12Base64,
     };
