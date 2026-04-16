@@ -9,7 +9,7 @@ import { AuthModule } from '@/contexts/general/modules/auth/auth.module';
 import { DbModule } from '@/contexts/general/modules/db/db.module';
 import { SubscriptionModule } from '@/contexts/general/modules/subscription/subscription.module';
 import { CustomerModule } from '@/contexts/general/modules/customer/customer.module';
-import { DocumentTypeModule } from '@/contexts/general/modules/document_type/document-type.module';
+import { IdentificationTypeModule } from '@/contexts/general/modules/identification-type/identification-type.module';
 import { TenantModule } from '@/contexts/general/modules/tenant/tenant.module';
 import { ProductCategoryModule } from '@/contexts/general/modules/product_category/product-category.module';
 import { CustomerSegmentMarginModule } from '@/contexts/general/modules/customer_segment_margin/customer_segment_margin.module';
@@ -67,7 +67,7 @@ console.log(
     ScheduleModule.forRoot(),
     AuthModule,
     CustomerModule,
-    DocumentTypeModule,
+    IdentificationTypeModule,
     DbModule,
     QueueModule,
     TenantModule,

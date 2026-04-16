@@ -338,7 +338,7 @@ export const posQueryDefs = {
       JOIN general_schema.tenant t            ON t.tenant_id = b.tenant_id
       LEFT JOIN general_schema.branch_location loc ON loc.branch_id = b.branch_id
       JOIN general_schema.tenant_customer tc  ON tc.tenant_customer_id = s.tenant_customer_id
-      LEFT JOIN general_schema.document_type dt ON dt.document_type_id = tc.document_type_id
+      LEFT JOIN general_schema.identification-type dt ON dt.document_type_id = tc.document_type_id
       JOIN general_schema.currency cur        ON cur.currency_id = s.currency_id
       LEFT JOIN LATERAL (
         SELECT

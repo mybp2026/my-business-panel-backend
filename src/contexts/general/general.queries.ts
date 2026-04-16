@@ -30,10 +30,10 @@ export const generalQueryDefs = {
   },
 
   documentType: {
-    all: 'SELECT * FROM general_schema.document_type',
-    byId: 'SELECT * FROM general_schema.document_type WHERE document_type_id = $1',
+    all: 'SELECT * FROM general_schema.identification-type',
+    byId: 'SELECT * FROM general_schema.identification-type WHERE document_type_id = $1',
     delete:
-      'DELETE FROM general_schema.document_type WHERE document_type_id = $1',
+      'DELETE FROM general_schema.identification-type WHERE document_type_id = $1',
   },
 
   customer: {
@@ -50,14 +50,16 @@ export const generalQueryDefs = {
       ORDER BY tc.created_at DESC
       LIMIT $1 OFFSET $2
     `,
-    countByTenant: 'SELECT COUNT(*)::int AS total FROM general_schema.tenant_customer WHERE tenant_id = $1',
-    countAll: 'SELECT COUNT(*)::int AS total FROM general_schema.tenant_customer',
+    countByTenant:
+      'SELECT COUNT(*)::int AS total FROM general_schema.tenant_customer WHERE tenant_id = $1',
+    countAll:
+      'SELECT COUNT(*)::int AS total FROM general_schema.tenant_customer',
     byId: 'SELECT * FROM general_schema.tenant_customer WHERE tenant_customer_id = $1',
     getInfo: `
     SELECT tc.first_name, tc.last_name, d.type_name, tc.document_number, tc.econ_activity, t.tenant_name, c.segment_name FROM general_schema.tenant_customer tc
     INNER JOIN general_schema.tenant t USING(tenant_id)
     INNER JOIN general_schema.customer_segment c USING(customer_segment_id)
-    INNER JOIN general_schema.document_type d USING(document_type_id)
+    INNER JOIN general_schema.identification-type d USING(document_type_id)
     WHERE tc.document_number = $1
     `,
     create: `
@@ -152,8 +154,10 @@ export const generalQueryDefs = {
       ORDER BY t.tenant_name, pv.sku
       LIMIT $1 OFFSET $2
     `,
-    countByTenant: 'SELECT COUNT(*)::int AS total FROM general_schema.product_variant WHERE tenant_id = $1',
-    countAll: 'SELECT COUNT(*)::int AS total FROM general_schema.product_variant',
+    countByTenant:
+      'SELECT COUNT(*)::int AS total FROM general_schema.product_variant WHERE tenant_id = $1',
+    countAll:
+      'SELECT COUNT(*)::int AS total FROM general_schema.product_variant',
     getBySku: `
       SELECT pv.product_variant_id, pv.sku, pv.variant_name, pv.cabys_code, pv.unit_price, pv.is_active
       FROM general_schema.product_variant pv
@@ -226,7 +230,8 @@ export const generalQueryDefs = {
       ORDER BY branch_name
       LIMIT $2 OFFSET $3
     `,
-    countByTenant: 'SELECT COUNT(*)::int AS total FROM general_schema.branch WHERE tenant_id = $1',
+    countByTenant:
+      'SELECT COUNT(*)::int AS total FROM general_schema.branch WHERE tenant_id = $1',
     byName: `
     SELECT * FROM general_schema.branch WHERE branch_name = $1 LIMIT 1
     `,

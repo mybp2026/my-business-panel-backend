@@ -1,5 +1,5 @@
 import { Inject, Injectable } from '@nestjs/common';
-import { DocumentType } from './interface/document_type.interface';
+import { DocumentType } from './interface/identification-type.interface';
 import { DATABASE } from '@/contexts/general/modules/db/db.provider';
 import Database from '@crane-technologies/database';
 import { generalQueries } from '@general/general.queries';
@@ -7,7 +7,7 @@ import { generalQueries } from '@general/general.queries';
 const { documentType } = generalQueries;
 
 @Injectable()
-export class DocumentTypeService {
+export class IdentificationTypeService {
   constructor(@Inject(DATABASE) private readonly db: Database) {}
   //Delete this when the database is implemented
 

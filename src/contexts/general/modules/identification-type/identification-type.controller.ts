@@ -1,18 +1,20 @@
 import { LevelAuthorizationGuard } from '@/common/guards/level_authorization.guard';
-import { DocumentTypeService } from './document-type.service';
+import { IdentificationTypeService } from './identification-type.service';
 import { Controller, Delete, Get, Param, UseGuards } from '@nestjs/common';
 import { ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
 import {
   getAllDocumentTypesDoc,
   getOneDocumentTypeDoc,
   deleteDocumentTypeDoc,
-} from '@/docs/contexts/general/document_type';
+} from '@/docs/contexts/general/identification-type';
 
 // @UseGuards(AuthorizationGuard)
 @ApiTags('Document Type')
 @Controller('document')
-export class DocumentTypeController {
-  constructor(private readonly documentTypeService: DocumentTypeService) {}
+export class IdentificationTypeController {
+  constructor(
+    private readonly documentTypeService: IdentificationTypeService,
+  ) {}
 
   @ApiOperation(getAllDocumentTypesDoc.operation)
   @ApiResponse(getAllDocumentTypesDoc.responses[200])
