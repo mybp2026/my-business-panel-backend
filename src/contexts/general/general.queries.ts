@@ -29,11 +29,11 @@ export const generalQueryDefs = {
     all: 'SELECT * FROM general_schema.role',
   },
 
-  documentType: {
-    all: 'SELECT * FROM general_schema.identification-type',
-    byId: 'SELECT * FROM general_schema.identification-type WHERE document_type_id = $1',
+  identificationType: {
+    all: 'SELECT * FROM general_schema.identification_type',
+    byId: 'SELECT * FROM general_schema.identification_type WHERE identification_type_id = $1',
     delete:
-      'DELETE FROM general_schema.identification-type WHERE document_type_id = $1',
+      'DELETE FROM general_schema.identification_type WHERE identification_type_id = $1',
   },
 
   customer: {
@@ -59,11 +59,11 @@ export const generalQueryDefs = {
     SELECT tc.first_name, tc.last_name, d.type_name, tc.document_number, tc.econ_activity, t.tenant_name, c.segment_name FROM general_schema.tenant_customer tc
     INNER JOIN general_schema.tenant t USING(tenant_id)
     INNER JOIN general_schema.customer_segment c USING(customer_segment_id)
-    INNER JOIN general_schema.identification-type d USING(document_type_id)
+    INNER JOIN general_schema.identification_type d ON d.identification_type_id = tc.identification_type_id
     WHERE tc.document_number = $1
     `,
     create: `
-    INSERT INTO general_schema.tenant_customer (tenant_id, first_name, last_name, document_type_id, document_number, econ_activity, email, phone, birthdate, address, created_at, updated_at, is_tenant)
+    INSERT INTO general_schema.tenant_customer (tenant_id, first_name, last_name, identification_type_id, document_number, econ_activity, email, phone, birthdate, address, created_at, updated_at, is_tenant)
     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, NOW(), NOW(), $11)
     RETURNING *
     `,
