@@ -268,17 +268,20 @@ export const posQueryDefs = {
     getEInvoicesByBranch: `
       SELECT * FROM pos_schema.electronic_sale_invoice e
       INNER JOIN pos_schema.sale s USING(sale_id)
-      WHERE s.branch_id = $1;
+      INNER JOIN general_schema.branch b USING(branch_id)
+      WHERE b.branch_id = $1 AND b.tenant_id = $2;
     `,
     getEInvoiceForSale: `
       SELECT * FROM pos_schema.electronic_sale_invoice e
       INNER JOIN pos_schema.sale s USING(sale_id)
-      WHERE e.sale_id = $1;
+      INNER JOIN general_schema.branch b USING(branch_id)
+      WHERE s.sale_id = $1 AND b.tenant_id = $2;
     `,
     getEInvoiceById: `
       SELECT * FROM pos_schema.electronic_sale_invoice e
       INNER JOIN pos_schema.sale s USING(sale_id)
-      WHERE e.electronic_sale_invoice_id = $1; 
+      INNER JOIN general_schema.branch b USING(branch_id)
+      WHERE e.electronic_sale_invoice_id = $1 AND b.tenant_id = $2; 
     `,
     getSaleForEInvoice: `
       SELECT
@@ -304,10 +307,10 @@ export const posQueryDefs = {
         s.tax_amount,
         s.total_amount,
         pm.code AS payment_method_code,
-        COALESCE(b.econ_activity, t.econ_activity, '722003')::VARCHAR(6) AS activity_code,
+        t.econ_activity::VARCHAR(6) AS activity_code,
         t.tenant_name     AS issuer_name,
         t.identification  AS issuer_identification,
-        '02'::VARCHAR(2)  AS issuer_identification_type,
+        '04'::VARCHAR(2)  AS issuer_identification_type,
         t.contact_email   AS issuer_email,
         COALESCE(loc.provincia,   '1')  AS provincia,
         COALESCE(loc.canton,      '01') AS canton,

@@ -76,12 +76,14 @@ export class HaciendaService {
       return cached.token;
     }
 
-    if (process.env.HACIENDA_MOCK === 'true') {
-      return 'mock-access-token';
-    }
+    // if (process.env.HACIENDA_MOCK === 'true') {
+    //   return 'mock-access-token';
+    // }
 
     const idpUrl = process.env.HACIENDA_IDP_URL;
     if (!idpUrl) throw new Error('HACIENDA_IDP_URL no configurado');
+
+    console.log(credentials);
 
     const res = await this.fetchWithRetry(idpUrl, {
       method: 'POST',
@@ -137,7 +139,11 @@ export class HaciendaService {
       this.logger.log(`Respuesta de Hacienda: ${res.status}`);
 
       if (res.status === 201 || res.status === 202) {
-        this.logger.log(`✓ Comprobante aceptado por Hacienda (${res.status})`);
+        const msg =
+          res.status === 202
+            ? '✓ Comprobante recibido por Hacienda (202 - en procesamiento asíncrono)'
+            : '✓ Comprobante aceptado por Hacienda (201)';
+        this.logger.log(msg);
         return { accepted: true };
       }
 
@@ -208,9 +214,12 @@ export class HaciendaService {
 
       const token = await this.getAccessToken(tenantId, credentials);
 
-      const res = await this.fetchWithRetry(`${this.apiUrl}recepcion/${clave}`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
+      const res = await this.fetchWithRetry(
+        `${this.apiUrl}recepcion/${clave}`,
+        {
+          headers: { Authorization: `Bearer ${token}` },
+        },
+      );
 
       // 401: token expirado → limpiar cache y reintentar
       if (res.status === 401 && tokenAttempt === 0) {

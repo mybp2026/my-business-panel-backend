@@ -1,4 +1,13 @@
-import { Body, Controller, Get, Inject, Param, Post } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Get,
+  Inject,
+  Param,
+  Post,
+  Req,
+  UseGuards,
+} from '@nestjs/common';
 import { ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
 import { SaleService } from './sale.service';
 import { FullSaleDto } from './dto/sales.dto';
@@ -18,9 +27,11 @@ import {
   getEInvoiceForSaleDoc,
   createEInvoiceForSaleDoc,
 } from '@/docs/contexts/pos/sale';
+import { AuthenticationGuard } from '@/common/guards/authentication.guard';
 
 @ApiTags('Sale')
 @Controller('sale')
+@UseGuards(AuthenticationGuard)
 export class SaleController {
   constructor(
     @Inject(DATABASE) private readonly db: Database,
@@ -68,8 +79,14 @@ export class SaleController {
   @ApiResponse(getEInvoicesByBranchDoc.responses[200])
   @ApiResponse(getEInvoicesByBranchDoc.responses[401])
   @Get('e-invoice/branch/:branch_id')
-  async getEInvoicesByBranch(@Param('branch_id') branchId: string) {
-    return this.eInvoiceService.getEInvoiceByBranch(branchId);
+  async getEInvoicesByBranch(
+    @Param('branch_id') branchId: string,
+    @Req() req: any,
+  ) {
+    return this.eInvoiceService.getEInvoiceByBranch(
+      branchId,
+      req.user.tenant_id,
+    );
   }
 
   @ApiOperation(getEInvoiceByIdDoc.operation)
@@ -77,8 +94,11 @@ export class SaleController {
   @ApiResponse(getEInvoiceByIdDoc.responses[401])
   @ApiResponse(getEInvoiceByIdDoc.responses[404])
   @Get('e-invoice/:invoice_id')
-  async getEInvoiceById(@Param('invoice_id') invoiceId: string) {
-    return this.eInvoiceService.getEInvoiceById(invoiceId);
+  async getEInvoiceById(
+    @Param('invoice_id') invoiceId: string,
+    @Req() req: any,
+  ) {
+    return this.eInvoiceService.getEInvoiceById(invoiceId, req.user.tenant_id);
   }
 
   @ApiOperation(getEInvoiceForSaleDoc.operation)
@@ -86,8 +106,8 @@ export class SaleController {
   @ApiResponse(getEInvoiceForSaleDoc.responses[401])
   @ApiResponse(getEInvoiceForSaleDoc.responses[404])
   @Get(':sale_id/e-invoice')
-  async getEInvoiceForSale(@Param('sale_id') saleId: string) {
-    return this.eInvoiceService.getEInvoiceForSale(saleId);
+  async getEInvoiceForSale(@Param('sale_id') saleId: string, @Req() req: any) {
+    return this.eInvoiceService.getEInvoiceForSale(saleId, req.user.tenant_id);
   }
 
   @ApiOperation(createEInvoiceForSaleDoc.operation)

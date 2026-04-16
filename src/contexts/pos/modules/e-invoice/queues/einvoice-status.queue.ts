@@ -7,8 +7,8 @@ const prototype = QueueConfigPrototype.create();
 export const einvoiceStatusQueueConfig = prototype.clone({
   name: EINVOICE_STATUS_QUEUE,
   limiter: {
-    max: 12,
-    duration: 60_000,
+    max: Number(process.env.EINVOICE_LIMITER_MAX) || 12,
+    duration: Number(process.env.EINVOICE_LIMITER_DURATION_MS) || 60_000,
   },
   defaultJobOptions: {
     attempts: 1,
