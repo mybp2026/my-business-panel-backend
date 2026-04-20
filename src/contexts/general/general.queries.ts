@@ -80,8 +80,8 @@ export const generalQueryDefs = {
     all: 'SELECT * FROM general_schema.tenant',
     byId: 'SELECT * FROM general_schema.tenant WHERE tenant_id = $1',
     create: `
-    INSERT INTO general_schema.tenant (tenant_name, contact_email, contact_phone, identification, econ_activity, sign, is_subscribed, created_at, updated_at, region_id)
-    VALUES ($1, $2, $3, $4, $5, $6, $7, NOW(), NOW(), $8)
+    INSERT INTO general_schema.tenant (tenant_name, contact_email, contact_phone, identification, econ_activity, sign, is_subscribed, created_at, updated_at, region_id, identification_type_id)
+    VALUES ($1, $2, $3, $4, $5, $6, $7, NOW(), NOW(), $8, $9)
     RETURNING *
     `,
     delete: 'DELETE FROM general_schema.tenant WHERE tenant_id = $1',

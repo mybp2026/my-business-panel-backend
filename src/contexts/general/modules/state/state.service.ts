@@ -80,6 +80,10 @@ export class StateService implements OnModuleInit {
     return tenant;
   }
 
+  addTenant(tenantData: ITenant): void {
+    this.tenants.set(tenantData.tenant_id, tenantData);
+  }
+
   private loadConstants() {
     this.constants.set('JWT_SECRET', process.env.JWT_SECRET);
     this.constants.set(
