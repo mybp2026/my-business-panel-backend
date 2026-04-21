@@ -38,6 +38,33 @@ export class UserService {
     }
   }
 
+  async getUserById(userId: string, full?: boolean): Promise<IUserResult | null> {
+    if (!full) {
+      const fetchedData = await this.db.query(users.byId, [userId]);
+      if (fetchedData.rows.length === 0) return null;
+      return fetchedData.rows[0];
+    }
+
+    const fetchedData = await this.db.query(users.byIdFull, [userId]);
+    if (fetchedData.rows.length === 0) return null;
+
+    const {
+      employee_id, first_name, last_name, doc_number, phone, employee_email,
+      is_active, payment_schedule_id, branch_id, contract_id, start_date,
+      end_date, hours, base_salary, duties, turn_type, turn_id,
+      ...userFields
+    } = fetchedData.rows[0];
+
+    return {
+      ...userFields,
+      employee: employee_id ? {
+        employee_id, first_name, last_name, doc_number, phone, employee_email,
+        is_active, payment_schedule_id, branch_id, contract_id, start_date,
+        end_date, hours, base_salary, duties, turn_type, turn_id,
+      } : null,
+    };
+  }
+
   async getUserByEmail(email: string): Promise<IUserResult | null> {
     const fetchedData = await this.db.query(users.byEmailWithPassword, [email]);
     if (fetchedData.rows.length === 0) return null;
@@ -266,6 +293,16 @@ export class UserService {
       console.error('[UserService.createUsersBulk] Transaction failed:', error);
       throw error;
     }
+  }
+
+  async updateUser(userId: string, data: { email?: string; role_id?: number }) {
+    const result = await this.db.query(users.update, [
+      data.email ?? null,
+      data.role_id ?? null,
+      userId,
+    ]);
+    if (result.rows.length === 0) throw new Error(`User ${userId} not found`);
+    return result.rows[0];
   }
 
   async assignRole(assignRoleDto: AssignRoleDto) {

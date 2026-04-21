@@ -3,7 +3,20 @@ import { createQueries } from '@crane-technologies/database';
 export const generalQueryDefs = {
   users: {
     all: 'SELECT user_id, email, role_id, tenant_id FROM general_schema.users',
-    byId: 'SELECT user_id, email, role_id FROM general_schema.users WHERE user_id = $1 LIMIT 1',
+    byId: 'SELECT user_id, email, role_id, tenant_id, created_at, updated_at FROM general_schema.users WHERE user_id = $1 LIMIT 1',
+    byIdFull: `
+      SELECT
+        u.user_id, u.email, u.role_id, u.tenant_id, u.created_at, u.updated_at,
+        e.employee_id, e.first_name, e.last_name, e.doc_number, e.phone,
+        e.email AS employee_email, e.is_active, e.payment_schedule_id, e.branch_id,
+        c.contract_id, c.start_date::text AS start_date, c.end_date::text AS end_date,
+        c.hours, c.base_salary, c.duties, c.turn_type, c.turn_id
+      FROM general_schema.users u
+      LEFT JOIN hr_schema.employee e ON e.user_id = u.user_id
+      LEFT JOIN hr_schema.contract c ON c.contract_id = e.contract_id
+      WHERE u.user_id = $1 LIMIT 1
+    `,
+
     byEmail:
       'SELECT user_id, email, role_id FROM general_schema.users WHERE email = $1 LIMIT 1',
     byTenant:
@@ -15,6 +28,15 @@ export const generalQueryDefs = {
       (tenant_id, email, password_hash, role_id, created_at, updated_at) 
       VALUES ($1, $2, $3, $4, NOW(), NOW()) 
       RETURNING *
+    `,
+    update: `
+      UPDATE general_schema.users
+      SET
+        email = COALESCE($1, email),
+        role_id = COALESCE($2, role_id),
+        updated_at = NOW()
+      WHERE user_id = $3
+      RETURNING user_id, email, role_id, tenant_id, created_at, updated_at
     `,
     assignRole:
       'UPDATE general_schema.users SET role_id = $1 WHERE user_id = $2',

@@ -89,12 +89,13 @@ export class BranchController {
   @ApiResponse(createBranchDoc.responses[400])
   @ApiResponse(createBranchDoc.responses[401])
   @Post('/')
+  @UseGuards(AuthenticationGuard, LevelAuthorizationGuard)
+  @RequiredLevel(2)
   async createBranch(
     @Body() createBranchDto: CreateBranchDto,
     @Session() session: IUserSession,
   ) {
     const userRole = this.stateService.getRole(session.role_id);
-    // Superusers can create branches for any tenant
     const tenantId =
       userRole.role_hierarchy === SUPERUSER_HIERARCHY
         ? createBranchDto.tenant_id

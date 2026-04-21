@@ -15,7 +15,7 @@ export const hrQueryDefs = {
         duties = COALESCE($5, duties),
         turn_type = COALESCE($6, turn_type),
         turn_id = COALESCE($7, turn_id)
-      WHERE contract_id = $6
+      WHERE contract_id = $8
       RETURNING contract_id
     `,
     getSchedule: `
@@ -25,10 +25,16 @@ export const hrQueryDefs = {
 
   employee: {
     getById: `
-      SELECT e.first_name, e.last_name, e.doc_number, e.phone, e.email, e.is_active, c.start_date, c.end_date, c.hours, c.base_salary, c.duties, c.turn_id, e.branch_id 
-      FROM hr_schema.employee e 
+      SELECT e.first_name, e.last_name, e.doc_number, e.phone, e.email, e.is_active, c.start_date, c.end_date, c.hours, c.base_salary, c.duties, c.turn_id, e.branch_id
+      FROM hr_schema.employee e
       INNER JOIN hr_schema.contract c USING(contract_id)
       WHERE e.employee_id = $1 LIMIT 1
+    `,
+    getByUserId: `
+      SELECT e.employee_id, e.contract_id, e.first_name, e.last_name, e.doc_number, e.phone, e.email, e.is_active, e.payment_schedule_id, e.branch_id, c.start_date::text AS start_date, c.end_date::text AS end_date, c.hours, c.base_salary, c.duties, c.turn_type, c.turn_id
+      FROM hr_schema.employee e
+      INNER JOIN hr_schema.contract c USING(contract_id)
+      WHERE e.user_id = $1 LIMIT 1
     `,
     getByTenant: `
       SELECT * FROM hr_schema.employee WHERE tenant_id = $1

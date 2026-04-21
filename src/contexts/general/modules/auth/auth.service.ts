@@ -28,7 +28,9 @@ export class AuthService {
   ): Promise<{ user: IUserSession; token: string }> {
     const { email, password } = loginDto;
     const storedUser = await this.usersService.getUserByEmail(email);
-    if (!storedUser) throw new InvalidCredentialsError();
+    if (!storedUser || !storedUser.password_hash) {
+      throw new InvalidCredentialsError();
+    }
 
     const validPassword = await this.validatePassword(
       storedUser.password_hash,
