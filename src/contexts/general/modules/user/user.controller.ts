@@ -1,5 +1,6 @@
 import {
   Controller,
+  Delete,
   Post,
   Get,
   Put,
@@ -25,6 +26,7 @@ import {
   getUserRolesDoc,
   getSelfInfoDoc,
   getUserByEmailDoc,
+  deleteUserDoc,
 } from '@/docs/contexts/general/user';
 
 // @UseGuards(AuthenticationGuard, LevelAuthorizationGuard, RoleAuthorizationGuard)
@@ -88,5 +90,15 @@ export class UserController {
   @Get(':email')
   async getUserByEmail(@Param('email') email: string) {
     return this.userService.getUserByEmail(email);
+  }
+
+  @ApiOperation(deleteUserDoc.operation)
+  @ApiResponse(deleteUserDoc.responses[200])
+  @ApiResponse(deleteUserDoc.responses[401])
+  @ApiResponse(deleteUserDoc.responses[404])
+  @RequiredLevel(3)
+  @Delete(':userId')
+  async deleteUser(@Param('userId') userId: string) {
+    return this.userService.deleteUser(userId);
   }
 }

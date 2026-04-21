@@ -2,6 +2,7 @@ import {
   IsEmail,
   IsNumber,
   IsNotEmpty,
+  IsOptional,
   IsString,
   IsUUID,
   ValidateNested,
@@ -94,9 +95,10 @@ export class CreateUserDto {
   @IsNumber()
   role_id!: number;
 
+  @IsOptional()
   @ValidateNested()
   @Type(() => EmployeeInfoDto)
-  employeeInfo!: EmployeeInfoDto;
+  employeeInfo?: EmployeeInfoDto;
 }
 
 export class CreateUserBulkDto {

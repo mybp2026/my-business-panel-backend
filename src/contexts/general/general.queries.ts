@@ -7,7 +7,7 @@ export const generalQueryDefs = {
     byEmail:
       'SELECT user_id, email, role_id FROM general_schema.users WHERE email = $1 LIMIT 1',
     byTenant:
-      'SELECT user_id, email, role_id FROM general_schema.users WHERE tenant_id = $1',
+      'SELECT user_id, email, role_id, created_at FROM general_schema.users WHERE tenant_id = $1',
     byEmailWithPassword:
       'SELECT * FROM general_schema.users WHERE email = $1 LIMIT 1',
     create: `
@@ -18,9 +18,11 @@ export const generalQueryDefs = {
     `,
     assignRole:
       'UPDATE general_schema.users SET role_id = $1 WHERE user_id = $2',
+    delete:
+      'DELETE FROM general_schema.users WHERE user_id = $1 RETURNING user_id, email',
     getByEmails: `
-      SELECT user_id, email FROM general_schema.users 
-      WHERE email = ANY($1) 
+      SELECT user_id, email FROM general_schema.users
+      WHERE email = ANY($1)
       ORDER BY created_at DESC
     `,
   },
