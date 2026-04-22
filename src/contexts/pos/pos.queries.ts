@@ -199,9 +199,11 @@ export const posQueryDefs = {
     update: `
       UPDATE pos_schema.loyalty_program
       SET
-        points_per_dollar = COALESCE($2, points_per_dollar),
-        points_per_currency_unit = COALESCE($3, points_per_currency_unit),
-        minimum_purchase_for_points = COALESCE($4, minimum_purchase_for_points)
+        points_earned_per_currency_unit = COALESCE($2, points_earned_per_currency_unit),
+        points_redeemed_per_currency_unit = COALESCE($3, points_redeemed_per_currency_unit),
+        minimum_purchase_for_points = COALESCE($4, minimum_purchase_for_points),
+        is_active = COALESCE($5, is_active),
+        updated_at = NOW()
       WHERE loyalty_program_id = $1
       RETURNING loyalty_program_id
     `,

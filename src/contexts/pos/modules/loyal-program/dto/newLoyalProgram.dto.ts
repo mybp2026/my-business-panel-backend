@@ -1,4 +1,4 @@
-import { IsNumber, IsOptional, IsUUID } from 'class-validator';
+import { IsBoolean, IsNumber, IsOptional, IsUUID } from 'class-validator';
 
 export class NewLoyalProgramDto {
   @IsUUID()
@@ -13,4 +13,8 @@ export class NewLoyalProgramDto {
   @IsOptional()
   @IsNumber()
   minimum_purchase_for_points?: number;
+
+  @IsOptional()
+  @IsBoolean()
+  is_active?: boolean;
 }
