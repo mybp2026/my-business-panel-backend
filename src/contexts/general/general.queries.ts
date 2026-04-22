@@ -61,15 +61,43 @@ export const generalQueryDefs = {
   },
 
   customer: {
-    all: 'SELECT * FROM general_schema.tenant_customer WHERE tenant_id = $1',
+    all: `
+      SELECT
+        tenant_customer_id AS customer_id, tenant_id,
+        first_name, last_name,
+        identification_type_id AS doc_type,
+        document_number AS doc_number,
+        econ_activity, email, phone, birthdate, address,
+        customer_segment_id AS segment_id,
+        is_tenant, created_at, updated_at
+      FROM general_schema.tenant_customer
+      WHERE tenant_id = $1
+    `,
     allPaginated: `
-      SELECT * FROM general_schema.tenant_customer
+      SELECT
+        tenant_customer_id AS customer_id, tenant_id,
+        first_name, last_name,
+        identification_type_id AS doc_type,
+        document_number AS doc_number,
+        econ_activity, email, phone, birthdate, address,
+        customer_segment_id AS segment_id,
+        is_tenant, created_at, updated_at
+      FROM general_schema.tenant_customer
       WHERE tenant_id = $1
       ORDER BY created_at DESC
       LIMIT $2 OFFSET $3
     `,
     allGlobal: `
-      SELECT tc.*, t.tenant_name FROM general_schema.tenant_customer tc
+      SELECT
+        tc.tenant_customer_id AS customer_id, tc.tenant_id,
+        tc.first_name, tc.last_name,
+        tc.identification_type_id AS doc_type,
+        tc.document_number AS doc_number,
+        tc.econ_activity, tc.email, tc.phone, tc.birthdate, tc.address,
+        tc.customer_segment_id AS segment_id,
+        tc.is_tenant, tc.created_at, tc.updated_at,
+        t.tenant_name
+      FROM general_schema.tenant_customer tc
       LEFT JOIN general_schema.tenant t USING(tenant_id)
       ORDER BY tc.created_at DESC
       LIMIT $1 OFFSET $2
@@ -78,20 +106,51 @@ export const generalQueryDefs = {
       'SELECT COUNT(*)::int AS total FROM general_schema.tenant_customer WHERE tenant_id = $1',
     countAll:
       'SELECT COUNT(*)::int AS total FROM general_schema.tenant_customer',
-    byId: 'SELECT * FROM general_schema.tenant_customer WHERE tenant_customer_id = $1',
+    byId: `
+      SELECT
+        tenant_customer_id AS customer_id, tenant_id,
+        first_name, last_name,
+        identification_type_id AS doc_type,
+        document_number AS doc_number,
+        econ_activity, email, phone, birthdate, address,
+        customer_segment_id AS segment_id,
+        is_tenant, created_at, updated_at
+      FROM general_schema.tenant_customer
+      WHERE tenant_customer_id = $1
+    `,
     getInfo: `
-    SELECT tc.first_name, tc.last_name, d.type_name, tc.document_number, tc.econ_activity, t.tenant_name, c.segment_name FROM general_schema.tenant_customer tc
-    INNER JOIN general_schema.tenant t USING(tenant_id)
-    INNER JOIN general_schema.customer_segment c USING(customer_segment_id)
-    INNER JOIN general_schema.identification_type d ON d.identification_type_id = tc.identification_type_id
-    WHERE tc.document_number = $1
+      SELECT tc.first_name, tc.last_name, d.type_name, tc.document_number, tc.econ_activity, t.tenant_name, c.segment_name
+      FROM general_schema.tenant_customer tc
+      INNER JOIN general_schema.tenant t USING(tenant_id)
+      INNER JOIN general_schema.customer_segment c USING(customer_segment_id)
+      INNER JOIN general_schema.identification_type d ON d.identification_type_id = tc.identification_type_id
+      WHERE tc.document_number = $1
     `,
     create: `
-    INSERT INTO general_schema.tenant_customer (tenant_id, first_name, last_name, identification_type_id, document_number, econ_activity, email, phone, birthdate, address, created_at, updated_at, is_tenant)
-    VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, NOW(), NOW(), $11)
-    RETURNING *
+      INSERT INTO general_schema.tenant_customer
+        (tenant_id, first_name, last_name, identification_type_id, document_number, econ_activity, email, phone, birthdate, address, created_at, updated_at, is_tenant)
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, NOW(), NOW(), $11)
+      RETURNING
+        tenant_customer_id AS customer_id, tenant_id,
+        first_name, last_name,
+        identification_type_id AS doc_type,
+        document_number AS doc_number,
+        econ_activity, email, phone, birthdate, address,
+        customer_segment_id AS segment_id,
+        is_tenant, created_at, updated_at
     `,
-    byEmail: 'SELECT * FROM general_schema.tenant_customer WHERE email = $1',
+    byEmail: `
+      SELECT
+        tenant_customer_id AS customer_id, tenant_id,
+        first_name, last_name,
+        identification_type_id AS doc_type,
+        document_number AS doc_number,
+        econ_activity, email, phone, birthdate, address,
+        customer_segment_id AS segment_id,
+        is_tenant, created_at, updated_at
+      FROM general_schema.tenant_customer
+      WHERE email = $1
+    `,
     delete:
       'DELETE FROM general_schema.tenant_customer WHERE tenant_customer_id = $1',
   },

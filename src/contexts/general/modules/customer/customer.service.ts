@@ -44,7 +44,12 @@ export class CustomerService {
     tenantId: string,
     page = 1,
     limit = 100,
-  ): Promise<{ customers: Customer[]; total: number; page: number; limit: number }> {
+  ): Promise<{
+    customers: Customer[];
+    total: number;
+    page: number;
+    limit: number;
+  }> {
     const offset = (page - 1) * limit;
     const [dataResult, countResult] = await Promise.all([
       this.db.query(customer.allPaginated, [tenantId, limit, offset]),
@@ -61,7 +66,12 @@ export class CustomerService {
   async getAllCustomersGlobal(
     page = 1,
     limit = 100,
-  ): Promise<{ customers: Customer[]; total: number; page: number; limit: number }> {
+  ): Promise<{
+    customers: Customer[];
+    total: number;
+    page: number;
+    limit: number;
+  }> {
     const offset = (page - 1) * limit;
     const [dataResult, countResult] = await Promise.all([
       this.db.query(customer.allGlobal, [limit, offset]),
@@ -96,24 +106,38 @@ export class CustomerService {
       last_name,
       document_type_id,
       document_number,
-      economic_activity,
-      email,
-      phone,
+      economic_activity || null,
+      email || null,
+      phone || null,
       birthdate || null,
-      address,
+      address || null,
       is_tenant || false,
     ]);
 
-    if (rows.length == 0) throw new ClientCreateError(email);
+    if (rows.length == 0) throw new ClientCreateError(email!);
     return { message: 'Customer created', customer: rows[0] };
   }
 
   async updateCustomer(customerId: string, customerData: UpdateClientDto) {
     const { ...updates } = customerData;
 
-    const updateKeys = Object.keys(updates).filter(
-      (key) => updates[key as keyof typeof updates] !== undefined,
-    );
+    const columnMap: Record<string, string> = {
+      segment_id: 'customer_segment_id',
+      document_type_id: 'identification_type_id',
+      economic_activity: 'econ_activity',
+    };
+
+    const validDbColumns = new Set([
+      'first_name', 'last_name', 'email', 'phone', 'address',
+      'birthdate', 'document_number', 'econ_activity',
+      'identification_type_id', 'customer_segment_id', 'is_tenant',
+    ]);
+
+    const updateKeys = Object.keys(updates).filter((key) => {
+      if (updates[key as keyof typeof updates] === undefined) return false;
+      const col = columnMap[key] ?? key;
+      return validDbColumns.has(col);
+    });
 
     if (updateKeys.length === 0) {
       throw new BadRequestException('No valid fields to update');
@@ -124,9 +148,9 @@ export class CustomerService {
     let index = 1;
 
     for (const key of updateKeys) {
-      const validKey = key as keyof typeof updates;
-      setClause.push(`"${key}" = $${index}`);
-      paramsArray.push(updates[validKey]);
+      const colName = columnMap[key] ?? key;
+      setClause.push(`"${colName}" = $${index}`);
+      paramsArray.push(updates[key as keyof typeof updates]);
       index++;
     }
 

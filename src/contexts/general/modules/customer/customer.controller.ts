@@ -14,8 +14,8 @@ import { ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
 import { NewClientDto } from './dto/newClient.dto';
 import { UpdateClientDto } from './dto/updateClient.dto';
 import { AuthenticationGuard } from '@/common/guards/authentication.guard';
-import { Session } from '@/common/decorators/session.decorator';
-import { IUserSession } from '@/common/interfaces/user_session.interface';
+// import { Session } from '@/common/decorators/session.decorator';
+// import { IUserSession } from '@/common/interfaces/user_session.interface';
 import { StateService } from '@/contexts/general/modules/state/state.service';
 import {
   getAllCustomersForTenantDoc,
@@ -25,8 +25,6 @@ import {
   updateCustomerDoc,
   deleteCustomerDoc,
 } from '@/docs/contexts/general/customer';
-
-const SUPERUSER_HIERARCHY = 1;
 
 @ApiTags('Customer')
 @Controller('customers')
