@@ -1,4 +1,13 @@
-import { IsNumber, IsOptional, IsString, IsUUID, IsArray, ValidateNested, Length, Matches } from 'class-validator';
+import {
+  IsNumber,
+  IsOptional,
+  IsString,
+  IsUUID,
+  IsArray,
+  ValidateNested,
+  Length,
+  Matches,
+} from 'class-validator';
 import { Type } from 'class-transformer';
 
 export class ProductInsertDto {

@@ -184,17 +184,17 @@ export const generalQueryDefs = {
   productCategory: {
     all: 'SELECT product_category_id AS category_id, category_name FROM general_schema.product_category',
     allPaginated: `
-      SELECT product_category_id AS category_id, category_name
-      FROM general_schema.product_category
-      WHERE ($1::text IS NULL OR category_name ILIKE '%' || $1 || '%')
-      ORDER BY category_name
+      SELECT cabys_code AS category_id, product_name AS category_name
+      FROM general_schema.product
+      WHERE ($1::text IS NULL OR product_name ILIKE '%' || $1 || '%')
+      ORDER BY product_name
       LIMIT $2 OFFSET $3
     `,
     allPaginatedByCabysCode: `
-      SELECT product_category_id AS category_id, category_name
-      FROM general_schema.product_category
-      WHERE ($1::text IS NULL OR product_category_id ILIKE $1 || '%')
-      ORDER BY product_category_id
+      SELECT cabys_code AS category_id, product_name AS category_name
+      FROM general_schema.product
+      WHERE ($1::text IS NULL OR cabys_code ILIKE $1 || '%')
+      ORDER BY cabys_code
       LIMIT $2 OFFSET $3
     `,
     byId: 'SELECT product_category_id AS category_id, category_name, parent_category_id, hierarchy_level FROM general_schema.product_category WHERE product_category_id = $1',
