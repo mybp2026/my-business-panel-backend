@@ -86,10 +86,17 @@ export class ProductService {
 
     const insertData = this.bulkInsertProducts(products);
 
-    const newProducts = await this.db.query(
-      insertData.query,
-      insertData.values,
-    );
+    let newProducts;
+    try {
+      newProducts = await this.db.query(insertData.query, insertData.values);
+    } catch (error: any) {
+      if (error?.code === '23503' && error?.constraint === 'product_variant_cabys_code_fkey') {
+        throw new BadRequestException(
+          `The cabys_code provided does not exist in the CABYS catalog`,
+        );
+      }
+      throw new InternalServerErrorException(error);
+    }
 
     return {
       message: 'Products created successfully!',
