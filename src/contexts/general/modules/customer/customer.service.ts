@@ -115,7 +115,7 @@ export class CustomerService {
     ]);
 
     if (rows.length == 0) throw new ClientCreateError(email!);
-    return { message: 'Customer created', customer: rows[0] };
+    return rows[0];
   }
 
   async updateCustomer(customerId: string, customerData: UpdateClientDto) {
