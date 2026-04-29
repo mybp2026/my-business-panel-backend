@@ -52,7 +52,7 @@ export class TenantHaciendaConfigController {
   @ApiResponse(saveHaciendaConfigDoc.responses[400])
   @ApiResponse(saveHaciendaConfigDoc.responses[401])
   @Post()
-  @RequiredLevel(4)
+  @RequiredLevel(3)
   async save(@Body() dto: SaveHaciendaConfigDto) {
     const configId = await this.service.saveCredentials(dto.tenant_id, {
       haciendaUsername: dto.hacienda_username,
@@ -70,7 +70,7 @@ export class TenantHaciendaConfigController {
   @ApiResponse(deactivateHaciendaConfigDoc.responses[401])
   @ApiResponse(deactivateHaciendaConfigDoc.responses[404])
   @Delete(':tenantId')
-  @RequiredLevel(4)
+  @RequiredLevel(3)
   async deactivate(@Param('tenantId', ParseUUIDPipe) tenantId: string) {
     await this.service.deactivate(tenantId);
     return { deactivated: true };
