@@ -184,6 +184,15 @@ export class TenantService {
         .toISOString()
         .split('T')[0];
 
+      const { rows: scheduleRows } = await txn.rawQuery(
+        'SELECT payment_schedule_id FROM hr_schema.payment_schedule LIMIT 1',
+        [],
+      );
+      const paymentScheduleId: number | undefined =
+        scheduleRows[0]?.payment_schedule_id;
+      if (!paymentScheduleId)
+        throw new Error('No payment schedule found in hr_schema.payment_schedule');
+
       const { rows: employeeRows } = await txn.query(employee.full, [
         today, // start_date
         nextYear, // end_date
@@ -191,7 +200,7 @@ export class TenantService {
         0, // base_salary
         'Administrador', // duties
         1, // turn_type
-        1, // turn_id
+        null, // turn_id — sin turno al crear el admin en onboarding
         userId,
         tenantId,
         user.first_name,
@@ -199,7 +208,7 @@ export class TenantService {
         user.document_number,
         user.phone,
         user.email,
-        1, // payment_schedule_id
+        paymentScheduleId,
         branchId,
       ]);
       if (employeeRows.length === 0) throw new CreateFullEmployeeError();
