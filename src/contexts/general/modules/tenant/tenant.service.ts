@@ -196,7 +196,7 @@ export class TenantService {
         tenantId,
         user.first_name,
         user.last_name,
-        user.doc_number,
+        user.document_number,
         user.phone,
         user.email,
         1, // payment_schedule_id
@@ -310,7 +310,8 @@ export class TenantService {
         token,
       };
     } catch (error) {
-      if (!committed) await this.rollbackSafely(txn, 'createTenantWithOnboarding');
+      if (!committed)
+        await this.rollbackSafely(txn, 'createTenantWithOnboarding');
 
       if (stripeSubscriptionIdToCompensate) {
         try {
