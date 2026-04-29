@@ -49,7 +49,7 @@ export class OnboardingUserDto {
 
   @IsNotEmpty()
   @IsString()
-  doc_number!: string;
+  document_number!: string;
 
   @IsNotEmpty()
   @IsString()
