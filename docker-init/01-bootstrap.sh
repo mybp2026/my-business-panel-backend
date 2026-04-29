@@ -13,6 +13,7 @@ echo ">>> Running migrations..."
 NEW_MIGRATIONS=(
   "migrations/pos/014-add-sale-traceability.sql"
   "migrations/general/017-tenant-hacienda-config.sql"
+  "migrations/hr/001-make-contract-turn-id-nullable.sql"
 )
 
 for f in "${NEW_MIGRATIONS[@]}"; do
