@@ -1,9 +1,12 @@
 import {
   BadRequestException,
+  ConflictException,
   Inject,
   Injectable,
+  Logger,
   NotFoundException,
 } from '@nestjs/common';
+import { Cron } from '@nestjs/schedule';
 import Database from '@crane-technologies/database';
 import { DATABASE } from '@/contexts/general/modules/db/db.provider';
 import { Warehouse } from './interfaces/warehouse.interface';
@@ -267,6 +270,12 @@ export class WarehouseService {
     product_id: string,
     tenant_id: string,
     amount: number,
+    costInfo?: {
+      purchaseOrderId: string;
+      unitCost: number;
+      currencyId?: number;
+      exchangeRate?: number;
+    },
   ): Promise<void> {
     if (amount <= 0) {
       throw new NotFoundException('Amount must be greater than zero');
@@ -369,6 +378,30 @@ export class WarehouseService {
     if (warehouse.rowCount === 0)
       throw new NotFoundException(
         `Warehouse with ID ${warehouse_id} not found`,
+      );
+
+    const { rows } = await this.db.query(inventoryQueries.countAllInWarehouse, [
+      warehouse_id,
+      tenant_id,
+    ]);
+    return rows;
+  }
+
+  async getStockByWarehouse(
+    warehouse_id: string,
+    tenant_id: string,
+  ): Promise<ProductCount[]> {
+    const tenant = this.state.getTenant(tenant_id);
+    if (!tenant)
+      throw new NotFoundException(`Tenant with ID ${tenant_id} not found`);
+
+    const warehouse = await this.db.query(inventoryQueries.byTenantAndId, [
+      warehouse_id,
+      tenant_id,
+    ]);
+    if (warehouse.rowCount === 0)
+      throw new NotFoundException(
+        `Warehouse with ID ${warehouse_id} not found for Tenant with ID ${tenant_id}`,
       );
 
     const { rows } = await this.db.query(inventoryQueries.countAllInWarehouse, [
@@ -740,5 +773,72 @@ export class WarehouseService {
       }
       throw error;
     }
+  }
+
+  async applyDiscrepancyAdjustment(
+    discrepancyCountId: string,
+    tenantId: string,
+  ) {
+    const tenant = this.state.getTenant(tenantId);
+    if (!tenant)
+      throw new NotFoundException(`Tenant with ID ${tenantId} not found`);
+
+    const { rows } = await this.db.query(
+      inventoryQueries.getDiscrepancyReportById,
+      [tenantId, discrepancyCountId],
+    );
+    if (rows.length === 0)
+      throw new NotFoundException(
+        `Discrepancy Report with ID ${discrepancyCountId} not found`,
+      );
+
+    const report = rows[0];
+
+    if (report.is_applied)
+      throw new ConflictException(
+        `Discrepancy Report ${discrepancyCountId} has already been applied`,
+      );
+
+    const { warehouse_id, product_variant_id, stored_quantity, physical_quantity } = report;
+    const delta = physical_quantity - stored_quantity;
+
+    const txn = await this.db.transaction();
+    try {
+      if (delta > 0) {
+        await txn.query(inventoryQueries.addStock, [delta, warehouse_id, product_variant_id, tenantId]);
+        await txn.query(inventoryQueries.logInventoryMovement, [1, warehouse_id, tenantId, product_variant_id, delta]);
+      } else if (delta < 0) {
+        await txn.query(inventoryQueries.removeStock, [Math.abs(delta), warehouse_id, product_variant_id, tenantId]);
+        await txn.query(inventoryQueries.logInventoryMovement, [2, warehouse_id, tenantId, product_variant_id, Math.abs(delta)]);
+      }
+      await txn.query(inventoryQueries.applyDiscrepancyReport, [discrepancyCountId, tenantId]);
+      await txn.commit();
+      return { success: true };
+    } catch (error) {
+      await txn.rollback();
+      throw error;
+    }
+  }
+
+  async getExpiringProducts(
+    tenant_id: string,
+    days: number = 30,
+  ): Promise<any[]> {
+    const tenant = this.state.getTenant(tenant_id);
+    if (!tenant)
+      throw new NotFoundException(`Tenant with ID ${tenant_id} not found`);
+
+    const { rows } = await this.db.query(
+      inventoryQueries.getExpiringStock,
+      [tenant_id, days],
+    );
+    return rows;
+  }
+
+  @Cron('0 8 * * *')
+  async notifyExpiringProducts() {
+    const logger = new Logger('WarehouseScheduler');
+    logger.log('[IN-04] Checking products expiring in the next 7 days...');
+    // Integrar con sistema de notificaciones cuando esté disponible
   }
 }

@@ -99,11 +99,8 @@ export class EInvoiceService {
 
     const itemsWithoutCabys = items.filter((i: any) => !i.cabys_code);
     if (itemsWithoutCabys.length > 0) {
-      const ids = itemsWithoutCabys
-        .map((i: any) => i.product_variant_id)
-        .join(', ');
       throw new BadRequestException(
-        `Los siguientes productos no tienen código CABYS asignado: ${ids}`,
+        'Algunos productos no tienen código CABYS asignado',
       );
     }
 
@@ -144,7 +141,7 @@ export class EInvoiceService {
     );
     if (!credentials)
       throw new BadRequestException(
-        'El tenant no tiene credenciales de Hacienda configuradas',
+        'Configuración de facturación electrónica incompleta',
       );
 
     const p12Buffer = Buffer.from(credentials.p12Base64, 'base64');
@@ -172,12 +169,6 @@ export class EInvoiceService {
       }),
       comprobanteXml: xmlSignedB64,
     };
-
-    // await this.hacienda.sendInvoice(
-    //   sale.tenant_id,
-    //   credentials,
-    //   haciendaPayload,
-    // );
 
     // 1. Persistir en BD ANTES de enviar a Hacienda.
     //    Si el server se cae después del envío pero antes del INSERT,

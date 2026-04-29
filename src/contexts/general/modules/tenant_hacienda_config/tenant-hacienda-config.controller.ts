@@ -8,21 +8,28 @@ import {
   Post,
   UseGuards,
 } from '@nestjs/common';
+import { ApiBearerAuth, ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
 import { TenantHaciendaConfigService } from './tenant-hacienda-config.service';
 import { SaveHaciendaConfigDto } from './dto/save-hacienda-config.dto';
 import { AuthenticationGuard } from '@/common/guards/authentication.guard';
 import { LevelAuthorizationGuard } from '@/common/guards/level_authorization.guard';
 import { RequiredLevel } from '@/common/decorators/level_metadata.decorator';
+import {
+  getHaciendaStatusDoc,
+  saveHaciendaConfigDoc,
+  deactivateHaciendaConfigDoc,
+} from '@/docs/contexts/general/tenant_hacienda_config';
 
+@ApiBearerAuth()
+@ApiTags('Tenant Hacienda Config')
 @UseGuards(AuthenticationGuard, LevelAuthorizationGuard)
 @Controller('tenant-hacienda-config')
 export class TenantHaciendaConfigController {
   constructor(private readonly service: TenantHaciendaConfigService) {}
 
-  /**
-   * Verifica si el tenant tiene credenciales configuradas.
-   * NO devuelve credenciales en plaintext — solo estado y client_id.
-   */
+  @ApiOperation(getHaciendaStatusDoc.operation)
+  @ApiResponse(getHaciendaStatusDoc.responses[200])
+  @ApiResponse(getHaciendaStatusDoc.responses[401])
   @Get(':tenantId')
   @RequiredLevel(3)
   async getStatus(@Param('tenantId', ParseUUIDPipe) tenantId: string) {
@@ -40,7 +47,10 @@ export class TenantHaciendaConfigController {
     };
   }
 
-  /** Crea o actualiza las credenciales de Hacienda para un tenant. */
+  @ApiOperation(saveHaciendaConfigDoc.operation)
+  @ApiResponse(saveHaciendaConfigDoc.responses[201])
+  @ApiResponse(saveHaciendaConfigDoc.responses[400])
+  @ApiResponse(saveHaciendaConfigDoc.responses[401])
   @Post()
   @RequiredLevel(4)
   async save(@Body() dto: SaveHaciendaConfigDto) {
@@ -55,7 +65,10 @@ export class TenantHaciendaConfigController {
     return { tenant_hacienda_config_id: configId };
   }
 
-  /** Desactiva las credenciales del tenant. */
+  @ApiOperation(deactivateHaciendaConfigDoc.operation)
+  @ApiResponse(deactivateHaciendaConfigDoc.responses[200])
+  @ApiResponse(deactivateHaciendaConfigDoc.responses[401])
+  @ApiResponse(deactivateHaciendaConfigDoc.responses[404])
   @Delete(':tenantId')
   @RequiredLevel(4)
   async deactivate(@Param('tenantId', ParseUUIDPipe) tenantId: string) {

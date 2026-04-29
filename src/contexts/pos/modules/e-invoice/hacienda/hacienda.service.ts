@@ -137,6 +137,14 @@ export class HaciendaService {
     credentials: ITenantHaciendaCredentials,
     payload: HaciendaPayload,
   ): Promise<{ accepted: boolean; message?: string }> {
+    if (process.env.HACIENDA_MOCK === 'true') {
+      this.logger.log('Modo MOCK habilitado - comprobante aceptado localmente');
+      return {
+        accepted: true,
+        message: 'Mock: comprobante aceptado localmente',
+      };
+    }
+
     const { apiUrl } = this.resolveEndpoints(credentials.haciendaClientId);
 
     for (let tokenAttempt = 0; tokenAttempt < 2; tokenAttempt++) {
@@ -206,27 +214,24 @@ export class HaciendaService {
     credentials: ITenantHaciendaCredentials,
     clave: string,
   ): Promise<HaciendaStatusResponse> {
+    if (process.env.HACIENDA_MOCK === 'true') {
+      const mockMensajeHacienda = `<?xml version="1.0" encoding="UTF-8"?><MensajeHacienda><Clave>${clave}</Clave><NombreEmisor>Mock Emisor</NombreEmisor><TipoIdentificacionEmisor>01</TipoIdentificacionEmisor><NumeroCedulaEmisor>000000000</NumeroCedulaEmisor><IndEstado>aceptado</IndEstado><DetalleMensaje>Comprobante aceptado (mock local)</DetalleMensaje></MensajeHacienda>`;
+      return {
+        clave,
+        fecha: new Date().toISOString(),
+        emisor: { tipoIdentificacion: '01', numeroIdentificacion: '000000000' },
+        comprobanteXml: '',
+        respuestaXml: Buffer.from(mockMensajeHacienda).toString('base64'),
+        indEstado: 'aceptado',
+        respuestaTxt: 'Comprobante aceptado (mock local)',
+      };
+    }
+
     this.logger.debug(
       `Consultando estado de comprobante [${clave}] en Hacienda`,
     );
 
     for (let tokenAttempt = 0; tokenAttempt < 2; tokenAttempt++) {
-      if (process.env.HACIENDA_MOCK === 'true') {
-        const mockMensajeHacienda = `<?xml version="1.0" encoding="UTF-8"?><MensajeHacienda><Clave>${clave}</Clave><NombreEmisor>Mock Emisor</NombreEmisor><TipoIdentificacionEmisor>01</TipoIdentificacionEmisor><NumeroCedulaEmisor>000000000</NumeroCedulaEmisor><IndEstado>aceptado</IndEstado><DetalleMensaje>Comprobante aceptado (mock local)</DetalleMensaje></MensajeHacienda>`;
-        return {
-          clave,
-          fecha: new Date().toISOString(),
-          emisor: {
-            tipoIdentificacion: '01',
-            numeroIdentificacion: '000000000',
-          },
-          comprobanteXml: '',
-          respuestaXml: Buffer.from(mockMensajeHacienda).toString('base64'),
-          indEstado: 'aceptado',
-          respuestaTxt: 'Comprobante aceptado (mock local)',
-        };
-      }
-
       const token = await this.getAccessToken(tenantId, credentials);
       const { apiUrl } = this.resolveEndpoints(credentials.haciendaClientId);
 

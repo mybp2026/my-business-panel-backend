@@ -306,7 +306,7 @@ export class PurchaseService {
           orderId,
         ]);
         for (const item of itemsResult.rows) {
-          await this.warehouseService.receiveStockFromPurchase(
+          await this.warehouseService.addStockToProduct(
             item.warehouse_id,
             item.product_variant_id,
             item.tenant_id,

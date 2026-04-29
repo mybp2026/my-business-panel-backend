@@ -90,8 +90,8 @@ export const inventoryQueries = {
     RETURNING *`,
   removeStock: `
     UPDATE inventory_schema.inventory
-    SET stock = GREATEST(0, stock - $1), updated_at = NOW()
-    WHERE warehouse_id = $2 AND product_variant_id = $3 AND tenant_id = $4
+   SET stock = stock - $1, updated_at = NOW()
+    WHERE stock >= $1 AND warehouse_id = $2 AND product_variant_id = $3 AND tenant_id = $4
     RETURNING *`,
   countAllInWarehouse: `
     SELECT
@@ -133,6 +133,12 @@ export const inventoryQueries = {
   getDiscrepancyReportById: `
     SELECT * FROM inventory_schema.discrepancy_count
     WHERE discrepancy_count_id = $1 AND tenant_id = $2`,
+
+  applyDiscrepancyReport: `
+  UPDATE inventory_schema.discrepancy_count
+  SET is_applied = TRUE, updated_at = NOW()
+  WHERE discrepancy_count_id = $1 AND tenant_id = $2
+  RETURNING *`,
 
   createInventoryTransfer: `
     INSERT INTO inventory_schema.inventory_transfer
@@ -196,6 +202,31 @@ export const inventoryQueries = {
       (inventory_log_type_id, warehouse_id, tenant_id, product_variant_id, quantity, created_at, updated_at)
     VALUES ($1, $2, $3, $4, $5, NOW(), NOW())
     RETURNING *`,
+  getExpiringStock: `
+    SELECT
+      i.inventory_id,
+      i.warehouse_id,
+      w.warehouse_name,
+      i.product_variant_id,
+      pv.variant_name,
+      p.product_name,
+      i.stock,
+      i.expiration_date,
+      (i.expiration_date - CURRENT_DATE) AS days_until_expiry
+    FROM inventory_schema.inventory i
+    INNER JOIN inventory_schema.warehouse w USING(warehouse_id)
+    INNER JOIN general_schema.branch br ON br.branch_id = w.branch_id
+    INNER JOIN general_schema.product_variant pv
+      ON pv.product_variant_id = i.product_variant_id
+      AND pv.tenant_id = i.tenant_id
+    INNER JOIN general_schema.product p
+      ON p.product_id = pv.product_id
+      AND p.tenant_id = pv.tenant_id
+    WHERE i.tenant_id = $1
+      AND i.expiration_date IS NOT NULL
+      AND i.expiration_date <= CURRENT_DATE + ($2 * INTERVAL '1 day')
+      AND i.stock > 0
+    ORDER BY i.expiration_date ASC`,
   updateProductCost: `
     SELECT general_schema.update_product_cost_on_receipt(
       $1::uuid, $2::uuid, $3::uuid, $4::int, $5::numeric, $6::int, $7::numeric

@@ -161,6 +161,28 @@ export class WarehouseController {
     return this.warehouseService.getWarehousesByTenant(userSession.tenant_id);
   }
 
+  @Get('expiring')
+  getExpiringProducts(
+    @Query('days') days: string = '30',
+    @Session() userSession: IUserSession,
+  ) {
+    return this.warehouseService.getExpiringProducts(
+      userSession.tenant_id,
+      parseInt(days, 10),
+    );
+  }
+
+  @Get(':warehouse_id/stock')
+  getStockByWarehouse(
+    @Param('warehouse_id') warehouse_id: string,
+    @Session() userSession: IUserSession,
+  ) {
+    return this.warehouseService.getStockByWarehouse(
+      warehouse_id,
+      userSession.tenant_id,
+    );
+  }
+
   @ApiOperation(countAllInWarehouseDoc.operation)
   @ApiResponse(countAllInWarehouseDoc.responses[201])
   @ApiResponse(countAllInWarehouseDoc.responses[401])
@@ -220,6 +242,17 @@ export class WarehouseController {
     return this.warehouseService.getDiscrepancyReportById(
       userSession.tenant_id,
       report_id,
+    );
+  }
+
+  @Patch('discrepancy-report/:report_id/apply')
+  applyDiscrepancyAdjustment(
+    @Param('report_id') report_id: string,
+    @Session() userSession: IUserSession,
+  ) {
+    return this.warehouseService.applyDiscrepancyAdjustment(
+      report_id,
+      userSession.tenant_id,
     );
   }
 

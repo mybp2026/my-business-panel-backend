@@ -9,7 +9,7 @@ import {
   Query,
   UseGuards,
 } from '@nestjs/common';
-import { ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
+import { ApiBearerAuth, ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
 import { BranchService } from './branch.service';
 import { AuthenticationGuard } from '@/common/guards/authentication.guard';
 import { LevelAuthorizationGuard } from '@/common/guards/level_authorization.guard';
@@ -27,6 +27,7 @@ import {
 
 const SUPERUSER_HIERARCHY = 1;
 
+@ApiBearerAuth()
 @ApiTags('Branch')
 @Controller('branch')
 export class BranchController {
@@ -40,7 +41,6 @@ export class BranchController {
   @ApiResponse(findBranchByIdDoc.responses[401])
   @ApiResponse(findBranchByIdDoc.responses[404])
   @Get('/:id')
-  @UseGuards(AuthenticationGuard, LevelAuthorizationGuard)
   @RequiredLevel(2)
   findById(@Param('id') id: string) {
     return this.branchService.findById(id);
@@ -50,7 +50,6 @@ export class BranchController {
   @ApiResponse(findAllBranchesDoc.responses[200])
   @ApiResponse(findAllBranchesDoc.responses[401])
   @Get('/')
-  @UseGuards(AuthenticationGuard, LevelAuthorizationGuard)
   @RequiredLevel(2)
   async findAll(
     @Session() session: IUserSession,
