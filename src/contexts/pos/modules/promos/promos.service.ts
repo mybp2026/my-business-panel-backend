@@ -1,0 +1,280 @@
+import {
+  BadRequestException,
+  Inject,
+  Injectable,
+  InternalServerErrorException,
+} from '@nestjs/common';
+import { DATABASE } from '@/contexts/general/modules/db/db.provider';
+import Database from '@crane-technologies/database';
+import { Promo, PromoRule, PromoWithRule } from './interface/promo.interface';
+import { NewPromoDto, PromoRules, PromotionTargetDto } from './dto/newPromo.dto';
+import { RuleCreationError } from '@/common/errors/create_rule.error';
+import { PromotionCreationError } from '@/common/errors/create_promo.error';
+import { UpdatePromotionDto } from './dto/updatePromo.dto';
+import { posQueries } from '@pos/pos.queries';
+
+const { promotions, promotionTypes, promotionTarget } = posQueries;
+
+@Injectable()
+export class PromosService {
+  constructor(@Inject(DATABASE) private readonly db: Database) {}
+
+  async getPromos(tenantId: string): Promise<Promo[]> {
+    const promos = await this.db.query(promotions.getPromos, [tenantId]);
+    return promos.rows;
+  }
+
+  async getPromoInfo(promoID: string): Promise<PromoWithRule | null> {
+    const promo = await this.db.query(promotions.getPromoInfo, [promoID]);
+    const row = promo.rows[0] as Promo | undefined;
+    if (!row) return null;
+
+    const rules = await this.db.query(promotions.getPromotionRules, [promoID]);
+    const ruleRows = rules.rows as PromoRule[];
+
+    return {
+      ...row,
+      rule: ruleRows[0],
+      rules: ruleRows,
+    };
+  }
+
+  async createPromoWithRule(newPromoDto: NewPromoDto) {
+    const {
+      tenant_id,
+      promotion_name,
+      promotion_code,
+      promotion_description,
+      promotion_type_id,
+      customer_segment_id,
+      promotion_start_date,
+      promotion_end_date,
+      is_active,
+      rules,
+      targets,
+    } = newPromoDto;
+
+    const promo = await this.db.query(promotions.insertPromo, [
+      tenant_id,
+      promotion_name,
+      promotion_code,
+      promotion_description,
+      promotion_type_id,
+      customer_segment_id,
+      promotion_start_date,
+      promotion_end_date,
+      is_active,
+    ]);
+
+    if (promo.rows.length === 0) {
+      throw new PromotionCreationError();
+    }
+
+    const promotionId = promo.rows[0].promotion_id;
+    rules.promotion_id = promotionId;
+    const rule = await this.insertRules(rules);
+
+    if (targets && targets.length > 0) {
+      await this.replaceTargets(promotionId, tenant_id, targets);
+    }
+
+    return {
+      message: `Promotion and rule with id: ${rule} created successfully`,
+      promotion_id: promotionId,
+    };
+  }
+
+  async replaceTargets(
+    promotionId: string,
+    tenantId: string,
+    targets: PromotionTargetDto[],
+  ) {
+    await this.db.query(promotionTarget.deleteForPromotion, [promotionId]);
+    for (const t of targets) {
+      if (t.target_type === 'VARIANT') {
+        await this.db.query(promotionTarget.insertVariantTarget, [
+          promotionId,
+          tenantId,
+          t.target_id,
+        ]);
+      } else {
+        await this.db.query(promotionTarget.insertGroupTarget, [
+          promotionId,
+          tenantId,
+          t.target_id,
+        ]);
+      }
+    }
+  }
+
+  async getTargets(promotionId: string) {
+    const result = await this.db.query(promotionTarget.byPromotion, [
+      promotionId,
+    ]);
+    return result.rows;
+  }
+
+  /**
+   * Returns active promotions matching a variant: directly via VARIANT target,
+   * or indirectly via any GROUP target where the variant is assigned to that
+   * group or any of its descendants.
+   */
+  async getApplicableToVariant(tenantId: string, variantId: string) {
+    const result = await this.db.query(
+      promotionTarget.getApplicableToVariant,
+      [tenantId, variantId],
+    );
+    return result.rows;
+  }
+
+  async insertRules(data: PromoRules) {
+    const insertKeys = Object.keys(data).filter(
+      (key) => data[key as keyof typeof data] !== undefined,
+    );
+
+    if (insertKeys.length === 0) {
+      throw new RuleCreationError();
+    }
+
+    const insertClause: string[] = [];
+    const paramsArray: any[] = [];
+    const placeholders: any[] = [];
+    let i = 1;
+
+    for (const key of insertKeys) {
+      insertClause.push(`"${key}"`);
+      paramsArray.push(data[key as keyof typeof data]);
+      placeholders.push(`$${i}`);
+      i++;
+    }
+
+    const q = `
+      INSERT INTO pos_schema.promotion_rule(${insertClause.join(', ')})
+      VALUES(${placeholders.join(', ')})
+      RETURNING *
+    `;
+
+    const new_rule = await this.db.query(q, paramsArray);
+
+    return new_rule.rows[0].promotion_rule_id;
+  }
+
+  async deletePromotion(promotionId: string) {
+    const result = await this.db.query(promotions.deletePromo, [promotionId]);
+    if (result.rows.length === 0) {
+      throw new InternalServerErrorException('Failed to delete promotion');
+    }
+    return {
+      message: `Promotion with id: ${result.rows[0].promotion_id} deleted successfully`,
+    };
+  }
+
+  async updatePromotion(
+    promotionId: string,
+    updatePromoDto: UpdatePromotionDto,
+  ) {
+    const {
+      tenant_id,
+      promotion_name,
+      promotion_code,
+      promotion_description,
+      promotion_type_id,
+      customer_segment_id,
+      promotion_start_date,
+      promotion_end_date,
+      is_active,
+    } = updatePromoDto;
+
+    let updateRule: { queryString: string; paramsArray: any[] } | null = null;
+
+    if (updatePromoDto.rules) {
+      updateRule = this.buildUpdateQuery(updatePromoDto.rules);
+    }
+
+    try {
+      await this.db.query('BEGIN');
+
+      const updatedPromo = await this.db.query(promotions.updatePromo, [
+        promotionId,
+        tenant_id,
+        promotion_name,
+        promotion_code,
+        promotion_description,
+        promotion_type_id,
+        customer_segment_id,
+        promotion_start_date,
+        promotion_end_date,
+        is_active,
+      ]);
+
+      if (updateRule) {
+        await this.db.query(updateRule.queryString, updateRule.paramsArray);
+      }
+
+      if (updatePromoDto.targets !== undefined) {
+        const promoTenantId = tenant_id ?? updatedPromo.rows[0]?.tenant_id;
+        if (promoTenantId) {
+          await this.replaceTargets(
+            promotionId,
+            promoTenantId,
+            updatePromoDto.targets,
+          );
+        }
+      }
+
+      await this.db.query('COMMIT');
+
+      if (!updatedPromo.rows || updatedPromo.rows.length === 0) {
+        throw new Error('Promotion not found or update failed.');
+      }
+
+      return {
+        message: `Promotion with id: ${updatedPromo.rows[0].promotion_id} updated successfully`,
+      };
+    } catch (error) {
+      await this.db.query('ROLLBACK');
+      throw error;
+    }
+  }
+
+  buildUpdateQuery(data: PromoRules) {
+    const { ...updates } = data;
+
+    const updateKeys = Object.keys(updates).filter(
+      (key) => updates[key as keyof typeof updates] !== undefined,
+    );
+
+    if (updateKeys.length === 0) {
+      throw new BadRequestException('No valid fields to update');
+    }
+
+    const setClause: string[] = [];
+    const paramsArray: any[] = [];
+    let index = 1;
+
+    for (const key of updateKeys) {
+      const validKey = key as keyof typeof updates;
+      setClause.push(`"${key}" = $${index}`);
+      paramsArray.push(updates[validKey]);
+      index++;
+    }
+
+    paramsArray.push(data.promotion_id);
+
+    const setString = setClause.join(', ');
+
+    const queryString = `
+      UPDATE pos_schema.promotion_rule
+      SET ${setString}
+      WHERE promotion_rule_id = $${index}
+      RETURNING *
+      `;
+
+    return { queryString, paramsArray };
+  }
+
+  async getPromoTypes() {
+    const promoType = await this.db.query(promotionTypes.getPromoTypes);
+    return promoType.rows;
+  }
+}

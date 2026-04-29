@@ -1,0 +1,9 @@
+export { createWarehouseDoc } from './create-warehouse.doc';
+export { deleteWarehouseDoc } from './delete-warehouse.doc';
+export { addProductToWarehouseDoc } from './add-product-to-warehouse.doc';
+export { getAllWarehousesDoc } from './get-all-warehouses.doc';
+export { countAllInWarehouseDoc } from './count-all-in-warehouse.doc';
+export { generateDiscrepancyReportDoc } from './generate-discrepancy-report.doc';
+export { getAllDiscrepancyReportsDoc } from './get-all-discrepancy-reports.doc';
+export { getDiscrepancyReportByIdDoc } from './get-discrepancy-report-by-id.doc';
+export { transferInventoryDoc } from './transfer-inventory.doc';

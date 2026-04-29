@@ -1,0 +1,157 @@
+
+
+### TOKEN (actualizar al hacer login de nuevo)
+@token = eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJlbWFpbCI6ImFkbWluQGRpc3RyaWJ1aWRvcmEuY3IiLCJ0ZW5hbnRfaWQiOiJhMDAwMDAwMS0wMDAwLTAwMDAtMDAwMC0wMDAwMDAwMDAwMDEiLCJyb2xlX2lkIjoxLCJpYXQiOjE3NzMzNzYzMjQsImV4cCI6MTc3MzQ2MjcyNH0.Ox6qpFl1uEjAeBMJEMl3jNE9JPhkMLmYzywMgsnAiGs
+
+### UUIDs de prueba
+@orden_id = a0000001-0000-0000-0000-000000000012
+@payable_id = 963b296f-03fc-4586-97a6-169123864b42
+
+### ============================================================
+### PASO 1 — LOGIN (ejecutar primero y copiar el auth_token)
+### ============================================================
+
+### Login
+POST http://localhost:3000/auth/login
+Content-Type: application/json
+
+{
+  "email": "admin@distribuidora.cr",
+  "password": "Admin1234!"
+}
+
+### ============================================================
+### CO-01 — Consulta de órdenes de compra
+### ============================================================
+
+### [CO-01-A] Listar todas las órdenes del tenant
+### Esperado: 200 OK con array de órdenes
+GET http://localhost:3000/purchase
+Cookie:auth_token=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJlbWFpbCI6ImFkbWluQGRpc3RyaWJ1aWRvcmEuY3IiLCJ0ZW5hbnRfaWQiOiJhMDAwMDAwMS0wMDAwLTAwMDAtMDAwMC0wMDAwMDAwMDAwMDEiLCJyb2xlX2lkIjoxLCJpYXQiOjE3NzM0MTI5NDIsImV4cCI6MTc3MzQ5OTM0Mn0.MCIqv8VnwVGDkybLj2pKLPcRrLM2o5-ed3C0TOSEUTY; Max-Age=86400; Path=/; Expires=Sat, 14 Mar 2026 14:42:22 GMT; HttpOnly; Secure
+
+### Esperado: 200 OK con detalle de la orden (items, invoices, payments)
+GET http://localhost:3000/purchase/{{orden_id}}
+Cookie: auth_token={{token}}
+
+###
+
+### [CO-01-C] Sin token — debe rechazar
+### Esperado: 401 Unauthorized
+GET http://localhost:3000/purchase
+
+###
+
+### ============================================================
+### CO-02 — Registro y verificación de pago
+### ============================================================
+
+### [CO-02-A] Registrar pago válido
+### Esperado: 201 con payment_id y estado actualizado de la cuenta por pagar
+### NOTA: primero debes tener un purchase_account_payable_id (se crea al marcar Delivered)
+POST http://localhost:3000/purchase/payment
+Content-Type: application/json
+Cookie: auth_token={{token}}
+
+{
+  "purchase_account_payable_id": "963b296f-03fc-4586-97a6-169123864b42",
+  "amount_paid": 500.00,
+  "payment_method_id": 1,
+  "payment_reference": "REF-001"
+}
+
+###
+
+### [CO-02-B] Pago sin campos requeridos
+### Esperado: 400 Bad Request
+POST http://localhost:3000/purchase/payment
+Content-Type: application/json
+Cookie: auth_token={{token}}
+
+{
+  "amount_paid": 500.00
+}
+
+###
+
+### [CO-02-C] Pago con amount_paid = 0 (inválido)
+### Esperado: 400 Bad Request
+POST http://localhost:3000/purchase/payment
+Content-Type: application/json
+Cookie: auth_token={{token}}
+
+{
+  "purchase_account_payable_id": "{{payable_id}}",
+  "amount_paid": 0,
+  "payment_method_id": 1
+}
+
+###
+
+### ============================================================
+### CO-03 — Transición de estado de orden
+### ============================================================
+
+### [CO-03-A] Pending (1) → Shipped (2) — transición válida
+### Esperado: 200 OK con nuevo estado
+PATCH http://localhost:3000/purchase/{{orden_id}}/status
+Content-Type: application/json
+Cookie: auth_token={{token}}
+
+{
+  "status_id": 2
+}
+
+###
+
+### [CO-03-B] Shipped (2) → Delivered (3) — activa trigger de goods_receipt
+### Esperado: 200 OK con nuevo estado
+PATCH http://localhost:3000/purchase/{{orden_id}}/status
+Content-Type: application/json
+Cookie: auth_token={{token}}
+
+{
+  "status_id": 3
+}
+
+###
+
+### [CO-03-C] Pending (1) → Delivered (3) — transición inválida
+### Esperado: 400 Bad Request "Transicion invalida: 1 -> 3"
+PATCH http://localhost:3000/purchase/{{orden_id}}/status
+Content-Type: application/json
+Cookie: auth_token={{token}}
+
+{
+  "status_id": 3
+}
+
+###
+
+### [CO-03-D] UUID de orden que no pertenece al tenant
+### Esperado: 404 Not Found
+PATCH http://localhost:3000/purchase/00000000-0000-0000-0000-000000000000/status
+Content-Type: application/json
+Cookie: auth_token={{token}}
+
+{
+  "status_id": 2
+}
+
+###
+
+### ============================================================
+### CO-04 — Consulta de three-way matching
+### ============================================================
+
+### [CO-04-A] Orden que ya fue marcada Delivered (debe tener matching)
+### Esperado: 200 OK con amounts_matched, quantities_matched, is_matched y comparaciones
+GET http://localhost:3000/purchase/{{orden_id}}/matching
+Cookie: auth_token={{token}}
+
+###
+
+### [CO-04-B] Orden que aún no fue entregada (sin matching)
+### Esperado: 200 OK con matching_found: false
+GET http://localhost:3000/purchase/{{orden_id}}/matching
+Cookie: auth_token={{token}}
+

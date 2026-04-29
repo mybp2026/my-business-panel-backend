@@ -2,6 +2,7 @@
 /dist
 /node_modules
 /build
+/.vscode
 
 # Logs
 logs
@@ -37,10 +38,7 @@ lerna-debug.log*
 
 # dotenv environment variable files
 .env
-.env.development.local
-.env.test.local
-.env.production.local
-.env.local
+.env.*
 
 # temp directory
 .temp
@@ -54,3 +52,18 @@ pids
 
 # Diagnostic reports (https://nodejs.org/api/report.html)
 report.[0-9]*.[0-9]*.[0-9]*.[0-9]*.json
+
+# Python VENV
+/.venv
+/__pycache__/
+*.pyc
+*.xlsx
+*.~*
+cabys_tree.json
+
+certificado.p12
+
+# Docker image files 
+postgres-data
+redis-data
+redis-insight-data

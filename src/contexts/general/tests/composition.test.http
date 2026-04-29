@@ -1,0 +1,78 @@
+### ============================================================
+### Composición — variantes compuestas (six-pack / lote)
+### ============================================================
+
+@baseUrl       = http://localhost:3000
+@tenantId      = FILL_ME
+@bottleId      = FILL_ME
+@sixpackId     = FILL_ME
+@warehouseId   = FILL_ME
+
+# ─── Definir composición: 1 sixpack = 6 botellas ───────────
+###
+POST {{baseUrl}}/product-composition
+Content-Type: application/json
+
+{
+  "tenant_id": "{{tenantId}}",
+  "parent_product_variant_id": "{{sixpackId}}",
+  "components": [
+    { "child_product_variant_id": "{{bottleId}}", "quantity": 6 }
+  ]
+}
+
+# ─── Listar componentes del padre ──────────────────────────
+###
+GET {{baseUrl}}/product-composition/{{tenantId}}/parent/{{sixpackId}}
+
+# ─── Reverse lookup: padres que usan la botella ────────────
+###
+GET {{baseUrl}}/product-composition/{{tenantId}}/child/{{bottleId}}
+
+# ─── Stock virtual del compuesto ───────────────────────────
+###
+GET {{baseUrl}}/product-composition/{{tenantId}}/availability/{{sixpackId}}/{{warehouseId}}
+
+# ─── Actualizar la cantidad de un componente ───────────────
+###
+PATCH {{baseUrl}}/product-composition/{{tenantId}}/parent/{{sixpackId}}/component/{{bottleId}}
+Content-Type: application/json
+
+{ "quantity": 8 }
+
+# ─── Limpiar la composición (parent vuelve a is_composite=false) ──
+###
+DELETE {{baseUrl}}/product-composition/{{tenantId}}/parent/{{sixpackId}}
+
+# ─── Caso de error: ciclo ──────────────────────────────────
+### A -> B (ok), luego B -> A debe responder 400.
+@variantA = FILL_ME
+@variantB = FILL_ME
+
+POST {{baseUrl}}/product-composition
+Content-Type: application/json
+
+{
+  "tenant_id": "{{tenantId}}",
+  "parent_product_variant_id": "{{variantA}}",
+  "components": [{ "child_product_variant_id": "{{variantB}}", "quantity": 2 }]
+}
+
+###
+POST {{baseUrl}}/product-composition
+Content-Type: application/json
+
+{
+  "tenant_id": "{{tenantId}}",
+  "parent_product_variant_id": "{{variantB}}",
+  "components": [{ "child_product_variant_id": "{{variantA}}", "quantity": 1 }]
+}
+
+# ─── Recepción de PO con compuesto ─────────────────────────
+### Recibir 10 sixpacks @ ¢6000 → debe sumar 60 a la botella
+### con unit_cost 1000 (¢6000 / 6).
+### (Usa el flujo existente de purchase order receive.)
+
+# ─── Venta con explosión ───────────────────────────────────
+### POST /sale/full vendiendo 2 sixpacks → -12 botellas en
+### inventario del warehouse is_branch=true.
