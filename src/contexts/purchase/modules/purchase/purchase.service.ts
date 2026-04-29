@@ -1,5 +1,6 @@
 import {
   BadRequestException,
+  ForbiddenException,
   Inject,
   Injectable,
   Logger,
@@ -13,8 +14,23 @@ import { DATABASE } from '@/contexts/general/modules/db/db.provider';
 import { purchaseQueries } from '@purchase/purchase.queries';
 import { WarehouseService } from '@/contexts/inventory/modules/warehouse/warehouse.service';
 import { AccountingJournalService } from '@/contexts/finances/modules/accounting/accounting-journal.service';
+import { StateService } from '@/contexts/general/modules/state/state.service';
+import { IUserSession } from '@/common/interfaces/user_session.interface';
 
-const { purchase, payments, ap } = purchaseQueries;
+const { purchase, payments, ap, catalog } = purchaseQueries;
+const SUPERUSER_HIERARCHY = 1;
+
+type OrderAccessRow = {
+  purchase_order_id: string;
+  purchase_order_status_id: number;
+  tenant_id: string;
+};
+
+type PayableAccessRow = {
+  purchase_account_payable_id: string;
+  purchase_order_id: string;
+  tenant_id: string;
+};
 
 @Injectable()
 export class PurchaseService {
@@ -24,9 +40,10 @@ export class PurchaseService {
     @Inject(DATABASE) private readonly db: Database,
     private readonly warehouseService: WarehouseService,
     private readonly journalService: AccountingJournalService,
+    private readonly stateService: StateService,
   ) {}
 
-  async createPurchaseOrder(param: CreatePurchaseDto) {
+  async createPurchaseOrder(param: CreatePurchaseDto, session: IUserSession) {
     const {
       supplier_id,
       warehouse_id,
@@ -36,19 +53,53 @@ export class PurchaseService {
       payment_condition,
     } = param;
 
+    if (!items?.length) {
+      throw new BadRequestException(
+        'La orden de compra debe incluir al menos un item',
+      );
+    }
+
+    const contextResult = await this.db.query(purchase.getCreateContext, [
+      supplier_id,
+      warehouse_id,
+    ]);
+
+    const context = contextResult.rows[0];
+    if (!context) {
+      throw new NotFoundException(
+        'No fue posible validar el proveedor y la bodega seleccionados',
+      );
+    }
+
+    if (context.supplier_tenant_id !== context.warehouse_tenant_id) {
+      throw new BadRequestException(
+        'El proveedor y la bodega pertenecen a tenants distintos',
+      );
+    }
+
+    this.assertTenantAccess(context.warehouse_tenant_id, session);
+
     const result = await this.db.query(purchase.createPurchaseOrder, [
       supplier_id,
       warehouse_id,
       expected_delivery_date,
-      items,
-      has_invoice,
-      payment_condition,
+      JSON.stringify(items),
+      has_invoice ?? true,
+      payment_condition ?? 'CREDIT',
     ]);
 
-    return result.rows[0];
+    const orderId = result.rows[0]?.purchase_order_id;
+    if (!orderId) {
+      throw new BadRequestException('No se pudo crear la orden de compra');
+    }
+
+    return this.getPurchaseOrderById(orderId, session);
   }
 
-  async threeWayMatching(createPurchaseDto: any) {
+  async threeWayMatching(
+    createPurchaseDto: { purchase_order_id?: string; goods_receipt_id?: string },
+    session: IUserSession,
+  ) {
     const { purchase_order_id, goods_receipt_id } = createPurchaseDto || {};
 
     if (!purchase_order_id || !goods_receipt_id) {
@@ -57,15 +108,32 @@ export class PurchaseService {
       );
     }
 
+    const access = await this.getOrderAccessOrThrow(purchase_order_id);
+    this.assertTenantAccess(access.tenant_id, session);
+
     await this.db.query(purchase.threeWayMatching, [
       purchase_order_id,
       goods_receipt_id,
     ]);
 
-    return { message: 'Three-way matching ejecutado' };
+    return {
+      message: 'Three-way matching ejecutado',
+      ...(await this.getThreeWayMatching(purchase_order_id, session)),
+    };
   }
 
-  async registerPayment(dto: CreatePaymentDto) {
+  async registerPayment(dto: CreatePaymentDto, session: IUserSession) {
+    const accessResult = await this.db.query(payments.getPayableAccess, [
+      dto.purchase_account_payable_id,
+    ]);
+    const payableAccess = accessResult.rows[0] as PayableAccessRow | undefined;
+
+    if (!payableAccess) {
+      throw new NotFoundException('Cuenta por pagar no encontrada');
+    }
+
+    this.assertTenantAccess(payableAccess.tenant_id, session);
+
     const txn = await this.db.transaction();
     try {
       const {
@@ -84,26 +152,26 @@ export class PurchaseService {
           payment_reference ?? null,
         ]);
       } catch (e: any) {
-        console.error('Error inserting payment:', e);
         throw new BadRequestException(
           'Error al registrar el pago: ' + (e.detail || e.message),
         );
       }
 
       const paymentId = insertResult.rows[0]?.purchase_order_payment_id;
-      if (!paymentId)
-        throw new Error('No se pudo obtener purchase_order_payment_id');
+      if (!paymentId) {
+        throw new BadRequestException(
+          'No se pudo obtener el identificador del pago registrado',
+        );
+      }
 
       const payableResult = await txn.query(ap.getUpdatedPayableById, [
         purchase_account_payable_id,
       ]);
 
-      // --- Accounting: generate payment-made journal entry ---
       try {
-        const paymentInfo = await txn.query(
-          payments.getPaymentAmountForJournal,
-          [paymentId],
-        );
+        const paymentInfo = await txn.query(payments.getPaymentAmountForJournal, [
+          paymentId,
+        ]);
         if (paymentInfo.rows.length > 0) {
           const { tenant_id, purchase_order_id } = paymentInfo.rows[0];
           await this.journalService.generatePaymentMadeJournal(
@@ -128,6 +196,10 @@ export class PurchaseService {
       return {
         payment_id: paymentId,
         purchase_account_payable: payableResult.rows[0] ?? null,
+        order: await this.getPurchaseOrderById(
+          payableAccess.purchase_order_id,
+          session,
+        ),
       };
     } catch (error) {
       await txn.rollback();
@@ -135,48 +207,83 @@ export class PurchaseService {
     }
   }
 
-  async getAllPurchaseOrders(tenantId: string) {
-    const result = await this.db.query(purchase.getAllByTenant, [tenantId]);
+  async getAllPurchaseOrders(session: IUserSession) {
+    const result = this.isSuperuser(session.role_id)
+      ? await this.db.query(purchase.getAllGlobal)
+      : await this.db.query(purchase.getAllByTenant, [session.tenant_id]);
+
     return result.rows;
   }
 
-  async getPurchaseOrderById(id: string) {
+  async getAccountsPayable(session: IUserSession) {
+    const result = this.isSuperuser(session.role_id)
+      ? await this.db.query(ap.getAllGlobal)
+      : await this.db.query(ap.getAllByTenant, [session.tenant_id]);
+
+    return result.rows;
+  }
+
+  async getPurchaseCatalogs() {
+    const [orderStatuses, payableStatuses, paymentMethods] = await Promise.all([
+      this.db.query(catalog.getOrderStatuses),
+      this.db.query(catalog.getPayableStatuses),
+      this.db.query(catalog.getPaymentMethods),
+    ]);
+
+    return {
+      order_statuses: orderStatuses.rows,
+      payable_statuses: payableStatuses.rows,
+      payment_methods: paymentMethods.rows,
+      payment_conditions: [
+        { value: 'CREDIT', label: 'Crédito' },
+        { value: 'IN_FULL', label: 'Pago completo' },
+      ],
+    };
+  }
+
+  async getPurchaseOrderById(id: string, session: IUserSession) {
+    const access = await this.getOrderAccessOrThrow(id);
+    this.assertTenantAccess(access.tenant_id, session);
+
     const result = await this.db.query(purchase.getById, [id]);
     return result.rows[0] ?? null;
   }
 
-  async updatePurchaseOrder(id: string, updatePurchaseDto: UpdatePurchaseDto) {
-    const result = await this.db.query(purchase.updateStatus, [
-      (updatePurchaseDto as any)?.purchase_order_status_id ?? null,
-      id,
-    ]);
-    return result.rows[0] ?? null;
+  async updatePurchaseOrder(
+    id: string,
+    updatePurchaseDto: UpdatePurchaseDto,
+    session: IUserSession,
+  ) {
+    const access = await this.getOrderAccessOrThrow(id);
+    this.assertTenantAccess(access.tenant_id, session);
+
+    const nextStatusId =
+      (updatePurchaseDto as { purchase_order_status_id?: number })
+        ?.purchase_order_status_id ?? access.purchase_order_status_id;
+
+    await this.db.query(purchase.updateStatus, [nextStatusId, id]);
+    return this.getPurchaseOrderById(id, session);
   }
 
-  async updateOrderStatus(orderId: string, statusId: number, tenantId: string) {
-    const currentResult = await this.db.query(
-      purchase.getCurrentStatusByIdAndTenant,
-      [orderId, tenantId],
-    );
+  async updateOrderStatus(
+    orderId: string,
+    statusId: number,
+    session: IUserSession,
+  ) {
+    const access = await this.getOrderAccessOrThrow(orderId);
+    this.assertTenantAccess(access.tenant_id, session);
 
-    if (!currentResult.rows.length) {
-      throw new NotFoundException('Orden no encontrada para este tenant');
-    }
-
-    const currentStatus: number =
-      currentResult.rows[0].purchase_order_status_id;
-
+    const currentStatus = access.purchase_order_status_id;
     const allowedTransitions: Record<number, number[]> = {
-      1: [2],
-      2: [3],
+      1: [2, 4],
+      2: [3, 4],
       3: [],
       4: [],
     };
 
     if (currentStatus === statusId) {
       return {
-        purchase_order_id: orderId,
-        purchase_order_status_id: currentStatus,
+        ...(await this.getPurchaseOrderById(orderId, session)),
         message: 'La orden ya tiene ese estado',
       };
     }
@@ -191,13 +298,9 @@ export class PurchaseService {
     }
 
     if (statusId === 3) {
-      // Delivery: wrap status update + inventory + accounting in a transaction
       const txn = await this.db.transaction();
       try {
-        const updateResult = await txn.query(purchase.updateOrderStatus, [
-          statusId,
-          orderId,
-        ]);
+        await txn.query(purchase.updateOrderStatus, [statusId, orderId]);
 
         const itemsResult = await txn.query(purchase.getItemsForInventory, [
           orderId,
@@ -215,12 +318,10 @@ export class PurchaseService {
           );
         }
 
-        // --- Accounting: generate purchase journal entry ---
         try {
-          const amountsResult = await txn.query(
-            purchase.getOrderAmountsForJournal,
-            [orderId],
-          );
+          const amountsResult = await txn.query(purchase.getOrderAmountsForJournal, [
+            orderId,
+          ]);
           if (amountsResult.rows.length > 0) {
             const row = amountsResult.rows[0];
             await this.journalService.generatePurchaseJournal(
@@ -242,23 +343,21 @@ export class PurchaseService {
         }
 
         await txn.commit();
-        return updateResult.rows[0];
       } catch (error) {
         await txn.rollback();
         throw error;
       }
+    } else {
+      await this.db.query(purchase.updateOrderStatus, [statusId, orderId]);
     }
 
-    // Non-delivery transitions: simple update
-    const updateResult = await this.db.query(purchase.updateOrderStatus, [
-      statusId,
-      orderId,
-    ]);
-
-    return updateResult.rows[0];
+    return this.getPurchaseOrderById(orderId, session);
   }
 
-  async getThreeWayMatching(orderId: string) {
+  async getThreeWayMatching(orderId: string, session: IUserSession) {
+    const access = await this.getOrderAccessOrThrow(orderId);
+    this.assertTenantAccess(access.tenant_id, session);
+
     const result = await this.db.query(purchase.getMatchingByOrderId, [
       orderId,
     ]);
@@ -285,5 +384,32 @@ export class PurchaseService {
       amount_comparison: row.amount_comparison,
       quantity_comparison: row.quantity_comparison,
     };
+  }
+
+  private async getOrderAccessOrThrow(orderId: string): Promise<OrderAccessRow> {
+    const result = await this.db.query(purchase.getAccessById, [orderId]);
+    const access = result.rows[0] as OrderAccessRow | undefined;
+
+    if (!access) {
+      throw new NotFoundException('Orden de compra no encontrada');
+    }
+
+    return access;
+  }
+
+  private assertTenantAccess(resourceTenantId: string, session: IUserSession) {
+    if (this.isSuperuser(session.role_id)) {
+      return;
+    }
+
+    if (resourceTenantId !== session.tenant_id) {
+      throw new ForbiddenException(
+        'No tienes permisos para acceder a este recurso',
+      );
+    }
+  }
+
+  private isSuperuser(roleId: number) {
+    return this.stateService.getRole(roleId).role_hierarchy === SUPERUSER_HIERARCHY;
   }
 }

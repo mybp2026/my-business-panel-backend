@@ -1,7 +1,9 @@
 import {
+  BadRequestException,
   Inject,
   Injectable,
   InternalServerErrorException,
+  NotFoundException,
 } from '@nestjs/common';
 import { DATABASE } from '@/contexts/general/modules/db/db.provider';
 import Database from '@crane-technologies/database';
@@ -13,59 +15,255 @@ import {
 import { bulkReturns, posQueries } from '@pos/pos.queries';
 import { FindReturnsDto } from './dto/find_returns.dto';
 
-const { returns, dInvoice } = posQueries;
+const { returns } = posQueries;
+
+interface SaleContextRow {
+  sale_id: string;
+  tenant_customer_id: string | null;
+  sale_date: Date;
+  subtotal_amount: string;
+  tax_amount: string;
+  total_amount: string;
+  has_electronic_invoice: boolean;
+  is_completed: boolean;
+  branch_id: string;
+  branch_name: string | null;
+  tenant_id: string;
+  currency_code: string | null;
+  currency_symbol: string | null;
+  first_name: string | null;
+  last_name: string | null;
+  document_number: string | null;
+  customer_email: string | null;
+  digital_sale_invoice_id: string | null;
+  digital_invoice_number: string | null;
+  digital_invoiced_at: Date | null;
+  digital_subtotal: string | null;
+  digital_tax: string | null;
+  digital_total: string | null;
+  electronic_sale_invoice_id: string | null;
+  electronic_key_number: string | null;
+  electronic_consecutive: string | null;
+  electronic_status_id: number | null;
+  electronic_created_at: Date | null;
+}
 
 @Injectable()
 export class ReturnsService {
   constructor(@Inject(DATABASE) private readonly db: Database) {}
 
-  async createNewFullReturn(data: ReturnTransactionDto) {
-    const {
-      invoice_id,
-      tenant_customer_id,
-      total_refund_amount,
-      refund_method,
-      return_status_id,
-      return_date,
-      return_products,
-    } = data;
+  /**
+   * Returns the full refund context for a given sale: sale info, customer,
+   * digital invoice (always exists for completed sales), electronic invoice
+   * (when has_electronic_invoice = true), and the line items.
+   */
+  async getSaleRefundContext(saleId: string) {
+    const ctxResult = await this.db.query(returns.getSaleContext, [saleId]);
+    if (!ctxResult.rows.length) {
+      throw new NotFoundException(`Sale not found: ${saleId}`);
+    }
+    const row: SaleContextRow = ctxResult.rows[0];
+
+    const itemsResult = await this.db.query(returns.getSaleItemsForRefund, [
+      saleId,
+    ]);
+
+    return {
+      sale: {
+        sale_id: row.sale_id,
+        tenant_customer_id: row.tenant_customer_id,
+        sale_date: row.sale_date,
+        subtotal_amount: Number(row.subtotal_amount),
+        tax_amount: Number(row.tax_amount),
+        total_amount: Number(row.total_amount),
+        has_electronic_invoice: row.has_electronic_invoice,
+        is_completed: row.is_completed,
+        branch_id: row.branch_id,
+        branch_name: row.branch_name,
+        tenant_id: row.tenant_id,
+        currency_code: row.currency_code,
+        currency_symbol: row.currency_symbol,
+      },
+      customer: row.tenant_customer_id
+        ? {
+            tenant_customer_id: row.tenant_customer_id,
+            first_name: row.first_name,
+            last_name: row.last_name,
+            document_number: row.document_number,
+            email: row.customer_email,
+          }
+        : null,
+      digital_invoice: row.digital_sale_invoice_id
+        ? {
+            digital_sale_invoice_id: row.digital_sale_invoice_id,
+            invoice_number: row.digital_invoice_number,
+            invoiced_at: row.digital_invoiced_at,
+            subtotal_amount: Number(row.digital_subtotal ?? 0),
+            tax_amount: Number(row.digital_tax ?? 0),
+            total_amount: Number(row.digital_total ?? 0),
+          }
+        : null,
+      electronic_invoice:
+        row.has_electronic_invoice && row.electronic_sale_invoice_id
+          ? {
+              electronic_sale_invoice_id: row.electronic_sale_invoice_id,
+              key_number: row.electronic_key_number,
+              consecutive_number: row.electronic_consecutive,
+              status_id: row.electronic_status_id,
+              created_at: row.electronic_created_at,
+            }
+          : null,
+      items: itemsResult.rows.map((it: any) => ({
+        sale_item_id: it.sale_item_id,
+        product_variant_id: it.product_variant_id,
+        sku: it.sku,
+        variant_name: it.variant_name,
+        available_quantity: Number(it.available_quantity),
+        unit_price: Number(it.unit_price),
+        total_price: Number(it.total_price),
+        digital_sale_invoice_item_id: it.digital_sale_invoice_item_id,
+        electronic_sale_invoice_item_id: it.electronic_sale_invoice_item_id,
+      })),
+    };
+  }
+
+  /**
+   * Creates a partial return for a sale. Auto-sets return_date server-side.
+   * Resolves both digital and electronic invoice IDs from the sale.
+   */
+  async createPartialRefund(data: ReturnTransactionDto) {
+    const { sale_id, return_products, refund_method, return_status_id } = data;
+
+    if (!Array.isArray(return_products) || return_products.length === 0) {
+      throw new BadRequestException(
+        'Debe especificar al menos un producto a reembolsar',
+      );
+    }
+
+    // Resolve invoice references and customer from the sale
+    const ctxResult = await this.db.query(returns.getSaleContext, [sale_id]);
+    if (!ctxResult.rows.length) {
+      throw new NotFoundException(`Sale not found: ${sale_id}`);
+    }
+    const ctx: SaleContextRow = ctxResult.rows[0];
+
+    if (!ctx.digital_sale_invoice_id) {
+      throw new BadRequestException(
+        'La venta no tiene factura digital asociada — no se puede reembolsar',
+      );
+    }
+
+    const tenantCustomerId = data.tenant_customer_id ?? ctx.tenant_customer_id;
+    const electronicId =
+      ctx.has_electronic_invoice && ctx.electronic_sale_invoice_id
+        ? ctx.electronic_sale_invoice_id
+        : null;
+
+    // Compute total refund amount from line items
+    const totalRefund = return_products.reduce((acc, p) => {
+      const lineTotal = Number(
+        (p.total_price ?? p.quantity * p.unit_price).toFixed(2),
+      );
+      return acc + lineTotal;
+    }, 0);
+
     await this.db.query('BEGIN');
     try {
-      //Primero se crea la transacción de devolución
-      const res = await this.db.query(returns.newTransaction, [
-        invoice_id,
-        tenant_customer_id,
-        total_refund_amount,
-        refund_method,
-        return_status_id,
-        return_date,
+      // 1. Create return_transaction header (server sets return_date)
+      const headerRes = await this.db.query(returns.newTransaction, [
+        ctx.digital_sale_invoice_id,
+        electronicId,
+        tenantCustomerId ?? null,
+        Number(totalRefund.toFixed(2)),
+        refund_method ?? null,
+        return_status_id ?? null,
+        null, // return_date — falls back to NOW() in SQL
       ]);
 
-      // Luego se guardan los productos retornados
-      const productsInsert = this.bulkInsertReturns(
-        return_products,
-        res.rows[0].return_transaction_id,
-      );
+      const returnTransactionId: string =
+        headerRes.rows[0].return_transaction_id;
 
-      const productRes = await this.db.query(
-        productsInsert.query,
-        productsInsert.values,
-      );
-      // Actualizar los productos
-      const updateProducts = this.generateBulkUpdate(productRes.rows);
-      await this.db.query(updateProducts.query, updateProducts.values);
+      // 2. Bulk insert return_product rows. The update_on_return trigger
+      //    handles all reconciliation (sale_item, digital_sale_invoice_item,
+      //    invoice totals, sale totals).
+      const productRows: ReturnProduct[] = return_products.map((p) => ({
+        quantity: p.quantity,
+        unit_price: p.unit_price,
+        total_price: Number(
+          (p.total_price ?? p.quantity * p.unit_price).toFixed(2),
+        ),
+        sale_item_id: p.sale_item_id,
+      }));
 
-      //Actualizar total de la factura
-      await this.db.query(dInvoice.updateAmount, [
-        total_refund_amount,
-        invoice_id,
-      ]);
+      const bulk = this.bulkInsertReturns(productRows, returnTransactionId);
+      await this.db.query(bulk.query, bulk.values);
 
       await this.db.query('COMMIT');
-      return { message: 'Return transaction created successfully' };
+      return {
+        message: 'Reembolso parcial registrado correctamente',
+        return_transaction_id: returnTransactionId,
+        total_refund_amount: Number(totalRefund.toFixed(2)),
+      };
     } catch (error) {
       await this.db.query('ROLLBACK');
-      throw new InternalServerErrorException(error);
+      throw new InternalServerErrorException(
+        error instanceof Error ? error.message : 'Error al registrar reembolso',
+      );
+    }
+  }
+
+  /**
+   * Full refund: deletes the digital_sale_invoice (and electronic if present)
+   * for the given sale. CASCADE handles invoice items.
+   */
+  async processFullRefund(saleId: string) {
+    const ctxResult = await this.db.query(returns.getSaleContext, [saleId]);
+    if (!ctxResult.rows.length) {
+      throw new NotFoundException(`Sale not found: ${saleId}`);
+    }
+    const ctx: SaleContextRow = ctxResult.rows[0];
+
+    if (!ctx.digital_sale_invoice_id && !ctx.electronic_sale_invoice_id) {
+      throw new BadRequestException(
+        'La venta no tiene facturas asociadas para eliminar',
+      );
+    }
+
+    await this.db.query('BEGIN');
+    try {
+      const result = {
+        digital_deleted: null as string | null,
+        electronic_deleted: null as string | null,
+      };
+
+      if (ctx.digital_sale_invoice_id) {
+        const r = await this.db.query(returns.deleteDigitalInvoiceBySaleId, [
+          saleId,
+        ]);
+        result.digital_deleted =
+          r.rows[0]?.digital_sale_invoice_id ?? null;
+      }
+      if (ctx.electronic_sale_invoice_id) {
+        const r = await this.db.query(
+          returns.deleteElectronicInvoiceBySaleId,
+          [saleId],
+        );
+        result.electronic_deleted =
+          r.rows[0]?.electronic_sale_invoice_id ?? null;
+      }
+
+      await this.db.query('COMMIT');
+      return {
+        message: 'Reembolso completo registrado: facturas eliminadas',
+        ...result,
+      };
+    } catch (error) {
+      await this.db.query('ROLLBACK');
+      throw new InternalServerErrorException(
+        error instanceof Error
+          ? error.message
+          : 'Error al procesar reembolso completo',
+      );
     }
   }
 
@@ -96,7 +294,6 @@ export class ReturnsService {
 
     products.forEach((p) => {
       const rowPlaceholder = [];
-
       for (let i = 0; i < tuples; i++) {
         rowPlaceholder.push(`$${index++}`);
       }
@@ -117,10 +314,11 @@ export class ReturnsService {
       RETURNING sale_item_id, quantity, total_price
     `;
 
-    console.log('Bulk insert', query, values);
     return { query, values };
   }
 
+  // Kept for any external callers; no longer used by the partial refund flow
+  // because update_on_return trigger now performs the reconciliation.
   generateBulkUpdate(data: BulkUpdateProducts[]) {
     const values: any[] = [];
     const placeholder: string[] = [];
@@ -141,7 +339,6 @@ export class ReturnsService {
       ) AS data(sale_item_id, quantity, total_price)
       WHERE s.sale_item_id = data.sale_item_id AND (COALESCE(s.quantity, 0) - data.quantity::integer) >= 0
     `;
-    console.log('Bulk update', q, values);
     return { query: q, values: values };
   }
 }

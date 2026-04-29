@@ -35,6 +35,7 @@ import { LoyalProgramModule } from '@/contexts/pos/modules/loyal-program/loyalty
 // PURCHASE Modules
 import { PurchaseModule } from '@/contexts/purchase/modules/purchase/purchase.module';
 import { SuppliersModule } from '@/contexts/purchase/modules/suppliers/suppliers.module';
+import { PaymentAlertsModule } from '@/contexts/purchase/modules/payment_alerts/payment-alerts.module';
 
 // INVENTORY Modules
 import { WarehouseModule } from '@/contexts/inventory/modules/warehouse/warehouse.module';
@@ -96,6 +97,7 @@ console.log(
     WarehouseModule,
     SuppliersModule,
     PurchaseModule,
+    PaymentAlertsModule,
     IncapacityModule,
     SuspentionModule,
     TurnsModule,

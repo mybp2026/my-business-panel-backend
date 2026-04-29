@@ -49,6 +49,22 @@ export class ProductController {
     return this.productService.getProductBySku(sku);
   }
 
+  @Get(':tenantId/search')
+  @UseGuards(AuthenticationGuard)
+  async searchProductsByTenant(
+    @Param('tenantId') tenantId: string,
+    @Query('q') q = '',
+    @Query('page') page = '1',
+    @Query('limit') limit = '50',
+  ) {
+    return this.productService.searchProductsByTenant(
+      tenantId,
+      q,
+      parseInt(page),
+      parseInt(limit),
+    );
+  }
+
   @ApiOperation(getAllProductsByTenantDoc.operation)
   @ApiResponse(getAllProductsByTenantDoc.responses[200])
   @ApiResponse(getAllProductsByTenantDoc.responses[400])
@@ -86,10 +102,7 @@ export class ProductController {
   @ApiResponse(updateProductDoc.responses[400])
   @ApiResponse(updateProductDoc.responses[401])
   @Patch(':id')
-  async updateProduct(
-    @Param('id') id: string,
-    @Body() req: UpdateProductDto,
-  ) {
+  async updateProduct(@Param('id') id: string, @Body() req: UpdateProductDto) {
     return this.productService.updateProduct(req, id);
   }
 

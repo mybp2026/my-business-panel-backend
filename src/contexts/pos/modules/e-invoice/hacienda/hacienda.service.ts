@@ -9,15 +9,35 @@ import { ITenantHaciendaCredentials } from '@/contexts/general/modules/tenant_ha
 const FETCH_TIMEOUT_MS = 30_000;
 const MAX_RETRIES = 3;
 
+const HACIENDA_ENDPOINTS = {
+  'api-stag': {
+    idp: 'https://idp.comprobanteselectronicos.go.cr/auth/realms/rut-stag/protocol/openid-connect/token',
+    api: 'https://api-sandbox.comprobanteselectronicos.go.cr/recepcion/v1/',
+  },
+  'api-prod': {
+    idp: 'https://idp.comprobanteselectronicos.go.cr/auth/realms/rut/protocol/openid-connect/token',
+    api: 'https://api.comprobanteselectronicos.go.cr/recepcion/v1/',
+  },
+} as const;
+
+type HaciendaClientId = keyof typeof HACIENDA_ENDPOINTS;
+
 @Injectable()
 export class HaciendaService {
   private readonly logger = new Logger(HaciendaService.name);
   private readonly tokenCacheByTenant = new Map<string, TokenCache>();
 
-  private get apiUrl(): string {
-    const url = process.env.EINVOICE_API_URL;
-    if (!url) throw new Error('EINVOICE_API_URL no configurado');
-    return url.endsWith('/') ? url : `${url}/`;
+  private resolveEndpoints(clientId: string) {
+    if (!(clientId in HACIENDA_ENDPOINTS)) {
+      throw new Error(
+        `hacienda_client_id inválido: "${clientId}". Esperado: api-stag o api-prod`,
+      );
+    }
+    const { idp, api } = HACIENDA_ENDPOINTS[clientId as HaciendaClientId];
+    return {
+      idpUrl: idp,
+      apiUrl: api.replace(/\/?$/, '/'),
+    };
   }
 
   private async fetchWithTimeout(
@@ -76,14 +96,7 @@ export class HaciendaService {
       return cached.token;
     }
 
-    // if (process.env.HACIENDA_MOCK === 'true') {
-    //   return 'mock-access-token';
-    // }
-
-    const idpUrl = process.env.HACIENDA_IDP_URL;
-    if (!idpUrl) throw new Error('HACIENDA_IDP_URL no configurado');
-
-    console.log(credentials);
+    const { idpUrl } = this.resolveEndpoints(credentials.haciendaClientId);
 
     const res = await this.fetchWithRetry(idpUrl, {
       method: 'POST',
@@ -97,12 +110,12 @@ export class HaciendaService {
     });
 
     if (!res.ok) {
-      await res.text();
+      const errorBody = await res.text().catch(() => '<sin body>');
       this.logger.error(
-        `Error obteniendo token de Hacienda IDP [${res.status}]`,
+        `Error obteniendo token de Hacienda IDP [${res.status}] (${idpUrl}) — body: ${errorBody}`,
       );
       throw new Error(
-        `Error obteniendo token de Hacienda IDP para tenant ${tenantId}: ${res.status}`,
+        `Error obteniendo token de Hacienda IDP para tenant ${tenantId} [${res.status}]: ${errorBody}`,
       );
     }
 
@@ -124,10 +137,12 @@ export class HaciendaService {
     credentials: ITenantHaciendaCredentials,
     payload: HaciendaPayload,
   ): Promise<{ accepted: boolean; message?: string }> {
+    const { apiUrl } = this.resolveEndpoints(credentials.haciendaClientId);
+
     for (let tokenAttempt = 0; tokenAttempt < 2; tokenAttempt++) {
       const token = await this.getAccessToken(tenantId, credentials);
 
-      const res = await this.fetchWithRetry(`${this.apiUrl}recepcion`, {
+      const res = await this.fetchWithRetry(`${apiUrl}recepcion`, {
         method: 'POST',
         headers: {
           Authorization: `Bearer ${token}`,
@@ -213,13 +228,11 @@ export class HaciendaService {
       }
 
       const token = await this.getAccessToken(tenantId, credentials);
+      const { apiUrl } = this.resolveEndpoints(credentials.haciendaClientId);
 
-      const res = await this.fetchWithRetry(
-        `${this.apiUrl}recepcion/${clave}`,
-        {
-          headers: { Authorization: `Bearer ${token}` },
-        },
-      );
+      const res = await this.fetchWithRetry(`${apiUrl}recepcion/${clave}`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
 
       // 401: token expirado → limpiar cache y reintentar
       if (res.status === 401 && tokenAttempt === 0) {

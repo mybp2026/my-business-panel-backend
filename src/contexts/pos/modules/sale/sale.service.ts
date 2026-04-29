@@ -50,7 +50,19 @@ export class SaleService {
       ],
       { rows } = await this.db.query(sales.createSale, params);
 
-    return rows[0].sale_id;
+    const saleId = rows[0].sale_id as string;
+
+    if (data.is_completed) {
+      await this.linkSaleToActiveSession(
+        this.db,
+        data.branch_id,
+        saleId,
+        data.sale_date,
+        data.cash_register_id ?? null,
+      );
+    }
+
+    return saleId;
   }
 
   async createFullSale(data: FullSaleDto) {
@@ -74,6 +86,16 @@ export class SaleService {
           data.seller_user_id ?? null,
         ]);
         saleId = rows[0].sale_id;
+
+        if (data.is_completed) {
+          await this.linkSaleToActiveSession(
+            txn,
+            data.branch_id,
+            saleId,
+            new Date(data.sale_date),
+            data.cash_register_id ?? null,
+          );
+        }
 
         await txn.bulkInsert(
           'pos_schema.sale_item',
@@ -239,5 +261,31 @@ export class SaleService {
     const { rows } = await this.db.query(sales.getConditions);
 
     return rows;
+  }
+
+  private async linkSaleToActiveSession(
+    executor: {
+      query: (
+        sql: string,
+        params?: unknown[],
+      ) => Promise<{ rowCount?: number | null }>;
+    },
+    branchId: string,
+    saleId: string,
+    transactionTime?: Date | null,
+    cashRegisterId?: string | null,
+  ): Promise<void> {
+    const result = await executor.query(sales.linkSaleToActiveSession, [
+      branchId,
+      saleId,
+      transactionTime ?? null,
+      cashRegisterId ?? null,
+    ]);
+
+    if (!result.rowCount || result.rowCount < 1) {
+      this.logger.warn(
+        `Sale ${saleId} was completed without an active cash register session in branch ${branchId}${cashRegisterId ? ` for cash register ${cashRegisterId}` : ''}`,
+      );
+    }
   }
 }

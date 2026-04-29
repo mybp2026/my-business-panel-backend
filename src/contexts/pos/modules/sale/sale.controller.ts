@@ -61,8 +61,23 @@ export class SaleController {
   @ApiResponse(getAllSalesByBranchDoc.responses[401])
   @Get(':branch_id')
   @Paginate({
-    table: 'pos_schema.sale',
-    columns: ['sale_id', 'branch_id', 'tenant_customer_id', 'created_at'],
+    table:
+      '(SELECT s.sale_id, s.sale_date, s.total_amount, s.subtotal_amount, s.tax_amount, s.is_completed, s.has_electronic_invoice, s.tenant_customer_id, s.created_at, b.branch_id, b.branch_name, c.currency_code, c.symbol FROM pos_schema.sale s INNER JOIN general_schema.branch b USING(branch_id) INNER JOIN general_schema.currency c USING(currency_id)) AS paginated_sales',
+    columns: [
+      'sale_id',
+      'sale_date',
+      'total_amount',
+      'subtotal_amount',
+      'tax_amount',
+      'is_completed',
+      'has_electronic_invoice',
+      'branch_id',
+      'branch_name',
+      'currency_code',
+      'symbol',
+      'tenant_customer_id',
+      'created_at',
+    ],
     pkFields: ['sale_id'],
     whereFields: ['branch_id'],
   })

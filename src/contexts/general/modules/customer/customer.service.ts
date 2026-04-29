@@ -128,9 +128,17 @@ export class CustomerService {
     };
 
     const validDbColumns = new Set([
-      'first_name', 'last_name', 'email', 'phone', 'address',
-      'birthdate', 'document_number', 'econ_activity',
-      'identification_type_id', 'customer_segment_id', 'is_tenant',
+      'first_name',
+      'last_name',
+      'email',
+      'phone',
+      'address',
+      'birthdate',
+      'document_number',
+      'econ_activity',
+      'identification_type_id',
+      'customer_segment_id',
+      'is_tenant',
     ]);
 
     const updateKeys = Object.keys(updates).filter((key) => {

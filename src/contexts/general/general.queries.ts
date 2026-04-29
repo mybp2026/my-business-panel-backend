@@ -119,11 +119,29 @@ export const generalQueryDefs = {
       WHERE tenant_customer_id = $1
     `,
     getInfo: `
-      SELECT tc.first_name, tc.last_name, d.type_name, tc.document_number, tc.econ_activity, t.tenant_name, c.segment_name
+      SELECT
+        tc.tenant_customer_id AS customer_id,
+        tc.tenant_id,
+        tc.first_name,
+        tc.last_name,
+        tc.document_number,
+        tc.email,
+        tc.phone,
+        tc.econ_activity,
+        tc.address,
+        tc.birthdate,
+        tc.is_tenant,
+        tc.created_at,
+        tc.updated_at,
+        tc.identification_type_id AS identification_type,
+        tc.customer_segment_id AS segment_id,
+        d.type_name,
+        t.tenant_name,
+        cs.segment_name
       FROM general_schema.tenant_customer tc
       INNER JOIN general_schema.tenant t USING(tenant_id)
-      INNER JOIN general_schema.customer_segment c USING(customer_segment_id)
-      INNER JOIN general_schema.identification_type d ON d.identification_type_id = tc.identification_type_id
+      LEFT JOIN general_schema.customer_segment cs USING(customer_segment_id)
+      LEFT JOIN general_schema.identification_type d ON d.identification_type_id = tc.identification_type_id
       WHERE tc.document_number = $1
     `,
     create: `
@@ -253,6 +271,22 @@ export const generalQueryDefs = {
       FROM general_schema.product_variant pv
       WHERE pv.sku = $1
       `,
+    searchByTenant: `
+      SELECT pv.product_variant_id, pv.sku, pv.variant_name, pv.cabys_code, pv.unit_price, pv.is_active, pv.tenant_id
+      FROM general_schema.product_variant pv
+      WHERE pv.tenant_id = $1
+        AND pv.is_active = TRUE
+        AND ($2::text IS NULL OR $2 = '' OR pv.sku ILIKE '%' || $2 || '%' OR pv.variant_name ILIKE '%' || $2 || '%')
+      ORDER BY pv.sku
+      LIMIT $3 OFFSET $4
+      `,
+    countSearchByTenant: `
+      SELECT COUNT(*)::int AS total
+      FROM general_schema.product_variant pv
+      WHERE pv.tenant_id = $1
+        AND pv.is_active = TRUE
+        AND ($2::text IS NULL OR $2 = '' OR pv.sku ILIKE '%' || $2 || '%' OR pv.variant_name ILIKE '%' || $2 || '%')
+      `,
     getById: `
       SELECT * FROM general_schema.product_variant
       WHERE product_variant_id = $1 AND tenant_id = $2
@@ -346,6 +380,20 @@ export const generalQueryDefs = {
     `,
     delete: `
     DELETE FROM general_schema.branch WHERE branch_id = $1 RETURNING *
+    `,
+  },
+
+  branchLocation: {
+    upsert: `
+      INSERT INTO general_schema.branch_location (branch_id, provincia, canton, distrito, otras_senas)
+      VALUES ($1, $2, $3, $4, $5)
+      ON CONFLICT (branch_id) DO UPDATE SET
+        provincia   = EXCLUDED.provincia,
+        canton      = EXCLUDED.canton,
+        distrito    = EXCLUDED.distrito,
+        otras_senas = EXCLUDED.otras_senas,
+        updated_at  = NOW()
+      RETURNING branch_location_id
     `,
   },
 

@@ -1,29 +1,56 @@
 import { Type } from 'class-transformer';
-import { IsDate, IsNumber, IsUUID } from 'class-validator';
+import {
+  ArrayNotEmpty,
+  IsArray,
+  IsNumber,
+  IsOptional,
+  IsUUID,
+  ValidateNested,
+} from 'class-validator';
 
-export class ReturnTransactionDto {
+export class ReturnProductDto {
   @IsUUID()
-  invoice_id!: string;
-
-  @IsUUID()
-  tenant_customer_id!: string;
+  sale_item_id!: string;
 
   @IsNumber()
-  total_refund_amount!: number;
+  quantity!: number;
 
   @IsNumber()
-  refund_method!: number;
+  unit_price!: number;
 
+  @IsOptional()
   @IsNumber()
-  return_status_id!: number;
-
-  @Type(() => Date)
-  @IsDate()
-  return_date!: Date;
-
-  return_products!: ReturnProduct[];
+  total_price?: number;
 }
 
+export class ReturnTransactionDto {
+  /**
+   * Sale ID. The server resolves the corresponding digital + electronic
+   * invoices from this and stores both invoice references in return_transaction.
+   */
+  @IsUUID()
+  sale_id!: string;
+
+  @IsOptional()
+  @IsUUID()
+  tenant_customer_id?: string;
+
+  @IsOptional()
+  @IsNumber()
+  refund_method?: number;
+
+  @IsOptional()
+  @IsNumber()
+  return_status_id?: number;
+
+  @IsArray()
+  @ArrayNotEmpty()
+  @ValidateNested({ each: true })
+  @Type(() => ReturnProductDto)
+  return_products!: ReturnProductDto[];
+}
+
+// Internal types kept for backward compatibility with existing helpers
 export interface ReturnProduct {
   quantity: number;
   unit_price: number;

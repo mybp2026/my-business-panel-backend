@@ -31,7 +31,12 @@ export class ProductService {
     tenantId: string,
     page = 1,
     limit = 100,
-  ): Promise<{ products: Product[]; total: number; page: number; limit: number }> {
+  ): Promise<{
+    products: Product[];
+    total: number;
+    page: number;
+    limit: number;
+  }> {
     const offset = (page - 1) * limit;
     const [dataResult, countResult] = await Promise.all([
       this.db.query(products.getAllPaginated, [tenantId, limit, offset]),
@@ -48,7 +53,12 @@ export class ProductService {
   async getAllProductsGlobal(
     page = 1,
     limit = 100,
-  ): Promise<{ products: Product[]; total: number; page: number; limit: number }> {
+  ): Promise<{
+    products: Product[];
+    total: number;
+    page: number;
+    limit: number;
+  }> {
     const offset = (page - 1) * limit;
     const [dataResult, countResult] = await Promise.all([
       this.db.query(products.getAllGlobal, [limit, offset]),
@@ -65,6 +75,34 @@ export class ProductService {
   async getProductBySku(sku: string): Promise<Product> {
     const product = await this.db.query(products.getBySku, [sku]);
     return product.rows[0];
+  }
+
+  async searchProductsByTenant(
+    tenantId: string,
+    query: string,
+    page = 1,
+    limit = 50,
+  ): Promise<{
+    products: Product[];
+    total: number;
+    page: number;
+    limit: number;
+  }> {
+    if (!isUUID(tenantId)) {
+      throw new BadRequestException('Invalid tenant ID format');
+    }
+    const offset = (page - 1) * limit;
+    const term = (query ?? '').trim();
+    const [dataResult, countResult] = await Promise.all([
+      this.db.query(products.searchByTenant, [tenantId, term, limit, offset]),
+      this.db.query(products.countSearchByTenant, [tenantId, term]),
+    ]);
+    return {
+      products: dataResult.rows,
+      total: countResult.rows[0]?.total ?? 0,
+      page,
+      limit,
+    };
   }
 
   async getProductById(productId: string, tenantId: string): Promise<Product> {
@@ -90,7 +128,10 @@ export class ProductService {
     try {
       newProducts = await this.db.query(insertData.query, insertData.values);
     } catch (error: any) {
-      if (error?.code === '23503' && error?.constraint === 'product_variant_cabys_code_fkey') {
+      if (
+        error?.code === '23503' &&
+        error?.constraint === 'product_variant_cabys_code_fkey'
+      ) {
         throw new BadRequestException(
           `The cabys_code provided does not exist in the CABYS catalog`,
         );

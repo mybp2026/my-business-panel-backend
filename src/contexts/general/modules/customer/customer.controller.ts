@@ -63,6 +63,15 @@ export class CustomerController {
     );
   }
 
+  @ApiOperation(getOneCustomerDoc.operation)
+  @ApiResponse(getOneCustomerDoc.responses[200])
+  @ApiResponse(getOneCustomerDoc.responses[401])
+  @ApiResponse(getOneCustomerDoc.responses[404])
+  @Get('doc/:documentId')
+  async getOneCustomer(@Param('documentId') documentId: string) {
+    return this.customerService.findCustomerByDocumentId(documentId);
+  }
+
   @ApiOperation(getOneCustomerByIdDoc.operation)
   @ApiResponse(getOneCustomerByIdDoc.responses[200])
   @ApiResponse(getOneCustomerByIdDoc.responses[401])
@@ -70,15 +79,6 @@ export class CustomerController {
   @Get(':id')
   async getOneCustomerById(@Param('id') id: string) {
     return this.customerService.findCustomerById(id);
-  }
-
-  @ApiOperation(getOneCustomerDoc.operation)
-  @ApiResponse(getOneCustomerDoc.responses[200])
-  @ApiResponse(getOneCustomerDoc.responses[401])
-  @ApiResponse(getOneCustomerDoc.responses[404])
-  @Get('/doc/:documentId')
-  async getOneCustomer(@Param('documentId') documentId: string) {
-    return this.customerService.findCustomerByDocumentId(documentId);
   }
 
   @ApiOperation(createCustomerDoc.operation)

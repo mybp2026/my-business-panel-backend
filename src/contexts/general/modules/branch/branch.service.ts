@@ -10,7 +10,16 @@ import { InvalidSessionError } from '@/common/errors/invalid_session.error';
 import { StateService } from '@/contexts/general/modules/state/state.service';
 import { InvalidTenantError } from '@/common/errors/invalid_tenant.error';
 
-const { branch } = generalQueries;
+const { branch, branchLocation } = generalQueries;
+
+function parseTerritoryCode(
+  code: string,
+): { provincia: string; canton: string; distrito: string } | null {
+  if (!code || code.trim().length !== 5 || !/^\d{5}$/.test(code.trim()))
+    return null;
+  const c = code.trim();
+  return { provincia: c[0], canton: c.slice(1, 3), distrito: c.slice(3, 5) };
+}
 
 @Injectable()
 export class BranchService {
@@ -80,10 +89,16 @@ export class BranchService {
       branch_address,
       contact_email,
       is_main_branch,
+      territorio_code,
+      otras_senas,
     } = createBranchDto;
 
     if (user_tenant_id !== tenant_id)
       throw new InvalidSessionError('UNAUTHORIZED');
+
+    const location = territorio_code
+      ? parseTerritoryCode(territorio_code)
+      : null;
 
     const txn = await this.db.transaction();
     let committed = false;
@@ -98,9 +113,31 @@ export class BranchService {
         is_main_branch,
       ]);
 
+      const newBranch: Branch = rows[0];
+
+      if (location) {
+        await txn.rawQuery(
+          `INSERT INTO general_schema.branch_location (branch_id, provincia, canton, distrito, otras_senas)
+           VALUES ($1, $2, $3, $4, $5)
+           ON CONFLICT (branch_id) DO UPDATE SET
+             provincia   = EXCLUDED.provincia,
+             canton      = EXCLUDED.canton,
+             distrito    = EXCLUDED.distrito,
+             otras_senas = EXCLUDED.otras_senas,
+             updated_at  = NOW()`,
+          [
+            newBranch.branch_id,
+            location.provincia,
+            location.canton,
+            location.distrito,
+            otras_senas ?? '',
+          ],
+        );
+      }
+
       await txn.commit();
       committed = true;
-      return rows[0];
+      return newBranch;
     } catch (error) {
       if (!committed) {
         try {
@@ -131,6 +168,8 @@ export class BranchService {
       branch_address,
       contact_email,
       is_main_branch,
+      territorio_code,
+      otras_senas,
     } = updateBranchDto;
 
     await this.validateBranch(branch_id);
@@ -143,6 +182,20 @@ export class BranchService {
       contact_email || null,
       is_main_branch,
     ]);
+
+    const location = territorio_code
+      ? parseTerritoryCode(territorio_code)
+      : null;
+
+    if (location) {
+      await this.db.query(branchLocation.upsert, [
+        branch_id,
+        location.provincia,
+        location.canton,
+        location.distrito,
+        otras_senas ?? '',
+      ]);
+    }
 
     return rows[0];
   }

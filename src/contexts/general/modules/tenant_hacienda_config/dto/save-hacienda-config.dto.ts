@@ -3,6 +3,7 @@ import {
   IsBase64,
   IsIn,
   IsNotEmpty,
+  IsOptional,
   IsString,
   IsUUID,
   Matches,
@@ -29,11 +30,14 @@ export class SaveHaciendaConfigDto {
   @Transform(({ value }) => (typeof value === 'string' ? value.trim() : value))
   hacienda_username!: string;
 
-  /** Contraseña de Hacienda ATV. Solo server-side, nunca se expone. */
-  @IsNotEmpty()
+  /**
+   * Contraseña de Hacienda ATV. Solo server-side, nunca se expone.
+   * Opcional al actualizar: si se omite, se conserva la existente.
+   */
+  @IsOptional()
   @IsString()
   @MaxLength(256)
-  hacienda_password!: string;
+  hacienda_password?: string;
 
   /**
    * Client ID del OAuth de Hacienda.
@@ -41,6 +45,7 @@ export class SaveHaciendaConfigDto {
    */
   @IsNotEmpty()
   @IsString()
+  @Transform(({ value }) => (typeof value === 'string' ? value.trim() : value))
   @IsIn(['api-stag', 'api-prod'], {
     message: 'hacienda_client_id debe ser "api-stag" o "api-prod"',
   })
@@ -50,16 +55,20 @@ export class SaveHaciendaConfigDto {
    * Certificado P12 en base64.
    * Max ~96 KB decodificado (los P12 de Hacienda no superan 10 KB).
    * Base64 por definición solo contiene A-Za-z0-9+/=.
+   * Opcional al actualizar: si se omite, se conserva el existente.
    */
-  @IsNotEmpty()
+  @IsOptional()
   @IsString()
   @IsBase64()
   @MaxLength(131_072)
-  p12_base64!: string;
+  p12_base64?: string;
 
-  /** Contraseña del P12. Solo server-side, nunca se expone. */
-  @IsNotEmpty()
+  /**
+   * Contraseña del P12. Solo server-side, nunca se expone.
+   * Opcional al actualizar: si se omite, se conserva la existente.
+   */
+  @IsOptional()
   @IsString()
   @MaxLength(256)
-  p12_password!: string;
+  p12_password?: string;
 }

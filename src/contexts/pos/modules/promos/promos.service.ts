@@ -6,7 +6,7 @@ import {
 } from '@nestjs/common';
 import { DATABASE } from '@/contexts/general/modules/db/db.provider';
 import Database from '@crane-technologies/database';
-import { Promo } from './interface/promo.interface';
+import { Promo, PromoRule, PromoWithRule } from './interface/promo.interface';
 import { NewPromoDto, PromoRules } from './dto/newPromo.dto';
 import { RuleCreationError } from '@/common/errors/create_rule.error';
 import { PromotionCreationError } from '@/common/errors/create_promo.error';
@@ -24,9 +24,19 @@ export class PromosService {
     return promos.rows;
   }
 
-  async getPromoInfo(promoID: string): Promise<Promo> {
+  async getPromoInfo(promoID: string): Promise<PromoWithRule | null> {
     const promo = await this.db.query(promotions.getPromoInfo, [promoID]);
-    return promo.rows[0];
+    const row = promo.rows[0] as Promo | undefined;
+    if (!row) return null;
+
+    const rules = await this.db.query(promotions.getPromotionRules, [promoID]);
+    const ruleRows = rules.rows as PromoRule[];
+
+    return {
+      ...row,
+      rule: ruleRows[0],
+      rules: ruleRows,
+    };
   }
 
   async createPromoWithRule(newPromoDto: NewPromoDto) {

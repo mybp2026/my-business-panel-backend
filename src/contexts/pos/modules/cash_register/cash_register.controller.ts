@@ -40,7 +40,7 @@ export class CashRegisterController {
   @ApiResponse(createCashRegisterDoc.responses[201])
   @ApiResponse(createCashRegisterDoc.responses[400])
   @ApiResponse(createCashRegisterDoc.responses[401])
-  @RequiredLevel(4)
+  @RequiredLevel(3)
   @Post()
   create(
     @Body() createCashRegisterDto: CreateCashRegisterDto,
@@ -61,6 +61,23 @@ export class CashRegisterController {
     return query.branch_id
       ? this.cashRegisterService.findByBranch(query.branch_id)
       : this.cashRegisterService.findAll();
+  }
+
+  @RequiredLevel(2)
+  @Get('sessions/all')
+  findSessions(
+    @Session() session: IUserSession,
+    @Query() query: { branch_id?: string; is_active?: string },
+  ) {
+    const isActive =
+      query.is_active === undefined || query.is_active === ''
+        ? undefined
+        : query.is_active === 'true';
+    return this.cashRegisterService.findSessions(
+      session.tenant_id,
+      query.branch_id,
+      isActive,
+    );
   }
 
   @ApiOperation(startCashRegisterSessionDoc.operation)

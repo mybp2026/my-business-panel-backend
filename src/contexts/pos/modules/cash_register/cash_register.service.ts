@@ -41,6 +41,22 @@ export class CashRegisterService {
     return { results: rows };
   }
 
+  async findSessions(
+    tenant_id: string,
+    branch_id?: string,
+    is_active?: boolean,
+  ): Promise<{ results: CashRegisterSession[] }> {
+    const branchParam = branch_id ?? null;
+    const isActiveParam =
+      typeof is_active === 'boolean' ? is_active : null;
+    const { rows } = await this.db.query(cashRegister.findSessions, [
+      tenant_id,
+      branchParam,
+      isActiveParam,
+    ]);
+    return { results: rows };
+  }
+
   async create(tenant_id: string, createDto: CreateCashRegisterDto) {
     const { branch_id, register_name, is_active } = createDto;
 
