@@ -1,5 +1,6 @@
 import { Injectable, Logger, OnModuleInit, OnModuleDestroy } from '@nestjs/common';
 import { Worker, Job } from 'bullmq';
+import { ConfigService } from '@nestjs/config';
 import { EINVOICE_STATUS_QUEUE } from './einvoice-status.queue';
 import { EInvoiceStatusProcessor } from './einvoice-status.processor';
 import { IEInvoiceJobData } from '../interface';
@@ -9,14 +10,18 @@ export class EInvoiceStatusWorker implements OnModuleInit, OnModuleDestroy {
   private readonly logger = new Logger(EInvoiceStatusWorker.name);
   private worker: Worker | null = null;
 
-  constructor(private readonly processor: EInvoiceStatusProcessor) {}
+  constructor(
+    private readonly processor: EInvoiceStatusProcessor,
+    private readonly configService: ConfigService,
+  ) {}
 
   onModuleInit() {
-    const connection = {
-      host: process.env.REDIS_HOST || 'localhost',
-      port: Number(process.env.REDIS_PORT) || 6379,
-      password: process.env.REDIS_PASSWORD || undefined,
-    };
+    const host = this.configService.get<string>('REDIS_HOST') || 'localhost';
+    const port = this.configService.get<number>('REDIS_PORT') || 6379;
+    const password = this.configService.get<string>('REDIS_PASSWORD');
+    const tls = this.configService.get<string>('REDIS_TLS') === 'true' ? {} : undefined;
+
+    const connection = { host, port, password, tls };
 
     this.worker = new Worker(
       EINVOICE_STATUS_QUEUE,

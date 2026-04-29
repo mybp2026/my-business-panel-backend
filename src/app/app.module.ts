@@ -1,8 +1,10 @@
 import { Module } from '@nestjs/common';
+import { ConfigModule, ConfigService } from '@nestjs/config';
 import { ScheduleModule } from '@nestjs/schedule';
 import { AppController } from '@/app/app.controller';
 import { AppService } from '@/app/app.service';
-import 'dotenv/config';
+
+const nodeEnv = process.env.NODE_ENV || 'development';
 
 // General Modules
 import { AuthModule } from '@/contexts/general/modules/auth/auth.module';
@@ -65,13 +67,12 @@ import { TardinessModule } from '@/contexts/hr/modules/tardiness/tardiness.modul
 import { AccountingModule } from '@/contexts/finances/modules/accounting/accounting.module';
 import { ExpenseModule } from '@/contexts/finances/modules/expense/expense.module';
 
-console.log(
-  'Initializing AppModule with Stripe API Key length:',
-  process.env.STRIPE_API_KEY?.length,
-);
-
 @Module({
   imports: [
+    ConfigModule.forRoot({
+      envFilePath: [`.env.${nodeEnv}`, '.env'],
+      isGlobal: true,
+    }),
     ScheduleModule.forRoot(),
     AuthModule,
     CustomerModule,

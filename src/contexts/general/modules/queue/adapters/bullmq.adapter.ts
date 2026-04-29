@@ -13,7 +13,14 @@ export class BullMQAdapter implements IQueueService {
   private readonly logger = new Logger(BullMQAdapter.name);
   private readonly queues = new Map<string, Queue>();
 
-  constructor(private readonly redisConnection: { host: string; port: number; password?: string }) {}
+  constructor(
+    private readonly redisConnection: {
+      host: string;
+      port: number;
+      password?: string;
+      tls?: any;
+    },
+  ) {}
 
   registerQueue(config: IQueueConfig): void {
     if (this.queues.has(config.name)) {

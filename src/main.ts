@@ -5,15 +5,18 @@ import { ValidationPipe } from '@nestjs/common';
 import * as bodyParser from 'body-parser';
 import { ResponseInterceptor } from './common/interceptors/ResponseFormatter.interceptor';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
-import 'dotenv/config';
+import { ConfigService } from '@nestjs/config';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule, {
     rawBody: true,
   });
 
-  const allowedOrigins = process.env.ALLOWED_ORIGINS
-    ? process.env.ALLOWED_ORIGINS.split(',').map((origin) => origin.trim())
+  const configService = app.get(ConfigService);
+
+  const allowedOriginsRaw = configService.get<string>('ALLOWED_ORIGINS');
+  const allowedOrigins = allowedOriginsRaw
+    ? allowedOriginsRaw.split(',').map((origin) => origin.trim())
     : ['http://localhost:5173', 'http://localhost:3000'];
 
   app.enableCors({
@@ -45,6 +48,13 @@ async function bootstrap() {
   const document = SwaggerModule.createDocument(app, config);
   SwaggerModule.setup('docs', app, document);
 
-  await app.listen(process.env.PORT ?? 3000);
+  const port = configService.get<number>('PORT') || 3000;
+  await app.listen(port);
+  console.log('Current config: ', configService.get('NODE_ENV'));
+  console.log(`Application is running on: http://localhost:${port}/api/v1`);
+  console.log(
+    'Initializing AppModule with Stripe API Key length:',
+    configService.get('STRIPE_API_KEY').length,
+  );
 }
 void bootstrap();
