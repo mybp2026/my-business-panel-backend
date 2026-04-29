@@ -17,11 +17,13 @@ export class AuthController {
   @Post('/login')
   async login(@Body() loginDto: LoginDto, @Res({ passthrough: true }) response: Response) {
     const { user, token } = await this.authService.login(loginDto);
-    const isProduction = process.env.NODE_ENV === 'production';
+    const isCrossSite = ['production', 'staging'].includes(
+      process.env.NODE_ENV ?? '',
+    );
     response.cookie('auth_token', token, {
       httpOnly: true,
-      secure: isProduction,
-      sameSite: isProduction ? 'none' : 'lax',
+      secure: isCrossSite,
+      sameSite: isCrossSite ? 'none' : 'lax',
       maxAge: 24 * 60 * 60 * 1000, // 1 day
     });
     return { message: 'Login successful', user };
@@ -33,11 +35,13 @@ export class AuthController {
   @UseGuards(AuthenticationGuard)
   @Post('/logout')
   logout(@Res({ passthrough: true }) response: Response) {
-    const isProduction = process.env.NODE_ENV === 'production';
+    const isCrossSite = ['production', 'staging'].includes(
+      process.env.NODE_ENV ?? '',
+    );
     response.clearCookie('auth_token', {
       httpOnly: true,
-      secure: isProduction,
-      sameSite: isProduction ? 'none' : 'lax',
+      secure: isCrossSite,
+      sameSite: isCrossSite ? 'none' : 'lax',
     });
     return { message: 'Logout successful' };
   }
