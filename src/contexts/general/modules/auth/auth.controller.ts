@@ -17,11 +17,12 @@ export class AuthController {
   @Post('/login')
   async login(@Body() loginDto: LoginDto, @Res({ passthrough: true }) response: Response) {
     const { user, token } = await this.authService.login(loginDto);
+    const isProduction = process.env.NODE_ENV === 'production';
     response.cookie('auth_token', token, {
       httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
+      secure: isProduction,
+      sameSite: isProduction ? 'none' : 'lax',
       maxAge: 24 * 60 * 60 * 1000, // 1 day
-      //   sameSite: 'strict',
     });
     return { message: 'Login successful', user };
   }
@@ -32,7 +33,12 @@ export class AuthController {
   @UseGuards(AuthenticationGuard)
   @Post('/logout')
   logout(@Res({ passthrough: true }) response: Response) {
-    response.clearCookie('auth_token');
+    const isProduction = process.env.NODE_ENV === 'production';
+    response.clearCookie('auth_token', {
+      httpOnly: true,
+      secure: isProduction,
+      sameSite: isProduction ? 'none' : 'lax',
+    });
     return { message: 'Logout successful' };
   }
 }
