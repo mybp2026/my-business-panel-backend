@@ -134,6 +134,7 @@ export class EmployeeService {
       phone,
       email,
       payment_schedule_id,
+      branch_id,
     } = data;
 
     const updatedEmp = await this.db.query(employee.update, [
@@ -143,6 +144,7 @@ export class EmployeeService {
       phone,
       email,
       payment_schedule_id,
+      branch_id,
       employee_id,
     ]);
 

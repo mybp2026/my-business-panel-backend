@@ -125,6 +125,29 @@ export class SaleService {
           ]),
         );
 
+        // Decrement stock from the branch's "sales floor" warehouse.
+        // Composite items are exploded to their leaf components by
+        // WarehouseService.consumeStockForSale.
+        const wh = await txn.query(
+          `SELECT warehouse_id FROM inventory_schema.warehouse
+           WHERE branch_id = $1 AND is_branch = true LIMIT 1`,
+          [data.branch_id],
+        );
+        if (!wh.rows[0]) {
+          throw new BadRequestException(
+            'Branch sin warehouse de piso de venta (is_branch=true)',
+          );
+        }
+        await this.warehouseService.consumeStockForSale(
+          data.tenant_id,
+          wh.rows[0].warehouse_id,
+          items.map((it) => ({
+            product_variant_id: it.product_variant_id,
+            quantity: Number(it.quantity),
+          })),
+          txn,
+        );
+
         await txn.bulkInsert(
           'pos_schema.customer_payment',
           [

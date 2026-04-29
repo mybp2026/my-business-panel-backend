@@ -12,6 +12,7 @@ import { UpdateWarehouseDto } from './dto/update_warehouse.dto';
 import { BulkInsertInventoryDto } from './dto/bulk_insert_inventory.dto';
 import { generalQueries } from '@general/general.queries';
 import { ProductService } from '@/contexts/general/modules/product/product.service';
+import { explodeForInventory } from '@/contexts/general/modules/product_composition/helpers/explode';
 import { ProductCount } from './interfaces/product_count.interface';
 import { InventoryItem } from './interfaces/inventory_item.interface';
 import { InventoryTransferSummary } from './interfaces/inventory_transfer_summary.interface';
@@ -466,6 +467,38 @@ export class WarehouseService {
       exchangeRate?: number;
     },
   ): Promise<void> {
+    // Composite parents are virtual: explode into child components and apply
+    // reception per-child, dividing unit cost proportionally to the ratio.
+    const meta = await this.db.query(
+      `SELECT is_composite FROM general_schema.product_variant
+       WHERE tenant_id = $1 AND product_variant_id = $2 LIMIT 1`,
+      [tenant_id, product_variant_id],
+    );
+    if (meta.rows[0]?.is_composite === true) {
+      const components = await this.db.query(
+        generalQueries.productComposition.byParent,
+        [tenant_id, product_variant_id],
+      );
+      for (const c of components.rows) {
+        const ratio = Number(c.quantity);
+        const childQty = quantity * ratio;
+        const childCost = costInfo
+          ? {
+              ...costInfo,
+              unitCost: ratio > 0 ? costInfo.unitCost / ratio : 0,
+            }
+          : undefined;
+        await this.receiveStockFromPurchase(
+          warehouse_id,
+          c.child_product_variant_id,
+          tenant_id,
+          childQty,
+          childCost,
+        );
+      }
+      return;
+    }
+
     // Update product cost BEFORE adding stock (weighted avg needs current stock level)
     if (costInfo && costInfo.unitCost > 0) {
       await this.db.query(inventoryQueries.updateProductCost, [
@@ -503,6 +536,57 @@ export class WarehouseService {
       product_variant_id,
       quantity,
     ]);
+  }
+
+  /**
+   * Decrements stock for sale items. Composite items are exploded recursively
+   * to their leaf children before consuming. Throws if any leaf would go below
+   * zero so the surrounding transaction can rollback.
+   */
+  async consumeStockForSale(
+    tenantId: string,
+    warehouseId: string,
+    items: Array<{ product_variant_id: string; quantity: number }>,
+    txn: {
+      query: (text: string, params?: any[]) => Promise<{ rows: any[]; rowCount?: number | null }>;
+    },
+  ): Promise<void> {
+    for (const item of items) {
+      const leaves = await explodeForInventory(
+        txn,
+        tenantId,
+        item.product_variant_id,
+        Number(item.quantity),
+      );
+      for (const leaf of leaves) {
+        const stockRes = await txn.query(
+          `SELECT COALESCE(stock, 0)::numeric AS stock
+           FROM inventory_schema.inventory
+           WHERE tenant_id = $1 AND product_variant_id = $2 AND warehouse_id = $3
+           LIMIT 1`,
+          [tenantId, leaf.product_variant_id, warehouseId],
+        );
+        const current = Number(stockRes.rows[0]?.stock ?? 0);
+        if (current < leaf.quantity) {
+          throw new BadRequestException(
+            `Stock insuficiente para variante ${leaf.product_variant_id}: disponible ${current}, requerido ${leaf.quantity}`,
+          );
+        }
+        await txn.query(inventoryQueries.removeStock, [
+          leaf.quantity,
+          warehouseId,
+          leaf.product_variant_id,
+          tenantId,
+        ]);
+        await txn.query(inventoryQueries.logInventoryMovement, [
+          2, // OUT
+          warehouseId,
+          tenantId,
+          leaf.product_variant_id,
+          leaf.quantity,
+        ]);
+      }
+    }
   }
 
   async listTransfersByTenant(

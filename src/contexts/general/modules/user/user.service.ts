@@ -83,10 +83,10 @@ export class UserService {
   }
 
   getSelfInfo(user: IUserSession) {
-    const { role_id, tenant_id, email } = user;
+    const { user_id, role_id, tenant_id, email } = user;
     const role = this.state.getRole(role_id);
     const tenant = this.state.getTenant(tenant_id);
-    return { email, role, tenant };
+    return { user_id, email, role, tenant };
   }
 
   async createUser(createUserDto: CreateUserDto) {

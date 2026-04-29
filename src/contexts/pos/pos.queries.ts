@@ -345,6 +345,76 @@ export const posQueryDefs = {
     `,
   },
 
+  promotionTarget: {
+    byPromotion: `
+      SELECT pt.promotion_target_id, pt.promotion_id, pt.tenant_id, pt.target_type,
+             pt.target_product_variant_id, pt.target_group_id,
+             pv.sku AS variant_sku, pv.variant_name,
+             g.group_name, g.tenant_product_group_type_id,
+             gt.type_name
+      FROM pos_schema.promotion_target pt
+      LEFT JOIN general_schema.product_variant pv
+        ON pv.tenant_id = pt.tenant_id AND pv.product_variant_id = pt.target_product_variant_id
+      LEFT JOIN general_schema.tenant_product_group g
+        ON g.tenant_id = pt.tenant_id AND g.tenant_product_group_id = pt.target_group_id
+      LEFT JOIN general_schema.tenant_product_group_type gt
+        ON gt.tenant_id = g.tenant_id AND gt.tenant_product_group_type_id = g.tenant_product_group_type_id
+      WHERE pt.promotion_id = $1
+    `,
+    deleteForPromotion: `
+      DELETE FROM pos_schema.promotion_target WHERE promotion_id = $1
+    `,
+    insertVariantTarget: `
+      INSERT INTO pos_schema.promotion_target
+        (promotion_id, tenant_id, target_type, target_product_variant_id, target_group_id)
+      VALUES ($1, $2, 'VARIANT', $3, NULL)
+      RETURNING *
+    `,
+    insertGroupTarget: `
+      INSERT INTO pos_schema.promotion_target
+        (promotion_id, tenant_id, target_type, target_product_variant_id, target_group_id)
+      VALUES ($1, $2, 'GROUP', NULL, $3)
+      RETURNING *
+    `,
+    /**
+     * Returns promotions applicable to a given variant: matches direct VARIANT
+     * targets and GROUP targets where the variant is assigned to the target
+     * group or any of its descendants. Filtered by active status and date.
+     */
+    getApplicableToVariant: `
+      WITH RECURSIVE
+      variant_groups AS (
+        SELECT a.tenant_product_group_id
+        FROM general_schema.product_variant_group_assignment a
+        WHERE a.tenant_id = $1 AND a.product_variant_id = $2
+      ),
+      ancestor_groups(node) AS (
+        SELECT g.tenant_product_group_id
+        FROM general_schema.tenant_product_group g
+        WHERE g.tenant_id = $1
+          AND g.tenant_product_group_id IN (SELECT tenant_product_group_id FROM variant_groups)
+        UNION
+        SELECT pg.parent_group_id
+        FROM general_schema.tenant_product_group pg
+        JOIN ancestor_groups ag ON ag.node = pg.tenant_product_group_id
+        WHERE pg.tenant_id = $1 AND pg.parent_group_id IS NOT NULL
+      )
+      SELECT DISTINCT p.promotion_id, p.promotion_name, p.promotion_code,
+             p.promotion_type_id, p.customer_segment_id,
+             p.promotion_start_date, p.promotion_end_date, p.is_active,
+             pt.target_type, pt.target_product_variant_id, pt.target_group_id
+      FROM pos_schema.promotion p
+      JOIN pos_schema.promotion_target pt ON pt.promotion_id = p.promotion_id
+      WHERE p.tenant_id = $1
+        AND p.is_active = TRUE
+        AND CURRENT_DATE BETWEEN p.promotion_start_date AND p.promotion_end_date
+        AND (
+          (pt.target_type = 'VARIANT' AND pt.target_product_variant_id = $2)
+          OR (pt.target_type = 'GROUP' AND pt.target_group_id IN (SELECT node FROM ancestor_groups))
+        )
+    `,
+  },
+
   loyaltyProgram: {
     create: `
       INSERT INTO pos_schema.loyalty_program (tenant_id, points_earned_per_currency_unit, points_redeemed_per_currency_unit, minimum_purchase_for_points, created_at, updated_at)

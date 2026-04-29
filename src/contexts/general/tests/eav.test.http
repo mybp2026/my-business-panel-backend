@@ -1,0 +1,119 @@
+### ============================================================
+### EAV — Atributos de variantes de producto
+### ============================================================
+### Cubre: global_attribute, tenant_attribute, attribute_value,
+### attribute_assignation a través de POST /product.
+### ============================================================
+
+@baseUrl       = http://localhost:3000
+@tenantId      = FILL_ME
+@variantId     = FILL_ME
+
+# ─── Obtener catálogo global de plantillas ──────────────────
+###
+GET {{baseUrl}}/global-attribute
+
+# ─── Listar atributos del tenant ────────────────────────────
+###
+GET {{baseUrl}}/tenant-attribute/{{tenantId}}
+
+# ─── Crear atributo custom (sin global_attribute_id) ────────
+###
+POST {{baseUrl}}/tenant-attribute
+Content-Type: application/json
+
+{
+  "tenant_id": "{{tenantId}}",
+  "attribute_name": "Color"
+}
+
+# ─── Crear atributo desde un global existente ───────────────
+###
+@globalAttributeId = FILL_ME
+POST {{baseUrl}}/tenant-attribute
+Content-Type: application/json
+
+{
+  "tenant_id": "{{tenantId}}",
+  "global_attribute_id": "{{globalAttributeId}}"
+}
+
+# ─── Crear valores ──────────────────────────────────────────
+###
+@tenantAttributeId = FILL_ME
+POST {{baseUrl}}/attribute-value
+Content-Type: application/json
+
+{
+  "tenant_id": "{{tenantId}}",
+  "tenant_attribute_id": "{{tenantAttributeId}}",
+  "value": "Rojo"
+}
+
+###
+POST {{baseUrl}}/attribute-value
+Content-Type: application/json
+
+{
+  "tenant_id": "{{tenantId}}",
+  "tenant_attribute_id": "{{tenantAttributeId}}",
+  "value": "Azul"
+}
+
+# ─── Listar valores por atributo ────────────────────────────
+###
+GET {{baseUrl}}/attribute-value/{{tenantId}}/by-attribute/{{tenantAttributeId}}
+
+# ─── Crear variante con asignación de atributos ─────────────
+###
+@redValueId  = FILL_ME
+@xlValueId   = FILL_ME
+
+POST {{baseUrl}}/product
+Content-Type: application/json
+
+{
+  "products": [
+    {
+      "tenant_id": "{{tenantId}}",
+      "sku": "TSHIRT-RED-XL",
+      "variant_name": "Camiseta Roja Talla XL",
+      "unit_price": 12000,
+      "attribute_value_ids": ["{{redValueId}}", "{{xlValueId}}"]
+    }
+  ]
+}
+
+# ─── Verificar variante con sus atributos ───────────────────
+###
+GET {{baseUrl}}/product/{{tenantId}}/{{variantId}}/with-attributes
+
+# ─── Reemplazar atributos al actualizar (semántica replace) ─
+###
+@blueValueId = FILL_ME
+@xlValueId   = FILL_ME
+
+PATCH {{baseUrl}}/product/{{variantId}}
+Content-Type: application/json
+
+{
+  "attribute_value_ids": ["{{blueValueId}}", "{{xlValueId}}"]
+}
+
+# ─── Caso de error: cross-tenant leak ───────────────────────
+### Si los UUIDs no pertenecen al tenant, debe responder 400.
+@valueOfOtherTenant = FILL_ME
+POST {{baseUrl}}/product
+Content-Type: application/json
+
+{
+  "products": [
+    {
+      "tenant_id": "{{tenantId}}",
+      "sku": "BAD-LEAK-001",
+      "variant_name": "Variante con valor de otro tenant",
+      "unit_price": 1000,
+      "attribute_value_ids": ["{{valueOfOtherTenant}}"]
+    }
+  ]
+}

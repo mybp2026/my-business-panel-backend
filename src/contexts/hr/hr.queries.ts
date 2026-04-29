@@ -37,7 +37,34 @@ export const hrQueryDefs = {
       WHERE e.user_id = $1 LIMIT 1
     `,
     getByTenant: `
-      SELECT * FROM hr_schema.employee WHERE tenant_id = $1
+      SELECT
+        e.employee_id,
+        e.user_id,
+        e.tenant_id,
+        e.branch_id,
+        b.branch_name,
+        e.contract_id,
+        e.first_name,
+        e.last_name,
+        e.doc_number,
+        e.phone,
+        e.email,
+        e.payment_schedule_id,
+        e.is_active,
+        e.created_at,
+        e.updated_at,
+        c.start_date::text AS start_date,
+        c.end_date::text AS end_date,
+        c.hours,
+        c.base_salary,
+        c.duties,
+        c.turn_type,
+        c.turn_id
+      FROM hr_schema.employee e
+      INNER JOIN hr_schema.contract c USING(contract_id)
+      INNER JOIN general_schema.branch b ON b.branch_id = e.branch_id
+      WHERE e.tenant_id = $1
+      ORDER BY e.created_at DESC
     `,
     getByBranchAndTenant: `
       SELECT * FROM hr_schema.employee 
@@ -56,8 +83,9 @@ export const hrQueryDefs = {
         doc_number = COALESCE($3, doc_number),
         phone = COALESCE($4, phone),
         email = COALESCE($5, email),
-        payment_schedule_id = COALESCE($6, payment_schedule_id)
-      WHERE employee_id = $7
+        payment_schedule_id = COALESCE($6, payment_schedule_id),
+        branch_id = COALESCE($7, branch_id)
+      WHERE employee_id = $8
       RETURNING employee_id
     `,
     delete: `
@@ -94,13 +122,70 @@ export const hrQueryDefs = {
       VALUES ($1, $2, NOW(), NULL)
       RETURNING clocking_id
     `,
+    get_open: `
+      SELECT
+        c.clocking_id,
+        c.employee_id,
+        c.branch_id,
+        c.clock_in,
+        c.clock_out,
+        c.turn_hours
+      FROM hr_schema.clocking c
+      WHERE c.employee_id = $1
+        AND c.clock_out IS NULL
+      ORDER BY c.clock_in DESC
+      LIMIT 1
+    `,
     clock_out: `
-      UPDATE hr_schema.clocking
+      WITH open_clock AS (
+        SELECT clocking_id
+        FROM hr_schema.clocking
+        WHERE employee_id = $1
+          AND clock_out IS NULL
+        ORDER BY clock_in DESC
+        LIMIT 1
+      )
+      UPDATE hr_schema.clocking c
       SET 
         clock_out = NOW(),
-        turn_hours = GREATEST(0, EXTRACT(EPOCH FROM (NOW() - clock_in)) / 3600)
-      WHERE employee_id = $1 AND clock_in IS NOT NULL
-      RETURNING clocking_id 
+        turn_hours = GREATEST(0, EXTRACT(EPOCH FROM (NOW() - c.clock_in)) / 3600)
+      FROM open_clock oc
+      WHERE c.clocking_id = oc.clocking_id
+      RETURNING c.clocking_id 
+    `,
+    get_by_branch: `
+      SELECT
+        c.clocking_id,
+        c.employee_id,
+        c.branch_id,
+        b.branch_name,
+        e.first_name,
+        e.last_name,
+        c.clock_in::text AS clock_in,
+        c.clock_out::text AS clock_out,
+        c.turn_hours
+      FROM hr_schema.clocking c
+      INNER JOIN hr_schema.employee e USING(employee_id)
+      INNER JOIN general_schema.branch b ON b.branch_id = c.branch_id
+      WHERE c.branch_id = $1
+      ORDER BY c.clock_in DESC
+    `,
+    get_by_employee: `
+      SELECT
+        c.clocking_id,
+        c.employee_id,
+        c.branch_id,
+        b.branch_name,
+        e.first_name,
+        e.last_name,
+        c.clock_in::text AS clock_in,
+        c.clock_out::text AS clock_out,
+        c.turn_hours
+      FROM hr_schema.clocking c
+      INNER JOIN hr_schema.employee e USING(employee_id)
+      INNER JOIN general_schema.branch b ON b.branch_id = c.branch_id
+      WHERE c.employee_id = $1
+      ORDER BY c.clock_in DESC
     `,
   },
   payroll: {

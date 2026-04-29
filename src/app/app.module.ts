@@ -16,6 +16,13 @@ import { CustomerSegmentMarginModule } from '@/contexts/general/modules/customer
 import { StripeModule } from '@/contexts/general/modules/stripe/stripe.module';
 import { QueueModule } from '@/contexts/general/modules/queue/queue.module';
 import { ProductModule } from '@/contexts/general/modules/product/product.module';
+import { GlobalAttributeModule } from '@/contexts/general/modules/global_attribute/global-attribute.module';
+import { TenantAttributeModule } from '@/contexts/general/modules/tenant_attribute/tenant-attribute.module';
+import { AttributeValueModule } from '@/contexts/general/modules/attribute_value/attribute-value.module';
+import { ProductCompositionModule } from '@/contexts/general/modules/product_composition/product-composition.module';
+import { TenantProductGroupTypeModule } from '@/contexts/general/modules/tenant_product_group_type/tenant-product-group-type.module';
+import { TenantProductGroupModule } from '@/contexts/general/modules/tenant_product_group/tenant-product-group.module';
+import { ProductVariantGroupAssignmentModule } from '@/contexts/general/modules/product_variant_group_assignment/product-variant-group-assignment.module';
 import { CustomerPaymentModule } from '@/contexts/general/modules/customer_payment/customer-payment.module';
 import { SegmentModule } from '@/contexts/general/modules/segment/segment.module';
 import { BranchModule } from '@/contexts/general/modules/branch/branch.module';
@@ -75,6 +82,13 @@ console.log(
     ProductCategoryModule,
     CustomerSegmentMarginModule,
     ProductModule,
+    GlobalAttributeModule,
+    TenantAttributeModule,
+    AttributeValueModule,
+    ProductCompositionModule,
+    TenantProductGroupTypeModule,
+    TenantProductGroupModule,
+    ProductVariantGroupAssignmentModule,
     CustomerPaymentModule,
     StripeModule,
     SaleModule,

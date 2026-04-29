@@ -77,12 +77,12 @@ export class IncapacityService {
         data;
 
       const res = await this.db.query(incapacities.update, [
+        incapacityId,
         type,
         period_start,
         period_end,
         days_paying,
         percentage_to_pay,
-        incapacityId,
       ]);
 
       return { message: 'Incapacity updated successfully' };

@@ -1,0 +1,95 @@
+### ============================================================
+### Promo Targeting — promociones a variantes y grupos
+### ============================================================
+
+@baseUrl       = http://localhost:3000
+@tenantId      = FILL_ME
+@segmentId     = FILL_ME
+@promoTypeId   = FILL_ME
+@caballeroId   = FILL_ME
+@variantId     = FILL_ME
+
+# ─── Crear promo con target a un grupo (Departamento Caballero) ──
+###
+POST {{baseUrl}}/promos
+Content-Type: application/json
+
+{
+  "tenant_id": "{{tenantId}}",
+  "promotion_name": "10% off Caballero",
+  "promotion_code": "CAB10",
+  "promotion_type_id": {{promoTypeId}},
+  "customer_segment_id": {{segmentId}},
+  "promotion_start_date": "2026-01-01",
+  "promotion_end_date": "2026-12-31",
+  "is_active": true,
+  "rules": { "discount_percentage": 10 },
+  "targets": [
+    { "target_type": "GROUP", "target_id": "{{caballeroId}}" }
+  ]
+}
+
+# ─── Crear promo con target a una variante específica ───────
+###
+POST {{baseUrl}}/promos
+Content-Type: application/json
+
+{
+  "tenant_id": "{{tenantId}}",
+  "promotion_name": "Descuento puntual",
+  "promotion_code": "VAR-PUNT",
+  "promotion_type_id": {{promoTypeId}},
+  "customer_segment_id": {{segmentId}},
+  "promotion_start_date": "2026-01-01",
+  "promotion_end_date": "2026-12-31",
+  "is_active": true,
+  "rules": { "discount_amount": 1500 },
+  "targets": [
+    { "target_type": "VARIANT", "target_id": "{{variantId}}" }
+  ]
+}
+
+# ─── Listar targets de una promo ───────────────────────────
+###
+@promoId = FILL_ME
+GET {{baseUrl}}/promos/{{promoId}}/targets
+
+# ─── Resolver promos aplicables a una variante ─────────────
+### Considera VARIANT directos + GROUP (con descendientes).
+GET {{baseUrl}}/promos/applicable/{{tenantId}}/{{variantId}}
+
+# ─── Reemplazar targets vía PATCH ──────────────────────────
+###
+@otherGroupId = FILL_ME
+
+PATCH {{baseUrl}}/promos/{{promoId}}
+Content-Type: application/json
+
+{
+  "tenant_id": "{{tenantId}}",
+  "targets": [
+    { "target_type": "GROUP", "target_id": "{{otherGroupId}}" }
+  ]
+}
+
+# ─── Caso de error: cross-tenant leak ──────────────────────
+### Targetear un grupo de otro tenant debe responder 400 (FK).
+@groupOfOtherTenant = FILL_ME
+
+POST {{baseUrl}}/promos
+Content-Type: application/json
+
+{
+  "tenant_id": "{{tenantId}}",
+  "promotion_name": "Cross-tenant leak",
+  "promotion_code": "BAD-LEAK",
+  "promotion_type_id": {{promoTypeId}},
+  "customer_segment_id": {{segmentId}},
+  "promotion_start_date": "2026-01-01",
+  "promotion_end_date": "2026-12-31",
+  "is_active": true,
+  "rules": { "discount_percentage": 5 },
+  "targets": [
+    { "target_type": "GROUP", "target_id": "{{groupOfOtherTenant}}" }
+  ]
+}

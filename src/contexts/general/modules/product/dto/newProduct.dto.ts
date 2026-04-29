@@ -35,6 +35,16 @@ export class NewProductDto {
 
   @IsNumber()
   unit_price!: number;
+
+  @IsOptional()
+  @IsArray()
+  @IsUUID('4', { each: true })
+  attribute_value_ids?: string[];
+
+  @IsOptional()
+  @IsArray()
+  @IsUUID('4', { each: true })
+  group_ids?: string[];
 }
 
 export interface ProductInsert {
@@ -43,4 +53,6 @@ export interface ProductInsert {
   variant_name: string;
   cabys_code?: string;
   unit_price: number;
+  attribute_value_ids?: string[];
+  group_ids?: string[];
 }

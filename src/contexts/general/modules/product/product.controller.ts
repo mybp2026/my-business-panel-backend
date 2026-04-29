@@ -56,13 +56,30 @@ export class ProductController {
     @Query('q') q = '',
     @Query('page') page = '1',
     @Query('limit') limit = '50',
+    @Query('group_ids') groupIds?: string,
   ) {
+    const groups = groupIds
+      ? groupIds
+          .split(',')
+          .map((g) => g.trim())
+          .filter((g) => g.length > 0)
+      : undefined;
     return this.productService.searchProductsByTenant(
       tenantId,
       q,
       parseInt(page),
       parseInt(limit),
+      groups,
     );
+  }
+
+  @Get(':tenantId/:id/with-attributes')
+  @UseGuards(AuthenticationGuard)
+  async getProductByIdWithAttributes(
+    @Param('tenantId') tenantId: string,
+    @Param('id') id: string,
+  ) {
+    return this.productService.getProductByIdWithAttributes(id, tenantId);
   }
 
   @ApiOperation(getAllProductsByTenantDoc.operation)

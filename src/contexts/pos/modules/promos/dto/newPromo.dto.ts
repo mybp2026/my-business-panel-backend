@@ -1,5 +1,23 @@
 import { Type } from "class-transformer";
-import { IsBoolean, IsDate, IsNumber, IsOptional, IsString, IsUUID } from "class-validator";
+import {
+  IsArray,
+  IsBoolean,
+  IsDate,
+  IsIn,
+  IsNumber,
+  IsOptional,
+  IsString,
+  IsUUID,
+  ValidateNested,
+} from "class-validator";
+
+export class PromotionTargetDto {
+  @IsIn(['VARIANT', 'GROUP'])
+  target_type!: 'VARIANT' | 'GROUP';
+
+  @IsUUID()
+  target_id!: string;
+}
 
 export class NewPromoDto {
   @IsUUID()
@@ -33,6 +51,12 @@ export class NewPromoDto {
   is_active!: boolean;
 
   rules!: PromoRules;
+
+  @IsOptional()
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => PromotionTargetDto)
+  targets?: PromotionTargetDto[];
 }
 
 export interface PromoRules {

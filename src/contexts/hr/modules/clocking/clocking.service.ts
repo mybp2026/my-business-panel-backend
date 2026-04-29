@@ -24,6 +24,17 @@ export class ClockingService {
       throw new EmployeeNotFoundError(employeeId);
     }
 
+    const existingOpenClock = await this.db.query(clocking.get_open, [
+      employeeId,
+    ]);
+
+    if (existingOpenClock.rows.length > 0) {
+      return {
+        message: 'Clock-in already active for this employee',
+        clockIn: existingOpenClock.rows[0].clocking_id,
+      };
+    }
+
     const turn = await this.db.query(turns.getEntry, [employee.turn_id]);
 
     const clockInRecord = await this.db.query(clocking.clock_in, [
@@ -137,5 +148,15 @@ export class ClockingService {
       message: alertMessage,
       clockOut: clockOutRecord.rows[0].clocking_id,
     };
+  }
+
+  async getClockingByBranch(branchId: string) {
+    const result = await this.db.query(clocking.get_by_branch, [branchId]);
+    return result.rows;
+  }
+
+  async getClockingByEmployee(employeeId: string) {
+    const result = await this.db.query(clocking.get_by_employee, [employeeId]);
+    return result.rows;
   }
 }

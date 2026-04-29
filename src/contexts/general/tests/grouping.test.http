@@ -1,0 +1,144 @@
+### ============================================================
+### Tenant Product Grouping — Departamentos / Familias / Marcas
+### ============================================================
+
+@baseUrl       = http://localhost:3000
+@tenantId      = FILL_ME
+@variantId     = FILL_ME
+
+# ─── Crear dimensiones (tipos) ─────────────────────────────
+###
+POST {{baseUrl}}/tenant-product-group-type
+Content-Type: application/json
+
+{
+  "tenant_id": "{{tenantId}}",
+  "type_name": "Departamento",
+  "description": "Caballero / Dama / Niños"
+}
+
+###
+POST {{baseUrl}}/tenant-product-group-type
+Content-Type: application/json
+
+{ "tenant_id": "{{tenantId}}", "type_name": "Familia" }
+
+###
+POST {{baseUrl}}/tenant-product-group-type
+Content-Type: application/json
+
+{ "tenant_id": "{{tenantId}}", "type_name": "Marca" }
+
+# ─── Listar tipos del tenant ───────────────────────────────
+###
+GET {{baseUrl}}/tenant-product-group-type/{{tenantId}}
+
+# ─── Crear grupos jerárquicos ──────────────────────────────
+###
+@deptTypeId   = FILL_ME
+@familyTypeId = FILL_ME
+@brandTypeId  = FILL_ME
+
+POST {{baseUrl}}/tenant-product-group
+Content-Type: application/json
+
+{
+  "tenant_id": "{{tenantId}}",
+  "tenant_product_group_type_id": "{{deptTypeId}}",
+  "group_name": "Caballero"
+}
+
+###
+POST {{baseUrl}}/tenant-product-group
+Content-Type: application/json
+
+{
+  "tenant_id": "{{tenantId}}",
+  "tenant_product_group_type_id": "{{familyTypeId}}",
+  "group_name": "Prendas Superiores"
+}
+
+# Hijo: Camisas (parent = Prendas Superiores)
+###
+@superioresId = FILL_ME
+POST {{baseUrl}}/tenant-product-group
+Content-Type: application/json
+
+{
+  "tenant_id": "{{tenantId}}",
+  "tenant_product_group_type_id": "{{familyTypeId}}",
+  "parent_group_id": "{{superioresId}}",
+  "group_name": "Camisas"
+}
+
+###
+POST {{baseUrl}}/tenant-product-group
+Content-Type: application/json
+
+{
+  "tenant_id": "{{tenantId}}",
+  "tenant_product_group_type_id": "{{brandTypeId}}",
+  "group_name": "Adidas"
+}
+
+# ─── Árbol de un tipo ──────────────────────────────────────
+###
+GET {{baseUrl}}/tenant-product-group/{{tenantId}}/tree?typeId={{familyTypeId}}
+
+# ─── Descendientes de un nodo ──────────────────────────────
+###
+GET {{baseUrl}}/tenant-product-group/{{tenantId}}/{{superioresId}}/descendants
+
+# ─── Crear variante con grupos ─────────────────────────────
+###
+@caballeroId = FILL_ME
+@camisasId   = FILL_ME
+@adidasId    = FILL_ME
+
+POST {{baseUrl}}/product
+Content-Type: application/json
+
+{
+  "products": [
+    {
+      "tenant_id": "{{tenantId}}",
+      "sku": "CAM-0425-S-VER",
+      "variant_name": "Camisa Adidas Verde Talla S",
+      "unit_price": 15000,
+      "group_ids": ["{{caballeroId}}", "{{camisasId}}", "{{adidasId}}"]
+    }
+  ]
+}
+
+# ─── Reemplazar grupos de una variante (semántica replace) ─
+###
+POST {{baseUrl}}/product-variant-group
+Content-Type: application/json
+
+{
+  "tenant_id": "{{tenantId}}",
+  "product_variant_id": "{{variantId}}",
+  "group_ids": ["{{caballeroId}}", "{{camisasId}}"]
+}
+
+# ─── Listar grupos de una variante ─────────────────────────
+###
+GET {{baseUrl}}/product-variant-group/{{tenantId}}/variant/{{variantId}}
+
+# ─── Listar variantes de un grupo (incluye descendientes) ──
+###
+GET {{baseUrl}}/product-variant-group/{{tenantId}}/group/{{superioresId}}/variants
+
+# ─── Búsqueda de productos filtrada por grupos ─────────────
+### Filtra por la familia "Prendas Superiores"; debe retornar
+### la camisa porque está asignada al grupo "Camisas" que es
+### descendiente.
+###
+GET {{baseUrl}}/product/{{tenantId}}/search?group_ids={{superioresId}}&q=camisa
+
+# ─── Caso de error: ciclo en jerarquía ─────────────────────
+### Mover un grupo padre como hijo de su descendiente debe 400.
+PATCH {{baseUrl}}/tenant-product-group/{{tenantId}}/{{superioresId}}
+Content-Type: application/json
+
+{ "parent_group_id": "{{camisasId}}" }

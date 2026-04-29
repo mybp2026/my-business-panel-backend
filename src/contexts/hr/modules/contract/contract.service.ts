@@ -42,4 +42,9 @@ export class ContractService {
     if (result.rows.length === 0) return null;
     return result.rows[0];
   }
+
+  async getPaymentSchedules() {
+    const result = await this.db.query(contract.getSchedule);
+    return result.rows;
+  }
 }
