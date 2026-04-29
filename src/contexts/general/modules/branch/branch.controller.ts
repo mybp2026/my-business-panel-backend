@@ -1,5 +1,5 @@
 import { Body, Controller, Get, Post, Param, UseGuards } from '@nestjs/common';
-import { ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
+import { ApiBearerAuth, ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
 import { BranchService } from './branch.service';
 import { AuthenticationGuard } from '@/common/guards/authentication.guard';
 import { LevelAuthorizationGuard } from '@/common/guards/level_authorization.guard';
@@ -13,6 +13,9 @@ import {
   createBranchDoc,
 } from '@/docs/contexts/general/branch';
 
+@ApiBearerAuth()
+@ApiTags('Branch')
+@UseGuards(AuthenticationGuard, LevelAuthorizationGuard)
 @Controller('branch')
 export class BranchController {
   constructor(private readonly branchService: BranchService) {}
@@ -22,7 +25,6 @@ export class BranchController {
   @ApiResponse(findBranchByIdDoc.responses[401])
   @ApiResponse(findBranchByIdDoc.responses[404])
   @Get('/:id')
-  @UseGuards(AuthenticationGuard, LevelAuthorizationGuard)
   @RequiredLevel(2)
   findById(@Param('id') id: string) {
     return this.branchService.findById(id);
@@ -32,7 +34,6 @@ export class BranchController {
   @ApiResponse(findAllBranchesDoc.responses[200])
   @ApiResponse(findAllBranchesDoc.responses[401])
   @Get('/')
-  @UseGuards(AuthenticationGuard, LevelAuthorizationGuard)
   @RequiredLevel(2)
   findAll(@Session() session: IUserSession) {
     return this.branchService.findByTenant(session.tenant_id);
