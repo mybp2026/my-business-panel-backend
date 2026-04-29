@@ -5,7 +5,7 @@ import excel_handler
 import cabys_parser
 from cabys_parser import CabysNode
 from db import DatabaseClient
-from pprint import pprint, PrettyPrinter
+from pprint import PrettyPrinter
 
 def main():
     parser = argparse.ArgumentParser(description="CABYS Loader")
@@ -20,7 +20,7 @@ def main():
 
     input_file: pathlib.Path = args.input_file
     header: int = args.header
-    last_column: int = int(args.last_column)
+    last_column: int = int(args.last_column) if args.last_column else None
     conn_string: str = args.conn_string 
 
     if not conn_string:
@@ -29,81 +29,85 @@ def main():
     if not input_file.exists():
         raise ValueError(f"Error: The file {input_file} does not exist.")
     
+    print(f"📖 Reading Excel file: {input_file}...")
     dataframe = excel_handler.read_excel(input_file, header=header, last_column=last_column)
+    print(f"✅ Excel loaded with {len(dataframe)} rows.")
+    
     tax_rates = cabys_parser.list_tax_rates(dataframe)
 
     supabase = DatabaseClient(conn_string)
     supabase.connect()
 
     if args.reload_rates:
-        print(f"Loading tax rates into the database: {tax_rates}")
+        print(f"📊 Loading tax rates into the database: {tax_rates}")
         supabase.load_tax_rates(list(tax_rates))
-        print("Tax rates loaded successfully.")
+        print("✅ Tax rates loaded successfully.")
 
+    print("🔎 Fetching tax rates from database...")
     fetched_rates = supabase.get_tax_rates()
-    print(f"Fetched tax rates from database:")
-    printer.pprint(fetched_rates)
+    print(f"✅ Fetched {len(fetched_rates)} tax rates.")
 
+    print("🌳 Building CABYS tree structure...")
     tree = cabys_parser.build_cabys_tree(dataframe)
-    # column_names = cabys_parser.categorize_columns(dataframe)
-    
-    # pprint(f"Categories Columns: {column_names.categories}")
-    # print()
-    # pprint(f"Descriptions Columns: {column_names.descriptions}")
+    print("✅ Tree structure built.")
 
-    # print(f"Fetched tax rates:")
-
-
-    move_inside_tree(tree, supabase)
+    print("📥 Starting bulk data insertion...")
+    process_and_insert(tree, supabase)
 
     supabase.permanent_connection.commit()
-    print(f"Finished loading CABYS data into the database.")
+    print(f"🎉 Finished loading CABYS data into the database.")
     supabase.disconnect()
-    # cabys_parser.save_tree_to_json(tree, "cabys_tree.json")
 
-
-global loaded_nodes
-loaded_nodes = 0    
-
-def move_inside_tree(tree: Dict[str, CabysNode], client: DatabaseClient) -> Optional[CabysNode]:
+def process_and_insert(tree: Dict[str, CabysNode], client: DatabaseClient, batch_size: int = 1000):
+    categories_to_insert = []
+    products_to_insert = []
+    
     def _walk(node: CabysNode, parent_code: Optional[str] = None, depth: int = 0):
-        global loaded_nodes
         if node is None:
             return
         
         if node.data.tax_rate is not None:
-            loaded_nodes += 1
-            client.insert_product(
-                code=node.data.code,
-                description=node.data.description,
-                tax_rate=node.data.tax_rate,
-                category_code=parent_code
-            )
-
+            products_to_insert.append({
+                "code": node.data.code,
+                "description": node.data.description,
+                "tax_rate_value": node.data.tax_rate,
+                "category_code": parent_code
+            })
         else:
-            client.insert_category(
-                code=node.data.code,
-                description=node.data.description,
-                hierarchy_level=depth,
-                parent_code=parent_code
-            )
+            categories_to_insert.append({
+                "product_category_id": node.data.code,
+                "category_name": node.data.description,
+                "hierarchy_level": depth,
+                "parent_category_id": parent_code
+            })
 
         children = getattr(node, "children", None)
         if not children:
             return
-        if isinstance(children, dict):
-            iterable = children.values()
-        else:
-            iterable = children
+        
+        iterable = children.values() if isinstance(children, dict) else children
         for child in iterable:
             _walk(child, parent_code=node.data.code, depth=depth + 1)
 
+    print("🔄 Traversing tree to collect records...")
     for root in tree.values():
         _walk(root)
-    return None
+    
+    print(f"📝 Collected {len(categories_to_insert)} categories and {len(products_to_insert)} products.")
 
+    # Insertar categorías
+    print(f"\n📂 Inserting categories in batches of {batch_size}...")
+    for i in range(0, len(categories_to_insert), batch_size):
+        batch = categories_to_insert[i:i + batch_size]
+        client.bulk_insert_categories(batch)
+        print(f"   [+] Categories: {min(i + batch_size, len(categories_to_insert))}/{len(categories_to_insert)} inserted.")
 
-    # print(f"Loading category: {node.data.code} - {node.data.description}")
+    # Insertar productos
+    print(f"\n📦 Inserting products in batches of {batch_size}...")
+    for i in range(0, len(products_to_insert), batch_size):
+        batch = products_to_insert[i:i + batch_size]
+        client.bulk_insert_products(batch)
+        print(f"   [+] Products: {min(i + batch_size, len(products_to_insert))}/{len(products_to_insert)} inserted.")
 
 if __name__ == "__main__":
     main()
