@@ -16,12 +16,25 @@ async function bootstrap() {
 
   const allowedOriginsRaw = configService.get<string>('ALLOWED_ORIGINS');
   const allowedOrigins = allowedOriginsRaw
-    ? allowedOriginsRaw.split(',').map((origin) => origin.trim())
+    ? allowedOriginsRaw
+        .split(',')
+        .map((origin) => origin.trim().replace(/\/$/, ''))
     : ['http://localhost:5173', 'http://localhost:3000'];
 
+  console.log('🚀 Allowed Origins for CORS:', allowedOrigins);
+
   app.enableCors({
-    origin: allowedOrigins,
+    origin: (origin: string | undefined, callback: (err: Error | null, allow?: boolean) => void) => {
+      if (!origin || allowedOrigins.includes(origin.replace(/\/$/, ''))) {
+        callback(null, true);
+      } else {
+        console.warn(`⚠️ CORS blocked request from origin: ${origin}`);
+        callback(new Error('Not allowed by CORS'));
+      }
+    },
     credentials: true,
+    methods: 'GET,HEAD,PUT,PATCH,POST,DELETE,OPTIONS',
+    allowedHeaders: 'Content-Type, Accept, Authorization, X-Requested-With',
   });
 
   app.setGlobalPrefix('api/v1');
