@@ -3,11 +3,24 @@ import { createQueries } from '@crane-technologies/database';
 export const generalQueryDefs = {
   users: {
     all: 'SELECT user_id, email, role_id, tenant_id FROM general_schema.users',
-    byId: 'SELECT user_id, email, role_id FROM general_schema.users WHERE user_id = $1 LIMIT 1',
+    byId: 'SELECT user_id, email, role_id, tenant_id, created_at, updated_at FROM general_schema.users WHERE user_id = $1 LIMIT 1',
+    byIdFull: `
+      SELECT
+        u.user_id, u.email, u.role_id, u.tenant_id, u.created_at, u.updated_at,
+        e.employee_id, e.first_name, e.last_name, e.doc_number, e.phone,
+        e.email AS employee_email, e.is_active, e.payment_schedule_id, e.branch_id,
+        c.contract_id, c.start_date::text AS start_date, c.end_date::text AS end_date,
+        c.hours, c.base_salary, c.duties, c.turn_type, c.turn_id
+      FROM general_schema.users u
+      LEFT JOIN hr_schema.employee e ON e.user_id = u.user_id
+      LEFT JOIN hr_schema.contract c ON c.contract_id = e.contract_id
+      WHERE u.user_id = $1 LIMIT 1
+    `,
+
     byEmail:
       'SELECT user_id, email, role_id FROM general_schema.users WHERE email = $1 LIMIT 1',
     byTenant:
-      'SELECT user_id, email, role_id FROM general_schema.users WHERE tenant_id = $1',
+      'SELECT user_id, email, role_id, created_at FROM general_schema.users WHERE tenant_id = $1',
     byEmailWithPassword:
       'SELECT * FROM general_schema.users WHERE email = $1 LIMIT 1',
     create: `
@@ -16,11 +29,22 @@ export const generalQueryDefs = {
       VALUES ($1, $2, $3, $4, NOW(), NOW()) 
       RETURNING *
     `,
+    update: `
+      UPDATE general_schema.users
+      SET
+        email = COALESCE($1, email),
+        role_id = COALESCE($2, role_id),
+        updated_at = NOW()
+      WHERE user_id = $3
+      RETURNING user_id, email, role_id, tenant_id, created_at, updated_at
+    `,
     assignRole:
       'UPDATE general_schema.users SET role_id = $1 WHERE user_id = $2',
+    delete:
+      'DELETE FROM general_schema.users WHERE user_id = $1 RETURNING user_id, email',
     getByEmails: `
-      SELECT user_id, email FROM general_schema.users 
-      WHERE email = ANY($1) 
+      SELECT user_id, email FROM general_schema.users
+      WHERE email = ANY($1)
       ORDER BY created_at DESC
     `,
   },
@@ -29,29 +53,122 @@ export const generalQueryDefs = {
     all: 'SELECT * FROM general_schema.role',
   },
 
-  documentType: {
-    all: 'SELECT * FROM general_schema.document_type',
-    byId: 'SELECT * FROM general_schema.document_type WHERE document_type_id = $1',
+  identificationType: {
+    all: 'SELECT * FROM general_schema.identification_type',
+    byId: 'SELECT * FROM general_schema.identification_type WHERE identification_type_id = $1',
     delete:
-      'DELETE FROM general_schema.document_type WHERE document_type_id = $1',
+      'DELETE FROM general_schema.identification_type WHERE identification_type_id = $1',
   },
 
   customer: {
-    all: 'SELECT * FROM general_schema.tenant_customer WHERE tenant_id = $1',
-    byId: 'SELECT * FROM general_schema.tenant_customer WHERE tenant_customer_id = $1',
+    all: `
+      SELECT
+        tenant_customer_id AS customer_id, tenant_id,
+        first_name, last_name,
+        identification_type_id AS doc_type,
+        document_number AS doc_number,
+        econ_activity, email, phone, birthdate, address,
+        customer_segment_id AS segment_id,
+        is_tenant, created_at, updated_at
+      FROM general_schema.tenant_customer
+      WHERE tenant_id = $1
+    `,
+    allPaginated: `
+      SELECT
+        tenant_customer_id AS customer_id, tenant_id,
+        first_name, last_name,
+        identification_type_id AS doc_type,
+        document_number AS doc_number,
+        econ_activity, email, phone, birthdate, address,
+        customer_segment_id AS segment_id,
+        is_tenant, created_at, updated_at
+      FROM general_schema.tenant_customer
+      WHERE tenant_id = $1
+      ORDER BY created_at DESC
+      LIMIT $2 OFFSET $3
+    `,
+    allGlobal: `
+      SELECT
+        tc.tenant_customer_id AS customer_id, tc.tenant_id,
+        tc.first_name, tc.last_name,
+        tc.identification_type_id AS doc_type,
+        tc.document_number AS doc_number,
+        tc.econ_activity, tc.email, tc.phone, tc.birthdate, tc.address,
+        tc.customer_segment_id AS segment_id,
+        tc.is_tenant, tc.created_at, tc.updated_at,
+        t.tenant_name
+      FROM general_schema.tenant_customer tc
+      LEFT JOIN general_schema.tenant t USING(tenant_id)
+      ORDER BY tc.created_at DESC
+      LIMIT $1 OFFSET $2
+    `,
+    countByTenant:
+      'SELECT COUNT(*)::int AS total FROM general_schema.tenant_customer WHERE tenant_id = $1',
+    countAll:
+      'SELECT COUNT(*)::int AS total FROM general_schema.tenant_customer',
+    byId: `
+      SELECT
+        tenant_customer_id AS customer_id, tenant_id,
+        first_name, last_name,
+        identification_type_id AS doc_type,
+        document_number AS doc_number,
+        econ_activity, email, phone, birthdate, address,
+        customer_segment_id AS segment_id,
+        is_tenant, created_at, updated_at
+      FROM general_schema.tenant_customer
+      WHERE tenant_customer_id = $1
+    `,
     getInfo: `
-    SELECT tc.first_name, tc.last_name, d.type_name, tc.document_number, tc.econ_activity, t.tenant_name, c.segment_name FROM general_schema.tenant_customer tc
-    INNER JOIN general_schema.tenant t USING(tenant_id)
-    INNER JOIN general_schema.customer_segment c USING(customer_segment_id)
-    INNER JOIN general_schema.document_type d USING(document_type_id)
-    WHERE tc.document_number = $1
+      SELECT
+        tc.tenant_customer_id AS customer_id,
+        tc.tenant_id,
+        tc.first_name,
+        tc.last_name,
+        tc.document_number,
+        tc.email,
+        tc.phone,
+        tc.econ_activity,
+        tc.address,
+        tc.birthdate,
+        tc.is_tenant,
+        tc.created_at,
+        tc.updated_at,
+        tc.identification_type_id AS identification_type,
+        tc.customer_segment_id AS segment_id,
+        d.type_name,
+        t.tenant_name,
+        cs.segment_name
+      FROM general_schema.tenant_customer tc
+      INNER JOIN general_schema.tenant t USING(tenant_id)
+      LEFT JOIN general_schema.customer_segment cs USING(customer_segment_id)
+      LEFT JOIN general_schema.identification_type d ON d.identification_type_id = tc.identification_type_id
+      WHERE tc.document_number = $1
     `,
     create: `
-    INSERT INTO general_schema.tenant_customer (tenant_id, first_name, last_name, document_type_id, document_number, econ_activity, email, phone, birthdate, address, created_at, updated_at, is_tenant)
-    VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, NOW(), NOW(), $11)
-    RETURNING *
+      INSERT INTO general_schema.tenant_customer
+        (tenant_id, first_name, last_name, identification_type_id, document_number, econ_activity, email, phone, birthdate, address, created_at, updated_at, is_tenant)
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, NOW(), NOW(), $11)
+      RETURNING
+        tenant_customer_id AS customer_id, tenant_id,
+        first_name, last_name,
+        identification_type_id AS doc_type,
+        document_number AS doc_number,
+        econ_activity, email, phone, birthdate, address,
+        customer_segment_id AS segment_id,
+        is_tenant, created_at, updated_at
     `,
-    byEmail: 'SELECT * FROM general_schema.tenant_customer WHERE email = $1',
+    byEmail: `
+      SELECT
+        tenant_customer_id AS customer_id, tenant_id,
+        first_name, last_name,
+        identification_type_id AS doc_type,
+        document_number AS doc_number,
+        econ_activity, email, phone, birthdate, address,
+        customer_segment_id AS segment_id,
+        is_tenant, created_at, updated_at
+      FROM general_schema.tenant_customer
+      WHERE email = $1
+    `,
     delete:
       'DELETE FROM general_schema.tenant_customer WHERE tenant_customer_id = $1',
   },
@@ -64,8 +181,8 @@ export const generalQueryDefs = {
     all: 'SELECT * FROM general_schema.tenant',
     byId: 'SELECT * FROM general_schema.tenant WHERE tenant_id = $1',
     create: `
-    INSERT INTO general_schema.tenant (tenant_name, contact_email, contact_phone, identification, econ_activity, sign, is_subscribed, created_at, updated_at, region_id)
-    VALUES ($1, $2, $3, $4, $5, $6, $7, NOW(), NOW(), $8)
+    INSERT INTO general_schema.tenant (tenant_name, contact_email, contact_phone, identification, econ_activity, sign, is_subscribed, created_at, updated_at, region_id, identification_type_id)
+    VALUES ($1, $2, $3, $4, $5, $6, $7, NOW(), NOW(), $8, $9)
     RETURNING *
     `,
     delete: 'DELETE FROM general_schema.tenant WHERE tenant_id = $1',
@@ -83,8 +200,22 @@ export const generalQueryDefs = {
   },
 
   productCategory: {
-    all: 'SELECT * FROM general_schema.product_category',
-    byId: 'SELECT * FROM general_schema.product_category WHERE product_category_id = $1',
+    all: 'SELECT product_category_id AS category_id, category_name FROM general_schema.product_category',
+    allPaginated: `
+      SELECT cabys_code AS category_id, product_name AS category_name
+      FROM general_schema.product
+      WHERE ($1::text IS NULL OR product_name ILIKE '%' || $1 || '%')
+      ORDER BY product_name
+      LIMIT $2 OFFSET $3
+    `,
+    allPaginatedByCabysCode: `
+      SELECT cabys_code AS category_id, product_name AS category_name
+      FROM general_schema.product
+      WHERE ($1::text IS NULL OR cabys_code ILIKE $1 || '%')
+      ORDER BY cabys_code
+      LIMIT $2 OFFSET $3
+    `,
+    byId: 'SELECT product_category_id AS category_id, category_name, parent_category_id, hierarchy_level FROM general_schema.product_category WHERE product_category_id = $1',
     create:
       'INSERT INTO general_schema.product_category (category_name) VALUES ($1) RETURNING *',
     update:
@@ -117,15 +248,131 @@ export const generalQueryDefs = {
     FROM general_schema.product_variant pv
     WHERE pv.tenant_id = $1
     `,
+    getAllPaginated: `
+      SELECT pv.product_variant_id, pv.sku, pv.variant_name, pv.cabys_code, pv.unit_price, pv.is_active, pv.tenant_id
+      FROM general_schema.product_variant pv
+      WHERE pv.tenant_id = $1
+      ORDER BY pv.sku
+      LIMIT $2 OFFSET $3
+    `,
+    getAllGlobal: `
+      SELECT pv.product_variant_id, pv.sku, pv.variant_name, pv.cabys_code, pv.unit_price, pv.is_active, pv.tenant_id, t.tenant_name
+      FROM general_schema.product_variant pv
+      LEFT JOIN general_schema.tenant t USING(tenant_id)
+      ORDER BY t.tenant_name, pv.sku
+      LIMIT $1 OFFSET $2
+    `,
+    countByTenant:
+      'SELECT COUNT(*)::int AS total FROM general_schema.product_variant WHERE tenant_id = $1',
+    countAll:
+      'SELECT COUNT(*)::int AS total FROM general_schema.product_variant',
     getBySku: `
       SELECT pv.product_variant_id, pv.sku, pv.variant_name, pv.cabys_code, pv.unit_price, pv.is_active
       FROM general_schema.product_variant pv
       WHERE pv.sku = $1
       `,
+    searchByTenant: `
+      SELECT pv.product_variant_id, pv.sku, pv.variant_name, pv.cabys_code, pv.unit_price, pv.is_active, pv.tenant_id
+      FROM general_schema.product_variant pv
+      WHERE pv.tenant_id = $1
+        AND pv.is_active = TRUE
+        AND ($2::text IS NULL OR $2 = '' OR pv.sku ILIKE '%' || $2 || '%' OR pv.variant_name ILIKE '%' || $2 || '%')
+      ORDER BY pv.sku
+      LIMIT $3 OFFSET $4
+      `,
+    countSearchByTenant: `
+      SELECT COUNT(*)::int AS total
+      FROM general_schema.product_variant pv
+      WHERE pv.tenant_id = $1
+        AND pv.is_active = TRUE
+        AND ($2::text IS NULL OR $2 = '' OR pv.sku ILIKE '%' || $2 || '%' OR pv.variant_name ILIKE '%' || $2 || '%')
+      `,
     getById: `
       SELECT * FROM general_schema.product_variant
       WHERE product_variant_id = $1 AND tenant_id = $2
       LIMIT 1
+      `,
+    getByIdWithAttributes: `
+      SELECT
+        pv.*,
+        COALESCE((
+          SELECT json_agg(json_build_object(
+            'attribute_value_id', av.attribute_value_id,
+            'value', av.value_name,
+            'tenant_attribute_id', av.tenant_attribute_id,
+            'attribute_name', ta.attribute_name
+          ))
+          FROM general_schema.attribute_assignation aa
+          JOIN general_schema.attribute_value av ON av.attribute_value_id = aa.attribute_value_id
+          JOIN general_schema.tenant_attribute ta ON ta.tenant_attribute_id = av.tenant_attribute_id
+          WHERE aa.tenant_id = pv.tenant_id AND aa.product_variant_id = pv.product_variant_id
+        ), '[]'::json) AS attributes,
+        COALESCE((
+          SELECT json_agg(json_build_object(
+            'tenant_product_group_id', g.tenant_product_group_id,
+            'group_name', g.group_name,
+            'tenant_product_group_type_id', g.tenant_product_group_type_id,
+            'type_name', t.type_name
+          ))
+          FROM general_schema.product_variant_group_assignment a
+          JOIN general_schema.tenant_product_group g
+            ON g.tenant_id = a.tenant_id AND g.tenant_product_group_id = a.tenant_product_group_id
+          JOIN general_schema.tenant_product_group_type t
+            ON t.tenant_id = g.tenant_id AND t.tenant_product_group_type_id = g.tenant_product_group_type_id
+          WHERE a.tenant_id = pv.tenant_id AND a.product_variant_id = pv.product_variant_id
+        ), '[]'::json) AS groups
+      FROM general_schema.product_variant pv
+      WHERE pv.product_variant_id = $1 AND pv.tenant_id = $2
+      LIMIT 1
+      `,
+    searchByTenantWithGroups: `
+      WITH RECURSIVE group_tree(node) AS (
+        SELECT unnest($5::uuid[])
+        UNION
+        SELECT pg.tenant_product_group_id
+        FROM general_schema.tenant_product_group pg
+        JOIN group_tree gt ON gt.node = pg.parent_group_id
+        WHERE pg.tenant_id = $1
+      )
+      SELECT pv.product_variant_id, pv.sku, pv.variant_name, pv.cabys_code,
+             pv.unit_price, pv.is_active, pv.is_composite, pv.tenant_id
+      FROM general_schema.product_variant pv
+      WHERE pv.tenant_id = $1
+        AND pv.is_active = TRUE
+        AND ($2::text IS NULL OR $2 = '' OR pv.sku ILIKE '%' || $2 || '%' OR pv.variant_name ILIKE '%' || $2 || '%')
+        AND (
+          $5::uuid[] IS NULL OR cardinality($5::uuid[]) = 0 OR EXISTS (
+            SELECT 1 FROM general_schema.product_variant_group_assignment a
+            WHERE a.tenant_id = pv.tenant_id
+              AND a.product_variant_id = pv.product_variant_id
+              AND a.tenant_product_group_id IN (SELECT node FROM group_tree)
+          )
+        )
+      ORDER BY pv.sku
+      LIMIT $3 OFFSET $4
+      `,
+    countSearchByTenantWithGroups: `
+      WITH RECURSIVE group_tree(node) AS (
+        SELECT unnest($3::uuid[])
+        UNION
+        SELECT pg.tenant_product_group_id
+        FROM general_schema.tenant_product_group pg
+        JOIN group_tree gt ON gt.node = pg.parent_group_id
+        WHERE pg.tenant_id = $1
+      )
+      SELECT COUNT(*)::int AS total
+      FROM general_schema.product_variant pv
+      WHERE pv.tenant_id = $1
+        AND pv.is_active = TRUE
+        AND ($2::text IS NULL OR $2 = '' OR pv.sku ILIKE '%' || $2 || '%' OR pv.variant_name ILIKE '%' || $2 || '%')
+        AND (
+          $3::uuid[] IS NULL OR cardinality($3::uuid[]) = 0 OR EXISTS (
+            SELECT 1 FROM general_schema.product_variant_group_assignment a
+            WHERE a.tenant_id = pv.tenant_id
+              AND a.product_variant_id = pv.product_variant_id
+              AND a.tenant_product_group_id IN (SELECT node FROM group_tree)
+          )
+        )
       `,
     create: `
       INSERT INTO general_schema.product_variant (tenant_id, sku, variant_name, cabys_code, unit_price)
@@ -137,8 +384,350 @@ export const generalQueryDefs = {
         )
         RETURNING *
         `,
+    setComposite: `
+      UPDATE general_schema.product_variant
+      SET is_composite = $3, updated_at = NOW()
+      WHERE tenant_id = $1 AND product_variant_id = $2
+      `,
     delete:
       'DELETE FROM general_schema.product_variant WHERE product_variant_id = $1',
+  },
+
+  globalAttribute: {
+    all: `
+      SELECT global_attribute_id, attribute_name, created_at, updated_at
+      FROM general_schema.global_attribute
+      ORDER BY attribute_name
+    `,
+    byId: `
+      SELECT global_attribute_id, attribute_name FROM general_schema.global_attribute
+      WHERE global_attribute_id = $1 LIMIT 1
+    `,
+  },
+
+  tenantAttribute: {
+    byTenant: `
+      SELECT ta.tenant_attribute_id, ta.tenant_id, ta.global_attribute_id,
+             ta.attribute_name, ta.is_custom, ta.created_at, ta.updated_at,
+             ga.attribute_name AS global_attribute_name
+      FROM general_schema.tenant_attribute ta
+      LEFT JOIN general_schema.global_attribute ga ON ga.global_attribute_id = ta.global_attribute_id
+      WHERE ta.tenant_id = $1
+      ORDER BY ta.attribute_name
+    `,
+    /**
+     * Unified search: returns the UNION of (a) tenant_attribute rows for the
+     * tenant and (b) global_attribute rows that are NOT yet linked to that
+     * tenant. Each row carries `source` ∈ {'TENANT','GLOBAL'} so the client
+     * can distinguish. Filtered by case-insensitive name match.
+     */
+    searchUnified: `
+      WITH tenant_rows AS (
+        SELECT
+          'TENANT'::text                              AS source,
+          ta.tenant_attribute_id::text               AS id,
+          ta.global_attribute_id::text               AS global_attribute_id,
+          ta.attribute_name                           AS name,
+          ta.is_custom                                AS is_custom
+        FROM general_schema.tenant_attribute ta
+        WHERE ta.tenant_id = $1
+          AND ($2::text IS NULL OR $2 = '' OR ta.attribute_name ILIKE '%' || $2 || '%')
+      ),
+      global_rows AS (
+        SELECT
+          'GLOBAL'::text                              AS source,
+          ga.global_attribute_id::text               AS id,
+          ga.global_attribute_id::text               AS global_attribute_id,
+          ga.attribute_name                           AS name,
+          FALSE                                       AS is_custom
+        FROM general_schema.global_attribute ga
+        WHERE NOT EXISTS (
+          SELECT 1 FROM general_schema.tenant_attribute ta
+          WHERE ta.tenant_id = $1 AND ta.global_attribute_id = ga.global_attribute_id
+        )
+        AND ($2::text IS NULL OR $2 = '' OR ga.attribute_name ILIKE '%' || $2 || '%')
+      )
+      SELECT * FROM (
+        SELECT * FROM tenant_rows
+        UNION ALL
+        SELECT * FROM global_rows
+      ) combined
+      ORDER BY name
+      LIMIT $3 OFFSET $4
+    `,
+    countSearchUnified: `
+      WITH tenant_rows AS (
+        SELECT 1 FROM general_schema.tenant_attribute ta
+        WHERE ta.tenant_id = $1
+          AND ($2::text IS NULL OR $2 = '' OR ta.attribute_name ILIKE '%' || $2 || '%')
+      ),
+      global_rows AS (
+        SELECT 1 FROM general_schema.global_attribute ga
+        WHERE NOT EXISTS (
+          SELECT 1 FROM general_schema.tenant_attribute ta
+          WHERE ta.tenant_id = $1 AND ta.global_attribute_id = ga.global_attribute_id
+        )
+        AND ($2::text IS NULL OR $2 = '' OR ga.attribute_name ILIKE '%' || $2 || '%')
+      )
+      SELECT (
+        (SELECT COUNT(*) FROM tenant_rows) +
+        (SELECT COUNT(*) FROM global_rows)
+      )::int AS total
+    `,
+    byId: `
+      SELECT * FROM general_schema.tenant_attribute
+      WHERE tenant_attribute_id = $1 AND tenant_id = $2 LIMIT 1
+    `,
+    createCustom: `
+      INSERT INTO general_schema.tenant_attribute
+        (tenant_id, attribute_name, is_custom, global_attribute_id)
+      VALUES ($1, $2, TRUE, NULL)
+      RETURNING *
+    `,
+    createFromGlobal: `
+      INSERT INTO general_schema.tenant_attribute
+        (tenant_id, attribute_name, is_custom, global_attribute_id)
+      SELECT $1, ga.attribute_name, FALSE, ga.global_attribute_id
+      FROM general_schema.global_attribute ga
+      WHERE ga.global_attribute_id = $2
+      RETURNING *
+    `,
+    update: `
+      UPDATE general_schema.tenant_attribute
+      SET attribute_name = COALESCE($3, attribute_name), updated_at = NOW()
+      WHERE tenant_attribute_id = $1 AND tenant_id = $2
+      RETURNING *
+    `,
+    delete: `
+      DELETE FROM general_schema.tenant_attribute
+      WHERE tenant_attribute_id = $1 AND tenant_id = $2
+      RETURNING tenant_attribute_id
+    `,
+  },
+
+  attributeValue: {
+    byTenantAttribute: `
+      SELECT av.attribute_value_id, av.tenant_id, av.tenant_attribute_id,
+             av.value_name AS value, av.created_at, av.updated_at
+      FROM general_schema.attribute_value av
+      WHERE av.tenant_attribute_id = $1 AND av.tenant_id = $2
+      ORDER BY av.value_name
+    `,
+    byId: `
+      SELECT attribute_value_id, tenant_id, tenant_attribute_id,
+             value_name AS value, created_at, updated_at
+      FROM general_schema.attribute_value
+      WHERE attribute_value_id = $1 AND tenant_id = $2 LIMIT 1
+    `,
+    create: `
+      INSERT INTO general_schema.attribute_value (tenant_id, tenant_attribute_id, value_name)
+      VALUES ($1, $2, $3)
+      RETURNING attribute_value_id, tenant_id, tenant_attribute_id,
+                value_name AS value, created_at, updated_at
+    `,
+    update: `
+      UPDATE general_schema.attribute_value
+      SET value_name = COALESCE($3, value_name), updated_at = NOW()
+      WHERE attribute_value_id = $1 AND tenant_id = $2
+      RETURNING attribute_value_id, tenant_id, tenant_attribute_id,
+                value_name AS value, created_at, updated_at
+    `,
+    delete: `
+      DELETE FROM general_schema.attribute_value
+      WHERE attribute_value_id = $1 AND tenant_id = $2
+      RETURNING attribute_value_id
+    `,
+  },
+
+  attributeAssignation: {
+    byVariant: `
+      SELECT aa.attribute_value_id, av.value_name AS value, av.tenant_attribute_id,
+             ta.attribute_name
+      FROM general_schema.attribute_assignation aa
+      JOIN general_schema.attribute_value av ON av.attribute_value_id = aa.attribute_value_id
+      JOIN general_schema.tenant_attribute ta ON ta.tenant_attribute_id = av.tenant_attribute_id
+      WHERE aa.tenant_id = $1 AND aa.product_variant_id = $2
+    `,
+    validateValuesOwnedByTenant: `
+      SELECT COUNT(*)::int AS owned
+      FROM general_schema.attribute_value
+      WHERE tenant_id = $1 AND attribute_value_id = ANY($2::uuid[])
+    `,
+    deleteForVariant: `
+      DELETE FROM general_schema.attribute_assignation
+      WHERE tenant_id = $1 AND product_variant_id = $2
+    `,
+  },
+
+  productComposition: {
+    byParent: `
+      SELECT pvc.parent_product_variant_id, pvc.child_product_variant_id, pvc.quantity,
+             pv.sku AS child_sku, pv.variant_name AS child_variant_name,
+             pv.is_composite AS child_is_composite
+      FROM general_schema.product_variant_composition pvc
+      JOIN general_schema.product_variant pv
+        ON pv.tenant_id = pvc.tenant_id AND pv.product_variant_id = pvc.child_product_variant_id
+      WHERE pvc.tenant_id = $1 AND pvc.parent_product_variant_id = $2
+    `,
+    byChild: `
+      SELECT pvc.parent_product_variant_id, pvc.child_product_variant_id, pvc.quantity,
+             pv.sku AS parent_sku, pv.variant_name AS parent_variant_name
+      FROM general_schema.product_variant_composition pvc
+      JOIN general_schema.product_variant pv
+        ON pv.tenant_id = pvc.tenant_id AND pv.product_variant_id = pvc.parent_product_variant_id
+      WHERE pvc.tenant_id = $1 AND pvc.child_product_variant_id = $2
+    `,
+    descendants: `
+      WITH RECURSIVE d(node) AS (
+        SELECT child_product_variant_id FROM general_schema.product_variant_composition
+          WHERE tenant_id = $1 AND parent_product_variant_id = $2
+        UNION
+        SELECT pvc.child_product_variant_id FROM general_schema.product_variant_composition pvc
+          INNER JOIN d ON d.node = pvc.parent_product_variant_id
+          WHERE pvc.tenant_id = $1
+      )
+      SELECT node FROM d
+    `,
+    deleteAllForParent: `
+      DELETE FROM general_schema.product_variant_composition
+      WHERE tenant_id = $1 AND parent_product_variant_id = $2
+    `,
+    updateQuantity: `
+      UPDATE general_schema.product_variant_composition
+      SET quantity = $4, updated_at = NOW()
+      WHERE tenant_id = $1 AND parent_product_variant_id = $2 AND child_product_variant_id = $3
+      RETURNING *
+    `,
+  },
+
+  tenantProductGroupType: {
+    byTenant: `
+      SELECT * FROM general_schema.tenant_product_group_type
+      WHERE tenant_id = $1
+      ORDER BY type_name
+    `,
+    byId: `
+      SELECT * FROM general_schema.tenant_product_group_type
+      WHERE tenant_product_group_type_id = $1 AND tenant_id = $2 LIMIT 1
+    `,
+    create: `
+      INSERT INTO general_schema.tenant_product_group_type
+        (tenant_id, type_name, description, is_active)
+      VALUES ($1, $2, $3, COALESCE($4, TRUE))
+      RETURNING *
+    `,
+    update: `
+      UPDATE general_schema.tenant_product_group_type
+      SET type_name   = COALESCE($3, type_name),
+          description = COALESCE($4, description),
+          is_active   = COALESCE($5, is_active),
+          updated_at  = NOW()
+      WHERE tenant_product_group_type_id = $1 AND tenant_id = $2
+      RETURNING *
+    `,
+    delete: `
+      DELETE FROM general_schema.tenant_product_group_type
+      WHERE tenant_product_group_type_id = $1 AND tenant_id = $2
+      RETURNING tenant_product_group_type_id
+    `,
+  },
+
+  tenantProductGroup: {
+    byTenant: `
+      SELECT g.*, t.type_name FROM general_schema.tenant_product_group g
+      JOIN general_schema.tenant_product_group_type t
+        ON t.tenant_id = g.tenant_id AND t.tenant_product_group_type_id = g.tenant_product_group_type_id
+      WHERE g.tenant_id = $1
+      ORDER BY t.type_name, g.hierarchy_level, g.group_name
+    `,
+    byId: `
+      SELECT * FROM general_schema.tenant_product_group
+      WHERE tenant_product_group_id = $1 AND tenant_id = $2 LIMIT 1
+    `,
+    tree: `
+      WITH RECURSIVE tree AS (
+        SELECT g.*, ARRAY[g.group_name]::text[] AS path
+        FROM general_schema.tenant_product_group g
+        WHERE g.tenant_id = $1 AND g.tenant_product_group_type_id = $2 AND g.parent_group_id IS NULL
+        UNION ALL
+        SELECT g.*, t.path || g.group_name
+        FROM general_schema.tenant_product_group g
+        JOIN tree t ON t.tenant_id = g.tenant_id AND t.tenant_product_group_id = g.parent_group_id
+        WHERE g.tenant_id = $1
+      )
+      SELECT * FROM tree ORDER BY path
+    `,
+    descendants: `
+      WITH RECURSIVE d(node) AS (
+        SELECT tenant_product_group_id FROM general_schema.tenant_product_group
+        WHERE tenant_id = $1 AND tenant_product_group_id = $2
+        UNION
+        SELECT g.tenant_product_group_id FROM general_schema.tenant_product_group g
+        INNER JOIN d ON d.node = g.parent_group_id
+        WHERE g.tenant_id = $1
+      )
+      SELECT node FROM d
+    `,
+    create: `
+      INSERT INTO general_schema.tenant_product_group
+        (tenant_id, tenant_product_group_type_id, parent_group_id, group_name, hierarchy_level, is_active)
+      VALUES ($1, $2, $3, $4, COALESCE($5, 0), COALESCE($6, TRUE))
+      RETURNING *
+    `,
+    update: `
+      UPDATE general_schema.tenant_product_group
+      SET group_name      = COALESCE($3, group_name),
+          parent_group_id = $4,
+          hierarchy_level = COALESCE($5, hierarchy_level),
+          is_active       = COALESCE($6, is_active),
+          updated_at      = NOW()
+      WHERE tenant_product_group_id = $1 AND tenant_id = $2
+      RETURNING *
+    `,
+    delete: `
+      DELETE FROM general_schema.tenant_product_group
+      WHERE tenant_product_group_id = $1 AND tenant_id = $2
+      RETURNING tenant_product_group_id
+    `,
+    validateGroupsOwnedByTenant: `
+      SELECT COUNT(*)::int AS owned
+      FROM general_schema.tenant_product_group
+      WHERE tenant_id = $1 AND tenant_product_group_id = ANY($2::uuid[])
+    `,
+  },
+
+  productVariantGroupAssignment: {
+    byVariant: `
+      SELECT a.tenant_product_group_id, g.group_name, g.tenant_product_group_type_id,
+             t.type_name, g.hierarchy_level
+      FROM general_schema.product_variant_group_assignment a
+      JOIN general_schema.tenant_product_group g
+        ON g.tenant_id = a.tenant_id AND g.tenant_product_group_id = a.tenant_product_group_id
+      JOIN general_schema.tenant_product_group_type t
+        ON t.tenant_id = g.tenant_id AND t.tenant_product_group_type_id = g.tenant_product_group_type_id
+      WHERE a.tenant_id = $1 AND a.product_variant_id = $2
+    `,
+    variantsByGroup: `
+      WITH RECURSIVE tree(node) AS (
+        SELECT $2::uuid
+        UNION
+        SELECT g.tenant_product_group_id
+        FROM general_schema.tenant_product_group g
+        JOIN tree t ON t.node = g.parent_group_id
+        WHERE g.tenant_id = $1
+      )
+      SELECT DISTINCT pv.product_variant_id, pv.sku, pv.variant_name, pv.unit_price
+      FROM general_schema.product_variant_group_assignment a
+      JOIN general_schema.product_variant pv
+        ON pv.tenant_id = a.tenant_id AND pv.product_variant_id = a.product_variant_id
+      WHERE a.tenant_id = $1
+        AND a.tenant_product_group_id IN (SELECT node FROM tree)
+      ORDER BY pv.sku
+    `,
+    deleteForVariant: `
+      DELETE FROM general_schema.product_variant_group_assignment
+      WHERE tenant_id = $1 AND product_variant_id = $2
+    `,
   },
 
   customerPayment: {
@@ -167,12 +756,30 @@ export const generalQueryDefs = {
     all: `
     SELECT * FROM general_schema.branch
     `,
+    allPaginated: `
+      SELECT b.*, t.tenant_name FROM general_schema.branch b
+      LEFT JOIN general_schema.tenant t USING(tenant_id)
+      ORDER BY t.tenant_name, b.branch_name
+      LIMIT $1 OFFSET $2
+    `,
+    countAll: 'SELECT COUNT(*)::int AS total FROM general_schema.branch',
     byId: `
-    SELECT * FROM general_schema.branch WHERE branch_id = $1 LIMIT 1
+    SELECT b.*, bl.provincia, bl.canton, bl.distrito, bl.otras_senas
+    FROM general_schema.branch b
+    LEFT JOIN general_schema.branch_location bl USING(branch_id)
+    WHERE b.branch_id = $1 LIMIT 1
     `,
     byTenant: `
     SELECT * FROM general_schema.branch WHERE tenant_id = $1
     `,
+    byTenantPaginated: `
+      SELECT * FROM general_schema.branch
+      WHERE tenant_id = $1
+      ORDER BY branch_name
+      LIMIT $2 OFFSET $3
+    `,
+    countByTenant:
+      'SELECT COUNT(*)::int AS total FROM general_schema.branch WHERE tenant_id = $1',
     byName: `
     SELECT * FROM general_schema.branch WHERE branch_name = $1 LIMIT 1
     `,
@@ -197,6 +804,20 @@ export const generalQueryDefs = {
     `,
     delete: `
     DELETE FROM general_schema.branch WHERE branch_id = $1 RETURNING *
+    `,
+  },
+
+  branchLocation: {
+    upsert: `
+      INSERT INTO general_schema.branch_location (branch_id, provincia, canton, distrito, otras_senas)
+      VALUES ($1, $2, $3, $4, $5)
+      ON CONFLICT (branch_id) DO UPDATE SET
+        provincia   = EXCLUDED.provincia,
+        canton      = EXCLUDED.canton,
+        distrito    = EXCLUDED.distrito,
+        otras_senas = EXCLUDED.otras_senas,
+        updated_at  = NOW()
+      RETURNING branch_location_id
     `,
   },
 
@@ -275,4 +896,23 @@ export const bulkProducts = [
   'variant_name',
   'cabys_code',
   'unit_price',
+];
+
+export const bulkAttributeAssignations = [
+  'tenant_id',
+  'product_variant_id',
+  'attribute_value_id',
+];
+
+export const bulkProductVariantGroupAssignments = [
+  'tenant_id',
+  'product_variant_id',
+  'tenant_product_group_id',
+];
+
+export const bulkProductVariantCompositions = [
+  'tenant_id',
+  'parent_product_variant_id',
+  'child_product_variant_id',
+  'quantity',
 ];

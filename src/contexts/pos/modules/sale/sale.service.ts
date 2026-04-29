@@ -50,7 +50,19 @@ export class SaleService {
       ],
       { rows } = await this.db.query(sales.createSale, params);
 
-    return rows[0].sale_id;
+    const saleId = rows[0].sale_id as string;
+
+    if (data.is_completed) {
+      await this.linkSaleToActiveSession(
+        this.db,
+        data.branch_id,
+        saleId,
+        data.sale_date,
+        data.cash_register_id ?? null,
+      );
+    }
+
+    return saleId;
   }
 
   async createFullSale(data: FullSaleDto) {
@@ -74,6 +86,16 @@ export class SaleService {
           data.seller_user_id ?? null,
         ]);
         saleId = rows[0].sale_id;
+
+        if (data.is_completed) {
+          await this.linkSaleToActiveSession(
+            txn,
+            data.branch_id,
+            saleId,
+            new Date(data.sale_date),
+            data.cash_register_id ?? null,
+          );
+        }
 
         await txn.bulkInsert(
           'pos_schema.sale_item',
@@ -101,6 +123,29 @@ export class SaleService {
             item.original_price ?? item.unit_price,
             item.discount_applied ?? 0,
           ]),
+        );
+
+        // Decrement stock from the branch's "sales floor" warehouse.
+        // Composite items are exploded to their leaf components by
+        // WarehouseService.consumeStockForSale.
+        const wh = await txn.query(
+          `SELECT warehouse_id FROM inventory_schema.warehouse
+           WHERE branch_id = $1 AND is_branch = true LIMIT 1`,
+          [data.branch_id],
+        );
+        if (!wh.rows[0]) {
+          throw new BadRequestException(
+            'Branch sin warehouse de piso de venta (is_branch=true)',
+          );
+        }
+        await this.warehouseService.consumeStockForSale(
+          data.tenant_id,
+          wh.rows[0].warehouse_id,
+          items.map((it) => ({
+            product_variant_id: it.product_variant_id,
+            quantity: Number(it.quantity),
+          })),
+          txn,
         );
 
         await txn.bulkInsert(
@@ -210,15 +255,22 @@ export class SaleService {
         try {
           await this.eInvoiceService.createEInvoiceForSale(saleId);
         } catch (eInvoiceError) {
-          this.logger.error(`E-invoice generation failed for sale ${saleId}: ${(eInvoiceError as Error).message}`);
-          return { saleId, eInvoiceWarning: 'No se pudo generar la factura electrónica' };
+          this.logger.error(
+            `E-invoice generation failed for sale ${saleId}: ${(eInvoiceError as Error).message}`,
+          );
+          return {
+            saleId,
+            eInvoiceWarning: 'No se pudo generar la factura electrónica',
+          };
         }
       }
 
       return { saleId };
     } catch (error) {
       if (error instanceof BadRequestException) throw error;
-      this.logger.error(`Error creating full sale: ${(error as Error).message}`);
+      this.logger.error(
+        `Error creating full sale: ${(error as Error).message}`,
+      );
       throw new SaleCreationError();
     }
   }
@@ -232,5 +284,31 @@ export class SaleService {
     const { rows } = await this.db.query(sales.getConditions);
 
     return rows;
+  }
+
+  private async linkSaleToActiveSession(
+    executor: {
+      query: (
+        sql: string,
+        params?: unknown[],
+      ) => Promise<{ rowCount?: number | null }>;
+    },
+    branchId: string,
+    saleId: string,
+    transactionTime?: Date | null,
+    cashRegisterId?: string | null,
+  ): Promise<void> {
+    const result = await executor.query(sales.linkSaleToActiveSession, [
+      branchId,
+      saleId,
+      transactionTime ?? null,
+      cashRegisterId ?? null,
+    ]);
+
+    if (!result.rowCount || result.rowCount < 1) {
+      this.logger.warn(
+        `Sale ${saleId} was completed without an active cash register session in branch ${branchId}${cashRegisterId ? ` for cash register ${cashRegisterId}` : ''}`,
+      );
+    }
   }
 }

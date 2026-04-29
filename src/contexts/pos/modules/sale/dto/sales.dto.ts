@@ -21,6 +21,10 @@ export class NewSingleSaleDto {
   @IsUUID()
   tenant_customer_id!: string;
 
+  @IsOptional()
+  @IsUUID()
+  cash_register_id?: string;
+
   @IsNotEmpty()
   @IsString()
   sale_condition!: string;
@@ -70,6 +74,10 @@ export class FullSaleDto {
   @IsNotEmpty()
   @IsUUID()
   tenant_customer_id!: string;
+
+  @IsOptional()
+  @IsUUID()
+  cash_register_id?: string;
 
   @IsNotEmpty()
   @IsString()

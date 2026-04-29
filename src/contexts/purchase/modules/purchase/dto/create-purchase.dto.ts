@@ -12,6 +12,11 @@ import { Type } from 'class-transformer';
 import { ApiProperty } from '@nestjs/swagger';
 import { createPurchaseOrderDoc } from '@/docs/contexts/purchase/purchase';
 
+export enum PurchasePaymentCondition {
+  CREDIT = 'CREDIT',
+  IN_FULL = 'IN_FULL',
+}
+
 export class PurchaseOrderItemDto {
   @IsUUID()
   product_variant_id!: string;
@@ -49,6 +54,6 @@ export class CreatePurchaseDto {
 
   @ApiProperty(createPurchaseOrderDoc.dto.payment_condition)
   @IsOptional()
-  @IsEnum(['CREDIT', 'IN_FULL'])
-  payment_condition?: string;
+  @IsEnum(PurchasePaymentCondition)
+  payment_condition?: PurchasePaymentCondition;
 }

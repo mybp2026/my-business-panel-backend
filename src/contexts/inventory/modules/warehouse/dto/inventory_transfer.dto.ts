@@ -1,7 +1,9 @@
 import { Type } from 'class-transformer';
 import {
   IsArray,
+  IsDateString,
   IsNumber,
+  IsOptional,
   IsPositive,
   IsUUID,
   ValidateNested,
@@ -16,6 +18,14 @@ export class InventoryTransferDto {
 
   @IsUUID()
   tenant_id!: string;
+
+  @IsOptional()
+  @IsDateString()
+  departure_date?: string | null;
+
+  @IsOptional()
+  @IsDateString()
+  arrival_date?: string | null;
 
   @IsArray()
   @ValidateNested({ each: true })

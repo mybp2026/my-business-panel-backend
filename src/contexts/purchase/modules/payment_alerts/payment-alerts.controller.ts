@@ -1,74 +1,95 @@
 import {
+  Body,
   Controller,
   Get,
-  Post,
-  Body,
-  Patch,
   Param,
-  Delete,
+  Patch,
+  Post,
+  Query,
+  UseGuards,
 } from '@nestjs/common';
 import { ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
+import { AuthenticationGuard } from '@/common/guards/authentication.guard';
+import { Session } from '@/common/decorators/session.decorator';
+import { IUserSession } from '@/common/interfaces/user_session.interface';
 import { PaymentAlertsService } from './payment-alerts.service';
-import { CreatePaymentAlertDto } from './dto/create-payment_alert.dto';
-import { UpdatePaymentAlertDto } from './dto/update-payment_alert.dto';
-import {
-  createPaymentAlertDoc,
-  findAllPaymentAlertsDoc,
-  findOnePaymentAlertDoc,
-  updatePaymentAlertDoc,
-  removePaymentAlertDoc,
-} from '@/docs/contexts/purchase/payment_alerts';
+import { UpsertPaymentAlertConfigDto } from './dto/upsert-payment-alert-config.dto';
 
 @ApiTags('Payment Alerts')
+@UseGuards(AuthenticationGuard)
 @Controller('payment-alerts')
 export class PaymentAlertsController {
   constructor(private readonly paymentAlertsService: PaymentAlertsService) {}
 
-  @ApiOperation(createPaymentAlertDoc.operation)
-  @ApiResponse(createPaymentAlertDoc.responses[201])
-  @ApiResponse(createPaymentAlertDoc.responses[400])
-  @ApiResponse(createPaymentAlertDoc.responses[401])
-  @Post()
-  create(@Body() createPaymentAlertDto: CreatePaymentAlertDto) {
-    return this.paymentAlertsService.create(createPaymentAlertDto);
-  }
-
-  @ApiOperation(findAllPaymentAlertsDoc.operation)
-  @ApiResponse(findAllPaymentAlertsDoc.responses[200])
-  @ApiResponse(findAllPaymentAlertsDoc.responses[401])
+  @ApiOperation({ summary: 'Listar alertas de pago pendientes' })
+  @ApiResponse({ status: 200, description: 'Alertas obtenidas correctamente' })
   @Get()
-  findAll() {
-    return this.paymentAlertsService.findAll();
-  }
-
-  @ApiOperation(findOnePaymentAlertDoc.operation)
-  @ApiResponse(findOnePaymentAlertDoc.responses[200])
-  @ApiResponse(findOnePaymentAlertDoc.responses[401])
-  @ApiResponse(findOnePaymentAlertDoc.responses[404])
-  @Get(':id')
-  findOne(@Param('id') id: string) {
-    return this.paymentAlertsService.findOne(+id);
-  }
-
-  @ApiOperation(updatePaymentAlertDoc.operation)
-  @ApiResponse(updatePaymentAlertDoc.responses[200])
-  @ApiResponse(updatePaymentAlertDoc.responses[400])
-  @ApiResponse(updatePaymentAlertDoc.responses[401])
-  @ApiResponse(updatePaymentAlertDoc.responses[404])
-  @Patch(':id')
-  update(
-    @Param('id') id: string,
-    @Body() updatePaymentAlertDto: UpdatePaymentAlertDto,
+  findAll(
+    @Session() session: IUserSession,
+    @Query('tenantId') tenantId?: string,
   ) {
-    return this.paymentAlertsService.update(+id, updatePaymentAlertDto);
+    return this.paymentAlertsService.getPendingAlerts(session, tenantId);
   }
 
-  @ApiOperation(removePaymentAlertDoc.operation)
-  @ApiResponse(removePaymentAlertDoc.responses[200])
-  @ApiResponse(removePaymentAlertDoc.responses[401])
-  @ApiResponse(removePaymentAlertDoc.responses[404])
-  @Delete(':id')
-  remove(@Param('id') id: string) {
-    return this.paymentAlertsService.remove(+id);
+  @ApiOperation({ summary: 'Obtener estadisticas de alertas de pago' })
+  @ApiResponse({
+    status: 200,
+    description: 'Estadisticas de alertas obtenidas correctamente',
+  })
+  @Get('stats')
+  getStats(
+    @Session() session: IUserSession,
+    @Query('tenantId') tenantId?: string,
+  ) {
+    return this.paymentAlertsService.getStats(session, tenantId);
+  }
+
+  @ApiOperation({ summary: 'Obtener configuracion de alertas de pago' })
+  @ApiResponse({
+    status: 200,
+    description: 'Configuracion de alertas obtenida correctamente',
+  })
+  @Get('config')
+  getConfig(
+    @Session() session: IUserSession,
+    @Query('tenantId') tenantId?: string,
+  ) {
+    return this.paymentAlertsService.getConfig(session, tenantId);
+  }
+
+  @ApiOperation({ summary: 'Crear o actualizar configuracion de alertas' })
+  @ApiResponse({
+    status: 200,
+    description: 'Configuracion de alertas actualizada correctamente',
+  })
+  @Post('config')
+  upsertConfig(
+    @Body() dto: UpsertPaymentAlertConfigDto,
+    @Session() session: IUserSession,
+  ) {
+    return this.paymentAlertsService.upsertConfig(dto, session);
+  }
+
+  @ApiOperation({ summary: 'Generar alertas de pago pendientes' })
+  @ApiResponse({
+    status: 200,
+    description: 'Alertas de pago generadas correctamente',
+  })
+  @Post('generate')
+  generate(
+    @Session() session: IUserSession,
+    @Query('tenantId') tenantId?: string,
+  ) {
+    return this.paymentAlertsService.generate(session, tenantId);
+  }
+
+  @ApiOperation({ summary: 'Resolver manualmente una alerta de pago' })
+  @ApiResponse({
+    status: 200,
+    description: 'Alerta de pago resuelta correctamente',
+  })
+  @Patch(':id/resolve')
+  resolve(@Param('id') id: string, @Session() session: IUserSession) {
+    return this.paymentAlertsService.resolve(id, session);
   }
 }

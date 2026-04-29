@@ -18,7 +18,7 @@ export class ContractService {
       throw new Error(`Contract with id ${contract_id} not found.`);
     }
 
-    const { start_date, end_date, hours, base_salary, duties } = data;
+    const { start_date, end_date, hours, base_salary, duties, turn_type, turn_id } = data;
 
     const updatedContract = await this.db.query(contract.update, [
       start_date,
@@ -26,6 +26,8 @@ export class ContractService {
       hours,
       base_salary,
       duties,
+      turn_type,
+      turn_id,
       contract_id,
     ]);
 
@@ -39,5 +41,10 @@ export class ContractService {
     const result = await this.db.query(contract.byId, [contract_id]);
     if (result.rows.length === 0) return null;
     return result.rows[0];
+  }
+
+  async getPaymentSchedules() {
+    const result = await this.db.query(contract.getSchedule);
+    return result.rows;
   }
 }

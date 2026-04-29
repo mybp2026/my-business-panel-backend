@@ -22,26 +22,26 @@ export class NewClientDto {
   @IsString()
   document_number!: string;
 
-  @IsNotEmpty()
+  @IsOptional()
   @IsString()
-  economic_activity!: string;
+  economic_activity?: string;
 
-  @IsNotEmpty()
+  @IsOptional()
   @IsString()
-  email!: string;
+  email?: string;
 
-  @IsNotEmpty()
+  @IsOptional()
   @IsString()
-  phone!: string;
+  phone?: string;
 
   @Type(() => Date)
   @IsDate()
   @IsOptional()
   birthdate?: Date;
 
-  @IsNotEmpty()
+  @IsOptional()
   @IsString()
-  address!: string;
+  address?: string;
 
   @IsNotEmpty()
   @IsBoolean()

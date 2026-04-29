@@ -38,6 +38,33 @@ export class UserService {
     }
   }
 
+  async getUserById(userId: string, full?: boolean): Promise<IUserResult | null> {
+    if (!full) {
+      const fetchedData = await this.db.query(users.byId, [userId]);
+      if (fetchedData.rows.length === 0) return null;
+      return fetchedData.rows[0];
+    }
+
+    const fetchedData = await this.db.query(users.byIdFull, [userId]);
+    if (fetchedData.rows.length === 0) return null;
+
+    const {
+      employee_id, first_name, last_name, doc_number, phone, employee_email,
+      is_active, payment_schedule_id, branch_id, contract_id, start_date,
+      end_date, hours, base_salary, duties, turn_type, turn_id,
+      ...userFields
+    } = fetchedData.rows[0];
+
+    return {
+      ...userFields,
+      employee: employee_id ? {
+        employee_id, first_name, last_name, doc_number, phone, employee_email,
+        is_active, payment_schedule_id, branch_id, contract_id, start_date,
+        end_date, hours, base_salary, duties, turn_type, turn_id,
+      } : null,
+    };
+  }
+
   async getUserByEmail(email: string): Promise<IUserResult | null> {
     const fetchedData = await this.db.query(users.byEmailWithPassword, [email]);
     if (fetchedData.rows.length === 0) return null;
@@ -56,10 +83,10 @@ export class UserService {
   }
 
   getSelfInfo(user: IUserSession) {
-    const { role_id, tenant_id, email } = user;
+    const { user_id, role_id, tenant_id, email } = user;
     const role = this.state.getRole(role_id);
     const tenant = this.state.getTenant(tenant_id);
-    return { email, role, tenant };
+    return { user_id, email, role, tenant };
   }
 
   async createUser(createUserDto: CreateUserDto) {
@@ -84,42 +111,44 @@ export class UserService {
 
       const userId = newUser.rows[0].user_id;
 
-      const {
-        base_salary,
-        hours,
-        start_date,
-        end_date,
-        duties,
-        turn_type,
-        turn_id,
-      } = employeeInfo.contractData;
+      if (employeeInfo) {
+        const {
+          base_salary,
+          hours,
+          start_date,
+          end_date,
+          duties,
+          turn_type,
+          turn_id,
+        } = employeeInfo.contractData;
 
-      const newEmployee = await txn.query(employee.full, [
-        start_date,
-        end_date,
-        hours,
-        base_salary,
-        duties,
-        turn_type,
-        turn_id,
-        userId,
-        employeeInfo.tenant_id,
-        employeeInfo.first_name,
-        employeeInfo.last_name,
-        employeeInfo.doc_number,
-        employeeInfo.phone,
-        employeeInfo.email,
-        employeeInfo.payment_schedule_id,
-        employeeInfo.branch_id,
-      ]);
+        const newEmployee = await txn.query(employee.full, [
+          start_date,
+          end_date,
+          hours,
+          base_salary,
+          duties,
+          turn_type,
+          turn_id,
+          userId,
+          employeeInfo.tenant_id,
+          employeeInfo.first_name,
+          employeeInfo.last_name,
+          employeeInfo.doc_number,
+          employeeInfo.phone,
+          employeeInfo.email,
+          employeeInfo.payment_schedule_id,
+          employeeInfo.branch_id,
+        ]);
 
-      if (newEmployee.rows.length === 0) {
-        throw new CreateFullEmployeeError();
+        if (newEmployee.rows.length === 0) {
+          throw new CreateFullEmployeeError();
+        }
       }
 
       await txn.commit();
       committed = true;
-      return { message: 'user created successfully!' };
+      return { message: 'user created successfully!', user_id: userId, email };
     } catch (error) {
       if (!committed) await this.rollbackSafely(txn, 'createUser');
       console.error('[UserService.createUser] Transaction failed:', error);
@@ -152,6 +181,7 @@ export class UserService {
       const userIds = (userResult.fields || []).map((row: any) => row.user_id);
 
       const contractRows = createUserDto.map((dto) => {
+        if (!dto.employeeInfo) throw new Error(`employeeInfo is required for bulk user creation (email: ${dto.email})`);
         const {
           start_date,
           end_date,
@@ -215,7 +245,7 @@ export class UserService {
           phone,
           email,
           payment_schedule_id,
-        } = dto.employeeInfo;
+        } = dto.employeeInfo!;
         return [
           userId,
           tenant_id,
@@ -265,11 +295,27 @@ export class UserService {
     }
   }
 
+  async updateUser(userId: string, data: { email?: string; role_id?: number }) {
+    const result = await this.db.query(users.update, [
+      data.email ?? null,
+      data.role_id ?? null,
+      userId,
+    ]);
+    if (result.rows.length === 0) throw new Error(`User ${userId} not found`);
+    return result.rows[0];
+  }
+
   async assignRole(assignRoleDto: AssignRoleDto) {
     await this.db.query(users.assignRole, [
       assignRoleDto.role_id,
       assignRoleDto.user_id,
     ]);
     return { message: 'role assigned successfully!' };
+  }
+
+  async deleteUser(userId: string) {
+    const { rows } = await this.db.query(users.delete, [userId]);
+    if (rows.length === 0) throw new Error(`User ${userId} not found`);
+    return { message: 'user deleted successfully', user_id: rows[0].user_id };
   }
 }

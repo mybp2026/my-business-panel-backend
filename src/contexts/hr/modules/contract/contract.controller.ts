@@ -9,6 +9,11 @@ import { getContractByIdDoc, updateContractDoc } from '@/docs/contexts/hr/contra
 export class ContractController {
   constructor(private readonly contractService: ContractService) {}
 
+  @Get('schedules')
+  async getPaymentSchedules() {
+    return this.contractService.getPaymentSchedules();
+  }
+
   @ApiOperation(getContractByIdDoc.operation)
   @ApiResponse(getContractByIdDoc.responses[200])
   @ApiResponse(getContractByIdDoc.responses[401])

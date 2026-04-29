@@ -6,9 +6,11 @@ import {
   Param,
   Patch,
   Post,
+  Res,
   UseGuards,
 } from '@nestjs/common';
 import { ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
+import { Response } from 'express';
 import { TenantService } from './tenant.service';
 import { NewTenantDto } from './dto/newTenant.dto';
 import { UpdateTenantDto } from './dto/updateTenant.dto';
@@ -65,8 +67,23 @@ export class TenantController {
   @ApiResponse(createTenantDoc.responses[400])
   @ApiResponse(createTenantDoc.responses[401])
   @Post()
-  async createTenant(@Body() req: NewTenantDto) {
-    return this.tenantService.createTenant(req);
+  async createTenant(
+    @Body() req: NewTenantDto,
+    @Res({ passthrough: true }) response: Response,
+  ) {
+    const result = await this.tenantService.createTenant(req);
+
+    if (result.token) {
+      response.cookie('auth_token', result.token, {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === 'production',
+        maxAge: 24 * 60 * 60 * 1000,
+      });
+      const { token, ...data } = result;
+      return data;
+    }
+
+    return result;
   }
 
   @ApiOperation(updateTenantDoc.operation)

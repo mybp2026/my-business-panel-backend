@@ -1,4 +1,13 @@
-import { Body, Controller, Get, Inject, Param, Post, Req, UseGuards } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Get,
+  Inject,
+  Param,
+  Post,
+  Req,
+  UseGuards,
+} from '@nestjs/common';
 import { ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
 import { SaleService } from './sale.service';
 import { FullSaleDto } from './dto/sales.dto';
@@ -21,8 +30,8 @@ import {
 import { AuthenticationGuard } from '@/common/guards/authentication.guard';
 
 @ApiTags('Sale')
-@UseGuards(AuthenticationGuard)
 @Controller('sale')
+@UseGuards(AuthenticationGuard)
 export class SaleController {
   constructor(
     @Inject(DATABASE) private readonly db: Database,
@@ -52,8 +61,23 @@ export class SaleController {
   @ApiResponse(getAllSalesByBranchDoc.responses[401])
   @Get(':branch_id')
   @Paginate({
-    table: 'pos_schema.sale',
-    columns: ['sale_id', 'branch_id', 'tenant_customer_id', 'created_at'],
+    table:
+      '(SELECT s.sale_id, s.sale_date, s.total_amount, s.subtotal_amount, s.tax_amount, s.is_completed, s.has_electronic_invoice, s.tenant_customer_id, s.created_at, b.branch_id, b.branch_name, c.currency_code, c.symbol FROM pos_schema.sale s INNER JOIN general_schema.branch b USING(branch_id) INNER JOIN general_schema.currency c USING(currency_id)) AS paginated_sales',
+    columns: [
+      'sale_id',
+      'sale_date',
+      'total_amount',
+      'subtotal_amount',
+      'tax_amount',
+      'is_completed',
+      'has_electronic_invoice',
+      'branch_id',
+      'branch_name',
+      'currency_code',
+      'symbol',
+      'tenant_customer_id',
+      'created_at',
+    ],
     pkFields: ['sale_id'],
     whereFields: ['branch_id'],
   })
@@ -70,8 +94,14 @@ export class SaleController {
   @ApiResponse(getEInvoicesByBranchDoc.responses[200])
   @ApiResponse(getEInvoicesByBranchDoc.responses[401])
   @Get('e-invoice/branch/:branch_id')
-  async getEInvoicesByBranch(@Param('branch_id') branchId: string, @Req() req: any) {
-    return this.eInvoiceService.getEInvoiceByBranch(branchId, req.user.tenant_id);
+  async getEInvoicesByBranch(
+    @Param('branch_id') branchId: string,
+    @Req() req: any,
+  ) {
+    return this.eInvoiceService.getEInvoiceByBranch(
+      branchId,
+      req.user.tenant_id,
+    );
   }
 
   @ApiOperation(getEInvoiceByIdDoc.operation)
@@ -79,7 +109,10 @@ export class SaleController {
   @ApiResponse(getEInvoiceByIdDoc.responses[401])
   @ApiResponse(getEInvoiceByIdDoc.responses[404])
   @Get('e-invoice/:invoice_id')
-  async getEInvoiceById(@Param('invoice_id') invoiceId: string, @Req() req: any) {
+  async getEInvoiceById(
+    @Param('invoice_id') invoiceId: string,
+    @Req() req: any,
+  ) {
     return this.eInvoiceService.getEInvoiceById(invoiceId, req.user.tenant_id);
   }
 

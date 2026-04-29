@@ -1,21 +1,30 @@
 import { Module } from '@nestjs/common';
+import { ConfigModule, ConfigService } from '@nestjs/config';
 import { ScheduleModule } from '@nestjs/schedule';
 import { AppController } from '@/app/app.controller';
 import { AppService } from '@/app/app.service';
-import 'dotenv/config';
+
+const nodeEnv = process.env.NODE_ENV || 'development';
 
 // General Modules
 import { AuthModule } from '@/contexts/general/modules/auth/auth.module';
 import { DbModule } from '@/contexts/general/modules/db/db.module';
 import { SubscriptionModule } from '@/contexts/general/modules/subscription/subscription.module';
 import { CustomerModule } from '@/contexts/general/modules/customer/customer.module';
-import { DocumentTypeModule } from '@/contexts/general/modules/document_type/document-type.module';
+import { IdentificationTypeModule } from '@/contexts/general/modules/identification-type/identification-type.module';
 import { TenantModule } from '@/contexts/general/modules/tenant/tenant.module';
 import { ProductCategoryModule } from '@/contexts/general/modules/product_category/product-category.module';
 import { CustomerSegmentMarginModule } from '@/contexts/general/modules/customer_segment_margin/customer_segment_margin.module';
 import { StripeModule } from '@/contexts/general/modules/stripe/stripe.module';
 import { QueueModule } from '@/contexts/general/modules/queue/queue.module';
 import { ProductModule } from '@/contexts/general/modules/product/product.module';
+import { GlobalAttributeModule } from '@/contexts/general/modules/global_attribute/global-attribute.module';
+import { TenantAttributeModule } from '@/contexts/general/modules/tenant_attribute/tenant-attribute.module';
+import { AttributeValueModule } from '@/contexts/general/modules/attribute_value/attribute-value.module';
+import { ProductCompositionModule } from '@/contexts/general/modules/product_composition/product-composition.module';
+import { TenantProductGroupTypeModule } from '@/contexts/general/modules/tenant_product_group_type/tenant-product-group-type.module';
+import { TenantProductGroupModule } from '@/contexts/general/modules/tenant_product_group/tenant-product-group.module';
+import { ProductVariantGroupAssignmentModule } from '@/contexts/general/modules/product_variant_group_assignment/product-variant-group-assignment.module';
 import { CustomerPaymentModule } from '@/contexts/general/modules/customer_payment/customer-payment.module';
 import { SegmentModule } from '@/contexts/general/modules/segment/segment.module';
 import { BranchModule } from '@/contexts/general/modules/branch/branch.module';
@@ -35,6 +44,7 @@ import { LoyalProgramModule } from '@/contexts/pos/modules/loyal-program/loyalty
 // PURCHASE Modules
 import { PurchaseModule } from '@/contexts/purchase/modules/purchase/purchase.module';
 import { SuppliersModule } from '@/contexts/purchase/modules/suppliers/suppliers.module';
+import { PaymentAlertsModule } from '@/contexts/purchase/modules/payment_alerts/payment-alerts.module';
 
 // INVENTORY Modules
 import { WarehouseModule } from '@/contexts/inventory/modules/warehouse/warehouse.module';
@@ -57,23 +67,29 @@ import { TardinessModule } from '@/contexts/hr/modules/tardiness/tardiness.modul
 import { AccountingModule } from '@/contexts/finances/modules/accounting/accounting.module';
 import { ExpenseModule } from '@/contexts/finances/modules/expense/expense.module';
 
-console.log(
-  'Initializing AppModule with Stripe API Key length:',
-  process.env.STRIPE_API_KEY?.length,
-);
-
 @Module({
   imports: [
+    ConfigModule.forRoot({
+      envFilePath: [`.env.${nodeEnv}`, '.env'],
+      isGlobal: true,
+    }),
     ScheduleModule.forRoot(),
     AuthModule,
     CustomerModule,
-    DocumentTypeModule,
+    IdentificationTypeModule,
     DbModule,
     QueueModule,
     TenantModule,
     ProductCategoryModule,
     CustomerSegmentMarginModule,
     ProductModule,
+    GlobalAttributeModule,
+    TenantAttributeModule,
+    AttributeValueModule,
+    ProductCompositionModule,
+    TenantProductGroupTypeModule,
+    TenantProductGroupModule,
+    ProductVariantGroupAssignmentModule,
     CustomerPaymentModule,
     StripeModule,
     SaleModule,
@@ -96,6 +112,7 @@ console.log(
     WarehouseModule,
     SuppliersModule,
     PurchaseModule,
+    PaymentAlertsModule,
     IncapacityModule,
     SuspentionModule,
     TurnsModule,

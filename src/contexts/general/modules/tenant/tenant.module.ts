@@ -3,9 +3,10 @@ import { TenantService } from './tenant.service';
 import { TenantController } from './tenant.controller';
 import { LevelAuthorizationGuard } from '@/common/guards/level_authorization.guard';
 import { UserModule } from '../user/user.module';
+import { StateModule } from '../state/state.module';
 
 @Module({
-  imports: [UserModule],
+  imports: [UserModule, StateModule],
   providers: [TenantService, LevelAuthorizationGuard],
   controllers: [TenantController],
 })

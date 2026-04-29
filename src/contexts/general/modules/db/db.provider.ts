@@ -1,8 +1,7 @@
 import Database, { DatabaseConfig } from '@crane-technologies/database';
 import { queries } from '@/queries';
 
-// eslint-disable-next-line @typescript-eslint/no-require-imports
-require('dotenv').config();
+import { ConfigService } from '@nestjs/config';
 
 export const DATABASE = 'DATABASE';
 
@@ -10,10 +9,10 @@ let db: Database | null = null;
 
 export const dbProvider = {
   provide: DATABASE,
-  useFactory: () => {
+  useFactory: (configService: ConfigService) => {
     const config: DatabaseConfig = {
-      connectionString: process.env.DB_CONNECTION,
-      max: Number(process.env.MAX_POOL_SIZE) || 10,
+      connectionString: configService.get<string>('DB_CONNECTION'),
+      max: Number(configService.get<number>('MAX_POOL_SIZE')) || 10,
       ssl: { rejectUnauthorized: false },
     };
 
@@ -24,4 +23,5 @@ export const dbProvider = {
     }
     return db;
   },
+  inject: [ConfigService],
 };

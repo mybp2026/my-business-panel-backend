@@ -1,5 +1,5 @@
 export interface LoyalProgram {
-  loyal_program_id: string;
+  loyalty_program_id: string;
   tenant_id: string;
   points_earned_per_currency_unit: number;
   points_redeemed_per_currency_unit: number;

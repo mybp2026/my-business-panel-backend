@@ -1,9 +1,13 @@
 import {
   Controller,
+  Delete,
   Post,
   Get,
   Put,
+  Patch,
   Param,
+  Query,
+  ParseBoolPipe,
   Body,
   UseGuards,
 } from '@nestjs/common';
@@ -18,6 +22,7 @@ import { LevelAuthorizationGuard } from '@/common/guards/level_authorization.gua
 import { RoleAuthorizationGuard } from '@/common/guards/role_authorization.guard';
 import { RequiredLevel } from '@/common/decorators/level_metadata.decorator';
 import { CreateUserBulkDto } from '@/contexts/general/modules/user/dto/create_user_bulk.dto';
+import { UpdateUserDto } from '@/contexts/general/modules/user/dto/update_user.dto';
 import {
   createUserDoc,
   createUsersBulkDoc,
@@ -25,6 +30,8 @@ import {
   getUserRolesDoc,
   getSelfInfoDoc,
   getUserByEmailDoc,
+  getUserByIdDoc,
+  deleteUserDoc,
 } from '@/docs/contexts/general/user';
 
 // @UseGuards(AuthenticationGuard, LevelAuthorizationGuard, RoleAuthorizationGuard)
@@ -80,6 +87,19 @@ export class UserController {
     return this.userService.getSelfInfo(session);
   }
 
+  @ApiOperation(getUserByIdDoc.operation)
+  @ApiResponse(getUserByIdDoc.responses[200])
+  @ApiResponse(getUserByIdDoc.responses[401])
+  @ApiResponse(getUserByIdDoc.responses[404])
+  @RequiredLevel(3)
+  @Get(':userId')
+  async getUserById(
+    @Param('userId') userId: string,
+    @Query('full', new ParseBoolPipe({ optional: true })) full?: boolean,
+  ) {
+    return this.userService.getUserById(userId, full);
+  }
+
   @ApiOperation(getUserByEmailDoc.operation)
   @ApiResponse(getUserByEmailDoc.responses[200])
   @ApiResponse(getUserByEmailDoc.responses[401])
@@ -88,5 +108,24 @@ export class UserController {
   @Get(':email')
   async getUserByEmail(@Param('email') email: string) {
     return this.userService.getUserByEmail(email);
+  }
+
+  @Patch(':userId')
+  @RequiredLevel(3)
+  async updateUser(
+    @Param('userId') userId: string,
+    @Body() updateUserDto: UpdateUserDto,
+  ) {
+    return this.userService.updateUser(userId, updateUserDto);
+  }
+
+  @ApiOperation(deleteUserDoc.operation)
+  @ApiResponse(deleteUserDoc.responses[200])
+  @ApiResponse(deleteUserDoc.responses[401])
+  @ApiResponse(deleteUserDoc.responses[404])
+  @RequiredLevel(3)
+  @Delete(':userId')
+  async deleteUser(@Param('userId') userId: string) {
+    return this.userService.deleteUser(userId);
   }
 }

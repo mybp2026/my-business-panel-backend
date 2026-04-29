@@ -51,7 +51,7 @@ Authorization: Bearer {{tenantToken}}
 ### - 2 Teclados Mecánicos @ 150,000 CRC c/u
 ### - 1 Mouse inalámbrico @ 50,000 CRC
 
-@saleId = 23dae802-2b7c-4080-b536-1c568bcd4e07
+@saleId = 43b20e73-b227-4fee-a48d-0c7b6e8b8071
 # @name createSale
 POST {{baseUrl}}/sale
 Content-Type: application/json
@@ -68,7 +68,7 @@ Authorization: Bearer {{tenantToken}}
   "tax_amount": 240500,
   "total_amount": 2090500,
   "is_completed": true,
-  "has_electronic_invoice": false,
+  "has_electronic_invoice": true,
   "items": [
     {
       "tenant_id": "{{tenantId}}",

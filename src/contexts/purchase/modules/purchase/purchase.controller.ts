@@ -29,8 +29,11 @@ export class PurchaseController {
   @ApiResponse(createPurchaseOrderDoc.responses[201])
   @ApiResponse(createPurchaseOrderDoc.responses[401])
   @Post()
-  createPurchaseOrder(@Body() createPurchaseDto: CreatePurchaseDto) {
-    return this.purchaseService.createPurchaseOrder(createPurchaseDto);
+  createPurchaseOrder(
+    @Body() createPurchaseDto: CreatePurchaseDto,
+    @Session() session: IUserSession,
+  ) {
+    return this.purchaseService.createPurchaseOrder(createPurchaseDto, session);
   }
 
   @ApiOperation(threeWayMatchingDoc.operation)
@@ -38,8 +41,11 @@ export class PurchaseController {
   @ApiResponse(threeWayMatchingDoc.responses[400])
   @ApiResponse(threeWayMatchingDoc.responses[401])
   @Post('twm')
-  threeWayMatching(@Body() createPurchaseDto: any) {
-    return this.purchaseService.threeWayMatching(createPurchaseDto);
+  threeWayMatching(
+    @Body() createPurchaseDto: any,
+    @Session() session: IUserSession,
+  ) {
+    return this.purchaseService.threeWayMatching(createPurchaseDto, session);
   }
 
   @ApiOperation(registerPaymentDoc.operation)
@@ -47,8 +53,11 @@ export class PurchaseController {
   @ApiResponse(registerPaymentDoc.responses[400])
   @ApiResponse(registerPaymentDoc.responses[401])
   @Post('payment')
-  registerPayment(@Body() dto: CreatePaymentDto) {
-    return this.purchaseService.registerPayment(dto);
+  registerPayment(
+    @Body() dto: CreatePaymentDto,
+    @Session() session: IUserSession,
+  ) {
+    return this.purchaseService.registerPayment(dto, session);
   }
 
   @ApiOperation(getAllPurchaseOrdersDoc.operation)
@@ -56,15 +65,35 @@ export class PurchaseController {
   @ApiResponse(getAllPurchaseOrdersDoc.responses[401])
   @Get()
   getAllPurchaseOrders(@Session() session: IUserSession) {
-    return this.purchaseService.getAllPurchaseOrders(session.tenant_id);
+    return this.purchaseService.getAllPurchaseOrders(session);
+  }
+
+  @ApiOperation({ summary: 'Obtener catálogos del módulo de compras' })
+  @ApiResponse({ status: 200, description: 'Catálogos obtenidos correctamente' })
+  @Get('catalogs')
+  getPurchaseCatalogs() {
+    return this.purchaseService.getPurchaseCatalogs();
+  }
+
+  @ApiOperation({ summary: 'Listar cuentas por pagar de compras' })
+  @ApiResponse({
+    status: 200,
+    description: 'Cuentas por pagar obtenidas correctamente',
+  })
+  @Get('payables')
+  getAccountsPayable(@Session() session: IUserSession) {
+    return this.purchaseService.getAccountsPayable(session);
   }
 
   @ApiOperation(getThreeWayMatchingDoc.operation)
   @ApiResponse(getThreeWayMatchingDoc.responses[200])
   @ApiResponse(getThreeWayMatchingDoc.responses[401])
   @Get(':id/matching')
-  getThreeWayMatching(@Param('id') id: string) {
-    return this.purchaseService.getThreeWayMatching(id);
+  getThreeWayMatching(
+    @Param('id') id: string,
+    @Session() session: IUserSession,
+  ) {
+    return this.purchaseService.getThreeWayMatching(id, session);
   }
 
   @ApiOperation(getPurchaseOrderByIdDoc.operation)
@@ -72,8 +101,11 @@ export class PurchaseController {
   @ApiResponse(getPurchaseOrderByIdDoc.responses[401])
   @ApiResponse(getPurchaseOrderByIdDoc.responses[404])
   @Get(':id')
-  getPurchaseOrderById(@Param('id') id: string) {
-    return this.purchaseService.getPurchaseOrderById(id);
+  getPurchaseOrderById(
+    @Param('id') id: string,
+    @Session() session: IUserSession,
+  ) {
+    return this.purchaseService.getPurchaseOrderById(id, session);
   }
 
   @ApiOperation(updateOrderStatusDoc.operation)
@@ -87,14 +119,22 @@ export class PurchaseController {
     @Body() dto: UpdateOrderStatusDto,
     @Session() session: IUserSession,
   ) {
-    return this.purchaseService.updateOrderStatus(id, dto.status_id, session.tenant_id);
+    return this.purchaseService.updateOrderStatus(id, dto.status_id, session);
   }
 
   @ApiOperation(updatePurchaseOrderDoc.operation)
   @ApiResponse(updatePurchaseOrderDoc.responses[200])
   @ApiResponse(updatePurchaseOrderDoc.responses[401])
   @Patch(':id')
-  update(@Param('id') id: string, @Body() updatePurchaseDto: UpdatePurchaseDto) {
-    return this.purchaseService.updatePurchaseOrder(id, updatePurchaseDto);
+  update(
+    @Param('id') id: string,
+    @Body() updatePurchaseDto: UpdatePurchaseDto,
+    @Session() session: IUserSession,
+  ) {
+    return this.purchaseService.updatePurchaseOrder(
+      id,
+      updatePurchaseDto,
+      session,
+    );
   }
 }

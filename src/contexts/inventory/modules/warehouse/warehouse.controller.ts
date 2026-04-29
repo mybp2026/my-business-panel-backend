@@ -3,6 +3,8 @@ import { ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
 import { WarehouseService } from './warehouse.service';
 import { Warehouse } from './interfaces/warehouse.interface';
 import { CreateWarehouseDto } from './dto/create_warehouse.dto';
+import { UpdateWarehouseDto } from './dto/update_warehouse.dto';
+import { BulkInsertInventoryDto } from './dto/bulk_insert_inventory.dto';
 import { AuthenticationGuard } from '@/common/guards/authentication.guard';
 // import { LevelAuthorizationGuard } from "@/common/guards/level_authorization.guard";
 import { UseGuards } from '@nestjs/common';
@@ -17,6 +19,7 @@ import {
   InventoryTransferDto,
   InventoryTransferProductDto,
 } from './dto/inventory_transfer.dto';
+import { UpdateInventoryItemDto } from './dto/update_inventory_item.dto';
 import {
   createWarehouseDoc,
   deleteWarehouseDoc,
@@ -63,6 +66,73 @@ export class WarehouseController {
       warehouse_id,
       userSession.tenant_id,
     );
+  }
+
+  @Patch(':warehouse_id')
+  updateWarehouse(
+    @Param('warehouse_id') warehouse_id: string,
+    @Body() updateWarehouseDto: UpdateWarehouseDto,
+    @Session() userSession: IUserSession,
+  ) {
+    return this.warehouseService.updateWarehouse(
+      warehouse_id,
+      userSession.tenant_id,
+      updateWarehouseDto,
+    );
+  }
+
+  @Get('inventory/:warehouse_id')
+  listInventoryByWarehouse(
+    @Param('warehouse_id') warehouse_id: string,
+    @Query('search') search: string | undefined,
+    @Session() userSession: IUserSession,
+  ) {
+    return this.warehouseService.listInventoryByWarehouse(
+      warehouse_id,
+      userSession.tenant_id,
+      search,
+    );
+  }
+
+  @Patch('inventory/:inventory_id')
+  updateInventoryItem(
+    @Param('inventory_id') inventory_id: string,
+    @Body() body: UpdateInventoryItemDto,
+    @Session() userSession: IUserSession,
+  ) {
+    return this.warehouseService.updateInventoryItem(
+      inventory_id,
+      userSession.tenant_id,
+      body.stock,
+      body.expiration_date,
+    );
+  }
+
+  @Delete('inventory/:inventory_id')
+  deleteInventoryItem(
+    @Param('inventory_id') inventory_id: string,
+    @Session() userSession: IUserSession,
+  ) {
+    return this.warehouseService.deleteInventoryItem(
+      inventory_id,
+      userSession.tenant_id,
+    );
+  }
+
+  @Post('inventory/bulk')
+  bulkInsertInventory(
+    @Body() body: BulkInsertInventoryDto,
+    @Session() userSession: IUserSession,
+  ) {
+    return this.warehouseService.bulkInsertInventory(
+      userSession.tenant_id,
+      body,
+    );
+  }
+
+  @Get('transfer')
+  listTransfers(@Session() userSession: IUserSession) {
+    return this.warehouseService.listTransfersByTenant(userSession.tenant_id);
   }
 
   @ApiOperation(addProductToWarehouseDoc.operation)
@@ -201,6 +271,8 @@ export class WarehouseController {
       body.destination_warehouse_id,
       userSession.tenant_id,
       body.products,
+      body.departure_date,
+      body.arrival_date,
     );
   }
 }

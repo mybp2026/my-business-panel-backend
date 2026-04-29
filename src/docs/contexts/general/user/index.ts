@@ -4,3 +4,5 @@ export * from './assign-role.doc';
 export * from './get_user_roles.doc';
 export * from './get_self_info.doc';
 export * from './get-user_by_email.doc';
+export * from './delete-user.doc';
+export * from './get-user-by-id.doc';

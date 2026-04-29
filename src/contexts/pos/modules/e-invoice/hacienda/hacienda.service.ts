@@ -9,15 +9,35 @@ import { ITenantHaciendaCredentials } from '@/contexts/general/modules/tenant_ha
 const FETCH_TIMEOUT_MS = 30_000;
 const MAX_RETRIES = 3;
 
+const HACIENDA_ENDPOINTS = {
+  'api-stag': {
+    idp: 'https://idp.comprobanteselectronicos.go.cr/auth/realms/rut-stag/protocol/openid-connect/token',
+    api: 'https://api-sandbox.comprobanteselectronicos.go.cr/recepcion/v1/',
+  },
+  'api-prod': {
+    idp: 'https://idp.comprobanteselectronicos.go.cr/auth/realms/rut/protocol/openid-connect/token',
+    api: 'https://api.comprobanteselectronicos.go.cr/recepcion/v1/',
+  },
+} as const;
+
+type HaciendaClientId = keyof typeof HACIENDA_ENDPOINTS;
+
 @Injectable()
 export class HaciendaService {
   private readonly logger = new Logger(HaciendaService.name);
   private readonly tokenCacheByTenant = new Map<string, TokenCache>();
 
-  private get apiUrl(): string {
-    const url = process.env.EINVOICE_API_URL;
-    if (!url) throw new Error('EINVOICE_API_URL no configurado');
-    return url.endsWith('/') ? url : `${url}/`;
+  private resolveEndpoints(clientId: string) {
+    if (!(clientId in HACIENDA_ENDPOINTS)) {
+      throw new Error(
+        `hacienda_client_id inválido: "${clientId}". Esperado: api-stag o api-prod`,
+      );
+    }
+    const { idp, api } = HACIENDA_ENDPOINTS[clientId as HaciendaClientId];
+    return {
+      idpUrl: idp,
+      apiUrl: api.replace(/\/?$/, '/'),
+    };
   }
 
   private async fetchWithTimeout(
@@ -76,12 +96,7 @@ export class HaciendaService {
       return cached.token;
     }
 
-    if (process.env.HACIENDA_MOCK === 'true') {
-      return 'mock-access-token';
-    }
-
-    const idpUrl = process.env.HACIENDA_IDP_URL;
-    if (!idpUrl) throw new Error('HACIENDA_IDP_URL no configurado');
+    const { idpUrl } = this.resolveEndpoints(credentials.haciendaClientId);
 
     const res = await this.fetchWithRetry(idpUrl, {
       method: 'POST',
@@ -95,12 +110,12 @@ export class HaciendaService {
     });
 
     if (!res.ok) {
-      await res.text(); // consume body
+      const errorBody = await res.text().catch(() => '<sin body>');
       this.logger.error(
-        `Error obteniendo token de Hacienda IDP [${res.status}]`,
+        `Error obteniendo token de Hacienda IDP [${res.status}] (${idpUrl}) — body: ${errorBody}`,
       );
       throw new Error(
-        `Error obteniendo token de Hacienda IDP para tenant ${tenantId}: ${res.status}`,
+        `Error obteniendo token de Hacienda IDP para tenant ${tenantId} [${res.status}]: ${errorBody}`,
       );
     }
 
@@ -130,11 +145,12 @@ export class HaciendaService {
       };
     }
 
-    // Intentar con token actual, si 401 → refrescar y reintentar una vez
+    const { apiUrl } = this.resolveEndpoints(credentials.haciendaClientId);
+
     for (let tokenAttempt = 0; tokenAttempt < 2; tokenAttempt++) {
       const token = await this.getAccessToken(tenantId, credentials);
 
-      const res = await this.fetchWithRetry(`${this.apiUrl}recepcion`, {
+      const res = await this.fetchWithRetry(`${apiUrl}recepcion`, {
         method: 'POST',
         headers: {
           Authorization: `Bearer ${token}`,
@@ -146,7 +162,11 @@ export class HaciendaService {
       this.logger.log(`Respuesta de Hacienda: ${res.status}`);
 
       if (res.status === 201 || res.status === 202) {
-        this.logger.log(`✓ Comprobante aceptado por Hacienda (${res.status})`);
+        const msg =
+          res.status === 202
+            ? '✓ Comprobante recibido por Hacienda (202 - en procesamiento asíncrono)'
+            : '✓ Comprobante aceptado por Hacienda (201)';
+        this.logger.log(msg);
         return { accepted: true };
       }
 
@@ -162,7 +182,9 @@ export class HaciendaService {
 
       // 401: token expirado o inválido → limpiar cache y reintentar con token fresco
       if (res.status === 401 && tokenAttempt === 0) {
-        this.logger.warn('Token rechazado (401), refrescando y reintentando...');
+        this.logger.warn(
+          'Token rechazado (401), refrescando y reintentando...',
+        );
         this.tokenCacheByTenant.delete(tenantId);
         continue;
       }
@@ -175,16 +197,16 @@ export class HaciendaService {
         continue;
       }
 
-      // Cualquier otro error
       const errorBody = await res.text();
-      this.logger.error(`Hacienda rechazó la solicitud [${res.status}] — body: ${errorBody}`);
-
-      throw new Error(
-        `Hacienda rechazó la factura [${res.status}]`,
+      this.logger.error(
+        `Hacienda rechazó la solicitud [${res.status}] — body: ${errorBody}`,
       );
-    }
 
-    throw new Error('Hacienda: no se pudo enviar la factura después de reintentos de token');
+      throw new Error(`Hacienda rechazó la factura [${res.status}]`);
+    }
+    throw new Error(
+      'Hacienda: no se pudo enviar la factura después de reintentos de token',
+    );
   }
 
   async checkInvoiceStatus(
@@ -208,19 +230,20 @@ export class HaciendaService {
     this.logger.debug(
       `Consultando estado de comprobante [${clave}] en Hacienda`,
     );
-    this.logger.debug(`Endpoint: ${this.apiUrl}recepcion/${clave}`);
 
-    // Intentar con token actual, si 401 → refrescar y reintentar una vez
     for (let tokenAttempt = 0; tokenAttempt < 2; tokenAttempt++) {
       const token = await this.getAccessToken(tenantId, credentials);
+      const { apiUrl } = this.resolveEndpoints(credentials.haciendaClientId);
 
-      const res = await this.fetchWithRetry(`${this.apiUrl}recepcion/${clave}`, {
+      const res = await this.fetchWithRetry(`${apiUrl}recepcion/${clave}`, {
         headers: { Authorization: `Bearer ${token}` },
       });
 
       // 401: token expirado → limpiar cache y reintentar
       if (res.status === 401 && tokenAttempt === 0) {
-        this.logger.warn('Token rechazado (401) en checkStatus, refrescando...');
+        this.logger.warn(
+          'Token rechazado (401) en checkStatus, refrescando...',
+        );
         this.tokenCacheByTenant.delete(tenantId);
         continue;
       }
@@ -228,7 +251,9 @@ export class HaciendaService {
       // 429: rate limit → esperar y reintentar
       if (res.status === 429) {
         const retryAfter = Number(res.headers.get('retry-after')) || 60;
-        this.logger.warn(`Rate limited (429) en checkStatus, esperando ${retryAfter}s...`);
+        this.logger.warn(
+          `Rate limited (429) en checkStatus, esperando ${retryAfter}s...`,
+        );
         await this.sleep(retryAfter * 1000);
         continue;
       }
@@ -244,10 +269,11 @@ export class HaciendaService {
       }
 
       // Hacienda devuelve campos con guiones (ind-estado, respuesta-xml, etc.)
-      // Mapeamos a camelCase para la interface interna
       const raw: Record<string, any> = await res.json();
 
-      this.logger.log(`[checkInvoiceStatus] Hacienda raw response for ${clave}: ${JSON.stringify(raw)}`);
+      this.logger.log(
+        `[checkInvoiceStatus] Hacienda raw response for ${clave}: ${JSON.stringify(raw)}`,
+      );
 
       return {
         clave: raw.clave,
@@ -261,7 +287,9 @@ export class HaciendaService {
       } as HaciendaStatusResponse;
     }
 
-    throw new Error('Hacienda: no se pudo consultar estado después de reintentos de token');
+    throw new Error(
+      'Hacienda: no se pudo consultar estado después de reintentos de token',
+    );
   }
 
   private sleep(ms: number): Promise<void> {

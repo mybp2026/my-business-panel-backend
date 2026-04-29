@@ -80,4 +80,17 @@ export class PromosController {
   deletePromotion(@Param('id') id: string) {
     return this.promosService.deletePromotion(id);
   }
+
+  @Get(':promoId/targets')
+  getTargets(@Param('promoId') promoId: string) {
+    return this.promosService.getTargets(promoId);
+  }
+
+  @Get('applicable/:tenantId/:variantId')
+  getApplicable(
+    @Param('tenantId') tenantId: string,
+    @Param('variantId') variantId: string,
+  ) {
+    return this.promosService.getApplicableToVariant(tenantId, variantId);
+  }
 }

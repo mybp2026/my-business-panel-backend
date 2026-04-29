@@ -6,14 +6,14 @@ import {
 } from '@nestjs/common';
 import { DATABASE } from '@/contexts/general/modules/db/db.provider';
 import Database from '@crane-technologies/database';
-import { Promo } from './interface/promo.interface';
-import { NewPromoDto, PromoRules } from './dto/newPromo.dto';
+import { Promo, PromoRule, PromoWithRule } from './interface/promo.interface';
+import { NewPromoDto, PromoRules, PromotionTargetDto } from './dto/newPromo.dto';
 import { RuleCreationError } from '@/common/errors/create_rule.error';
 import { PromotionCreationError } from '@/common/errors/create_promo.error';
 import { UpdatePromotionDto } from './dto/updatePromo.dto';
 import { posQueries } from '@pos/pos.queries';
 
-const { promotions, promotionTypes } = posQueries;
+const { promotions, promotionTypes, promotionTarget } = posQueries;
 
 @Injectable()
 export class PromosService {
@@ -24,9 +24,19 @@ export class PromosService {
     return promos.rows;
   }
 
-  async getPromoInfo(promoID: string): Promise<Promo> {
+  async getPromoInfo(promoID: string): Promise<PromoWithRule | null> {
     const promo = await this.db.query(promotions.getPromoInfo, [promoID]);
-    return promo.rows[0];
+    const row = promo.rows[0] as Promo | undefined;
+    if (!row) return null;
+
+    const rules = await this.db.query(promotions.getPromotionRules, [promoID]);
+    const ruleRows = rules.rows as PromoRule[];
+
+    return {
+      ...row,
+      rule: ruleRows[0],
+      rules: ruleRows,
+    };
   }
 
   async createPromoWithRule(newPromoDto: NewPromoDto) {
@@ -41,6 +51,7 @@ export class PromosService {
       promotion_end_date,
       is_active,
       rules,
+      targets,
     } = newPromoDto;
 
     const promo = await this.db.query(promotions.insertPromo, [
@@ -59,12 +70,61 @@ export class PromosService {
       throw new PromotionCreationError();
     }
 
-    rules.promotion_id = promo.rows[0].promotion_id;
+    const promotionId = promo.rows[0].promotion_id;
+    rules.promotion_id = promotionId;
     const rule = await this.insertRules(rules);
+
+    if (targets && targets.length > 0) {
+      await this.replaceTargets(promotionId, tenant_id, targets);
+    }
 
     return {
       message: `Promotion and rule with id: ${rule} created successfully`,
+      promotion_id: promotionId,
     };
+  }
+
+  async replaceTargets(
+    promotionId: string,
+    tenantId: string,
+    targets: PromotionTargetDto[],
+  ) {
+    await this.db.query(promotionTarget.deleteForPromotion, [promotionId]);
+    for (const t of targets) {
+      if (t.target_type === 'VARIANT') {
+        await this.db.query(promotionTarget.insertVariantTarget, [
+          promotionId,
+          tenantId,
+          t.target_id,
+        ]);
+      } else {
+        await this.db.query(promotionTarget.insertGroupTarget, [
+          promotionId,
+          tenantId,
+          t.target_id,
+        ]);
+      }
+    }
+  }
+
+  async getTargets(promotionId: string) {
+    const result = await this.db.query(promotionTarget.byPromotion, [
+      promotionId,
+    ]);
+    return result.rows;
+  }
+
+  /**
+   * Returns active promotions matching a variant: directly via VARIANT target,
+   * or indirectly via any GROUP target where the variant is assigned to that
+   * group or any of its descendants.
+   */
+  async getApplicableToVariant(tenantId: string, variantId: string) {
+    const result = await this.db.query(
+      promotionTarget.getApplicableToVariant,
+      [tenantId, variantId],
+    );
+    return result.rows;
   }
 
   async insertRules(data: PromoRules) {
@@ -149,6 +209,17 @@ export class PromosService {
 
       if (updateRule) {
         await this.db.query(updateRule.queryString, updateRule.paramsArray);
+      }
+
+      if (updatePromoDto.targets !== undefined) {
+        const promoTenantId = tenant_id ?? updatedPromo.rows[0]?.tenant_id;
+        if (promoTenantId) {
+          await this.replaceTargets(
+            promotionId,
+            promoTenantId,
+            updatePromoDto.targets,
+          );
+        }
       }
 
       await this.db.query('COMMIT');

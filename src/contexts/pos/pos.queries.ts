@@ -7,8 +7,29 @@ export const posQueryDefs = {
       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
       RETURNING sale_id
     `,
+    linkSaleToActiveSession: `
+      INSERT INTO pos_schema.cash_register_sale (
+        cash_register_session_id,
+        sale_id,
+        transaction_time
+      )
+      SELECT
+        crs.cash_register_session_id,
+        $2,
+        COALESCE($3::timestamp, NOW())
+      FROM pos_schema.cash_register_session crs
+      INNER JOIN pos_schema.cash_register cr
+        ON cr.cash_register_id = crs.cash_register_id
+      WHERE cr.branch_id = $1
+        AND crs.is_active = true
+        AND ($4::uuid IS NULL OR cr.cash_register_id = $4)
+      ORDER BY crs.opened_at DESC
+      LIMIT 1
+      ON CONFLICT (sale_id) DO NOTHING
+      RETURNING cash_register_sale_id
+    `,
     getSalesByBranch: `
-      SELECT s.sale_id, s.sale_date, s.total_amount, s.subtotal_amount, s.tax_amount, s.is_completed, b.branch_id, b.branch_name, c.currency_code, c.symbol FROM pos_schema.sale s
+      SELECT s.sale_id, s.sale_date, s.total_amount, s.subtotal_amount, s.tax_amount, s.is_completed, s.has_electronic_invoice, b.branch_id, b.branch_name, c.currency_code, c.symbol FROM pos_schema.sale s
       INNER JOIN general_schema.branch b USING(branch_id)
       INNER JOIN general_schema.currency c USING(currency_id)
       WHERE s.branch_id = $1
@@ -79,14 +100,15 @@ export const posQueryDefs = {
 
   returns: {
     newTransaction: `
-      INSERT INTO pos_schema.return_transaction (digital_sale_invoice_id, tenant_customer_id, total_refund_amount, refund_method, return_status_id, return_date)
-      VALUES ($1, $2, $3, $4, $5, $6)
-      RETURNING return_transaction_id
+      INSERT INTO pos_schema.return_transaction (digital_sale_invoice_id, electronic_sale_invoice_id, tenant_customer_id, total_refund_amount, refund_method, return_status_id, return_date)
+      VALUES ($1, $2, $3, $4, $5, $6, COALESCE($7::timestamp, NOW()))
+      RETURNING return_transaction_id, return_date
     `,
     find: `
       SELECT
           return_transaction_id,
           digital_sale_invoice_id,
+          electronic_sale_invoice_id,
           tenant_customer_id,
           total_refund_amount,
           refund_method,
@@ -95,13 +117,93 @@ export const posQueryDefs = {
       FROM
           pos_schema.return_transaction
       WHERE
-          ($1::uuid IS NULL OR digital_sale_invoice_id = $1)
+          ($1::uuid IS NULL OR digital_sale_invoice_id = $1 OR electronic_sale_invoice_id = $1)
           AND ($2::uuid IS NULL OR tenant_customer_id = $2)
           AND ($3::int IS NULL OR return_status_id = $3)
           AND ($4::int IS NULL OR refund_method = $4)
           AND ($5::timestamp IS NULL OR return_date >= $5)
           AND ($6::timestamp IS NULL OR return_date <= $6)
       ORDER BY return_date DESC`,
+
+    // Get full sale + invoices context for the refund page
+    getSaleContext: `
+      SELECT
+        s.sale_id,
+        s.tenant_customer_id,
+        s.sale_date,
+        s.subtotal_amount,
+        s.tax_amount,
+        s.total_amount,
+        s.has_electronic_invoice,
+        s.is_completed,
+        b.branch_id,
+        b.branch_name,
+        b.tenant_id,
+        c.currency_code,
+        c.symbol AS currency_symbol,
+        tc.first_name,
+        tc.last_name,
+        tc.document_number,
+        tc.email AS customer_email,
+        dsi.digital_sale_invoice_id,
+        dsi.invoice_number AS digital_invoice_number,
+        dsi.invoiced_at AS digital_invoiced_at,
+        dsi.subtotal_amount AS digital_subtotal,
+        dsi.tax_amount AS digital_tax,
+        dsi.total_amount AS digital_total,
+        esi.electronic_sale_invoice_id,
+        esi.key_number AS electronic_key_number,
+        esi.consecutive_number AS electronic_consecutive,
+        esi.status_id AS electronic_status_id,
+        esi.created_at AS electronic_created_at
+      FROM pos_schema.sale s
+      LEFT JOIN general_schema.branch b ON b.branch_id = s.branch_id
+      LEFT JOIN general_schema.currency c ON c.currency_id = s.currency_id
+      LEFT JOIN general_schema.tenant_customer tc ON tc.tenant_customer_id = s.tenant_customer_id
+      LEFT JOIN pos_schema.digital_sale_invoice dsi ON dsi.sale_id = s.sale_id
+      LEFT JOIN pos_schema.electronic_sale_invoice esi ON esi.sale_id = s.sale_id
+      WHERE s.sale_id = $1
+      LIMIT 1
+    `,
+
+    // Get sale items joined with the digital invoice items (for partial refund UI)
+    getSaleItemsForRefund: `
+      SELECT
+        si.sale_item_id,
+        si.product_variant_id,
+        si.quantity AS available_quantity,
+        si.unit_price,
+        si.total_price,
+        pv.sku,
+        pv.variant_name,
+        dii.digital_sale_invoice_item_id,
+        dii.tax_amount AS digital_tax_amount,
+        dii.total_price AS digital_line_total,
+        eii.electronic_sale_invoice_item_id,
+        eii.line_number AS electronic_line_number
+      FROM pos_schema.sale_item si
+      INNER JOIN general_schema.product_variant pv
+        ON pv.tenant_id = si.tenant_id
+        AND pv.product_variant_id = si.product_variant_id
+      LEFT JOIN pos_schema.digital_sale_invoice_item dii
+        ON dii.sale_item_id = si.sale_item_id
+      LEFT JOIN pos_schema.electronic_sale_invoice_items eii
+        ON eii.sale_item_id = si.sale_item_id
+      WHERE si.sale_id = $1
+      ORDER BY si.created_at
+    `,
+
+    // Full refund: delete invoice records
+    deleteDigitalInvoiceBySaleId: `
+      DELETE FROM pos_schema.digital_sale_invoice
+      WHERE sale_id = $1
+      RETURNING digital_sale_invoice_id
+    `,
+    deleteElectronicInvoiceBySaleId: `
+      DELETE FROM pos_schema.electronic_sale_invoice
+      WHERE sale_id = $1
+      RETURNING electronic_sale_invoice_id
+    `,
   },
 
   cashRegister: {
@@ -132,6 +234,30 @@ export const posQueryDefs = {
     getSessionsByCashRegister: `
     SELECT * FROM pos_schema.cash_register_session WHERE cash_register_id = $1 ORDER BY opened_at DESC
     `,
+    findSessions: `
+      SELECT
+        crs.cash_register_session_id,
+        crs.cash_register_id,
+        crs.user_id,
+        crs.opened_at,
+        crs.closed_at,
+        crs.opening_amount,
+        crs.closing_amount,
+        crs.is_active,
+        crs.created_at,
+        crs.updated_at,
+        cr.register_name,
+        cr.branch_id,
+        b.branch_name,
+        b.tenant_id
+      FROM pos_schema.cash_register_session crs
+      INNER JOIN pos_schema.cash_register cr ON cr.cash_register_id = crs.cash_register_id
+      INNER JOIN general_schema.branch b ON b.branch_id = cr.branch_id
+      WHERE b.tenant_id = $1
+        AND ($2::uuid IS NULL OR cr.branch_id = $2)
+        AND ($3::boolean IS NULL OR crs.is_active = $3)
+      ORDER BY crs.opened_at DESC
+    `,
     closeSession: `
     UPDATE pos_schema.cash_register_session SET closed_at = $1, closing_amount = $2, is_active = false WHERE cash_register_session_id = $3 RETURNING *
     `,
@@ -142,16 +268,53 @@ export const posQueryDefs = {
 
   promotions: {
     getPromos: `
-      SELECT p.promotion_name, p.promotion_code, c.segment_name, p.promotion_start_date, p.promotion_end_date, pt.type_name, p.is_active FROM pos_schema.promotion p
+      SELECT
+        p.promotion_id,
+        p.tenant_id,
+        p.promotion_name,
+        p.promotion_code,
+        p.promotion_description,
+        p.promotion_type_id,
+        p.customer_segment_id,
+        c.segment_name,
+        p.promotion_start_date,
+        p.promotion_end_date,
+        pt.type_name,
+        p.is_active,
+        p.created_at,
+        p.updated_at
+      FROM pos_schema.promotion p
       INNER JOIN general_schema.customer_segment c USING(customer_segment_id)
       INNER JOIN pos_schema.promotion_type pt USING(promotion_type_id)
       WHERE p.tenant_id = $1
+      ORDER BY p.created_at DESC
     `,
     getPromoInfo: `
-      SELECT p.promotion_name, p.promotion_code, c.segment_name, p.promotion_start_date, p.promotion_end_date, p.is_active FROM pos_schema.promotion p
+      SELECT
+        p.promotion_id,
+        p.tenant_id,
+        p.promotion_name,
+        p.promotion_code,
+        p.promotion_description,
+        p.promotion_type_id,
+        p.customer_segment_id,
+        c.segment_name,
+        p.promotion_start_date,
+        p.promotion_end_date,
+        pt.type_name,
+        p.is_active,
+        p.created_at,
+        p.updated_at
+      FROM pos_schema.promotion p
       INNER JOIN general_schema.customer_segment c USING(customer_segment_id)
       INNER JOIN pos_schema.promotion_type pt USING(promotion_type_id)
       WHERE p.promotion_id = $1 LIMIT 1
+    `,
+    getPromotionRules: `
+      SELECT *
+      FROM pos_schema.promotion_rule
+      WHERE promotion_id = $1
+      ORDER BY tier_level NULLS FIRST, created_at
     `,
     insertPromo: `
       INSERT INTO pos_schema.promotion (tenant_id, promotion_name, promotion_code, promotion_description, promotion_type_id, customer_segment_id, promotion_start_date, promotion_end_date, is_active)
@@ -182,6 +345,76 @@ export const posQueryDefs = {
     `,
   },
 
+  promotionTarget: {
+    byPromotion: `
+      SELECT pt.promotion_target_id, pt.promotion_id, pt.tenant_id, pt.target_type,
+             pt.target_product_variant_id, pt.target_group_id,
+             pv.sku AS variant_sku, pv.variant_name,
+             g.group_name, g.tenant_product_group_type_id,
+             gt.type_name
+      FROM pos_schema.promotion_target pt
+      LEFT JOIN general_schema.product_variant pv
+        ON pv.tenant_id = pt.tenant_id AND pv.product_variant_id = pt.target_product_variant_id
+      LEFT JOIN general_schema.tenant_product_group g
+        ON g.tenant_id = pt.tenant_id AND g.tenant_product_group_id = pt.target_group_id
+      LEFT JOIN general_schema.tenant_product_group_type gt
+        ON gt.tenant_id = g.tenant_id AND gt.tenant_product_group_type_id = g.tenant_product_group_type_id
+      WHERE pt.promotion_id = $1
+    `,
+    deleteForPromotion: `
+      DELETE FROM pos_schema.promotion_target WHERE promotion_id = $1
+    `,
+    insertVariantTarget: `
+      INSERT INTO pos_schema.promotion_target
+        (promotion_id, tenant_id, target_type, target_product_variant_id, target_group_id)
+      VALUES ($1, $2, 'VARIANT', $3, NULL)
+      RETURNING *
+    `,
+    insertGroupTarget: `
+      INSERT INTO pos_schema.promotion_target
+        (promotion_id, tenant_id, target_type, target_product_variant_id, target_group_id)
+      VALUES ($1, $2, 'GROUP', NULL, $3)
+      RETURNING *
+    `,
+    /**
+     * Returns promotions applicable to a given variant: matches direct VARIANT
+     * targets and GROUP targets where the variant is assigned to the target
+     * group or any of its descendants. Filtered by active status and date.
+     */
+    getApplicableToVariant: `
+      WITH RECURSIVE
+      variant_groups AS (
+        SELECT a.tenant_product_group_id
+        FROM general_schema.product_variant_group_assignment a
+        WHERE a.tenant_id = $1 AND a.product_variant_id = $2
+      ),
+      ancestor_groups(node) AS (
+        SELECT g.tenant_product_group_id
+        FROM general_schema.tenant_product_group g
+        WHERE g.tenant_id = $1
+          AND g.tenant_product_group_id IN (SELECT tenant_product_group_id FROM variant_groups)
+        UNION
+        SELECT pg.parent_group_id
+        FROM general_schema.tenant_product_group pg
+        JOIN ancestor_groups ag ON ag.node = pg.tenant_product_group_id
+        WHERE pg.tenant_id = $1 AND pg.parent_group_id IS NOT NULL
+      )
+      SELECT DISTINCT p.promotion_id, p.promotion_name, p.promotion_code,
+             p.promotion_type_id, p.customer_segment_id,
+             p.promotion_start_date, p.promotion_end_date, p.is_active,
+             pt.target_type, pt.target_product_variant_id, pt.target_group_id
+      FROM pos_schema.promotion p
+      JOIN pos_schema.promotion_target pt ON pt.promotion_id = p.promotion_id
+      WHERE p.tenant_id = $1
+        AND p.is_active = TRUE
+        AND CURRENT_DATE BETWEEN p.promotion_start_date AND p.promotion_end_date
+        AND (
+          (pt.target_type = 'VARIANT' AND pt.target_product_variant_id = $2)
+          OR (pt.target_type = 'GROUP' AND pt.target_group_id IN (SELECT node FROM ancestor_groups))
+        )
+    `,
+  },
+
   loyaltyProgram: {
     create: `
       INSERT INTO pos_schema.loyalty_program (tenant_id, points_earned_per_currency_unit, points_redeemed_per_currency_unit, minimum_purchase_for_points, created_at, updated_at)
@@ -199,9 +432,11 @@ export const posQueryDefs = {
     update: `
       UPDATE pos_schema.loyalty_program
       SET
-        points_per_dollar = COALESCE($2, points_per_dollar),
-        points_per_currency_unit = COALESCE($3, points_per_currency_unit),
-        minimum_purchase_for_points = COALESCE($4, minimum_purchase_for_points)
+        points_earned_per_currency_unit = COALESCE($2, points_earned_per_currency_unit),
+        points_redeemed_per_currency_unit = COALESCE($3, points_redeemed_per_currency_unit),
+        minimum_purchase_for_points = COALESCE($4, minimum_purchase_for_points),
+        is_active = COALESCE($5, is_active),
+        updated_at = NOW()
       WHERE loyalty_program_id = $1
       RETURNING loyalty_program_id
     `,
@@ -268,20 +503,20 @@ export const posQueryDefs = {
     getEInvoicesByBranch: `
       SELECT * FROM pos_schema.electronic_sale_invoice e
       INNER JOIN pos_schema.sale s USING(sale_id)
-      INNER JOIN general_schema.branch b ON b.branch_id = s.branch_id
-      WHERE s.branch_id = $1 AND b.tenant_id = $2;
+      INNER JOIN general_schema.branch b USING(branch_id)
+      WHERE b.branch_id = $1 AND b.tenant_id = $2;
     `,
     getEInvoiceForSale: `
       SELECT * FROM pos_schema.electronic_sale_invoice e
       INNER JOIN pos_schema.sale s USING(sale_id)
-      INNER JOIN general_schema.branch b ON b.branch_id = s.branch_id
-      WHERE e.sale_id = $1 AND b.tenant_id = $2;
+      INNER JOIN general_schema.branch b USING(branch_id)
+      WHERE s.sale_id = $1 AND b.tenant_id = $2;
     `,
     getEInvoiceById: `
       SELECT * FROM pos_schema.electronic_sale_invoice e
       INNER JOIN pos_schema.sale s USING(sale_id)
-      INNER JOIN general_schema.branch b ON b.branch_id = s.branch_id
-      WHERE e.electronic_sale_invoice_id = $1 AND b.tenant_id = $2;
+      INNER JOIN general_schema.branch b USING(branch_id)
+      WHERE e.electronic_sale_invoice_id = $1 AND b.tenant_id = $2; 
     `,
     getSaleForEInvoice: `
       SELECT
@@ -307,10 +542,10 @@ export const posQueryDefs = {
         s.tax_amount,
         s.total_amount,
         pm.code AS payment_method_code,
-        COALESCE(b.econ_activity, t.econ_activity, '722003')::VARCHAR(6) AS activity_code,
+        t.econ_activity::VARCHAR(6) AS activity_code,
         t.tenant_name     AS issuer_name,
         t.identification  AS issuer_identification,
-        COALESCE(dt_t.ident_code, '02')::VARCHAR(2) AS issuer_identification_type,
+        COALESCE(tenant_dt.ident_code, '04')::VARCHAR(2) AS issuer_identification_type,
         t.contact_email   AS issuer_email,
         COALESCE(loc.provincia,   '1')  AS provincia,
         COALESCE(loc.canton,      '01') AS canton,
@@ -320,11 +555,23 @@ export const posQueryDefs = {
         tc.document_number::VARCHAR(20)        AS receiver_identification,
         COALESCE(dt.ident_code, '01')::VARCHAR(2) AS receiver_identification_type,
         tc.email                               AS receiver_email,
-        -- TODO: Discriminar servicios/mercancías cuando se agregue is_service a product
-        0.00::numeric        AS total_serv_gravados,
+        -- CABYS codes starting with '9' = services; '1'-'8' = merchandise
+        COALESCE((
+          SELECT SUM(si2.total_price)
+          FROM pos_schema.sale_item si2
+          JOIN general_schema.product_variant pv2
+            ON pv2.tenant_id = si2.tenant_id AND pv2.product_variant_id = si2.product_variant_id
+          WHERE si2.sale_id = s.sale_id AND LEFT(pv2.cabys_code, 1) = '9'
+        ), 0.00)::numeric    AS total_serv_gravados,
         0.00::numeric        AS total_serv_exentos,
         0.00::numeric        AS total_serv_exonerados,
-        s.subtotal_amount    AS total_mercancias_gravadas,
+        COALESCE((
+          SELECT SUM(si2.total_price)
+          FROM pos_schema.sale_item si2
+          JOIN general_schema.product_variant pv2
+            ON pv2.tenant_id = si2.tenant_id AND pv2.product_variant_id = si2.product_variant_id
+          WHERE si2.sale_id = s.sale_id AND (pv2.cabys_code IS NULL OR LEFT(pv2.cabys_code, 1) != '9')
+        ), 0.00)::numeric    AS total_mercancias_gravadas,
         0.00::numeric        AS total_mercancias_exentas,
         0.00::numeric        AS total_mercancias_exoneradas,
         GREATEST(
@@ -336,10 +583,10 @@ export const posQueryDefs = {
       FROM pos_schema.sale s
       JOIN general_schema.branch b            ON b.branch_id = s.branch_id
       JOIN general_schema.tenant t            ON t.tenant_id = b.tenant_id
-      LEFT JOIN general_schema.document_type dt_t ON dt_t.document_type_id = t.document_type_id
       LEFT JOIN general_schema.branch_location loc ON loc.branch_id = b.branch_id
       JOIN general_schema.tenant_customer tc  ON tc.tenant_customer_id = s.tenant_customer_id
-      LEFT JOIN general_schema.document_type dt ON dt.document_type_id = tc.document_type_id
+      LEFT JOIN general_schema.identification_type dt ON dt.identification_type_id = tc.identification_type_id
+      LEFT JOIN general_schema.identification_type tenant_dt ON tenant_dt.identification_type_id = t.identification_type_id
       JOIN general_schema.currency cur        ON cur.currency_id = s.currency_id
       LEFT JOIN LATERAL (
         SELECT

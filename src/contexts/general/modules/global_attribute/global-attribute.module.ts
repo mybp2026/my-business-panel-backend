@@ -1,15 +1,16 @@
 import { Module } from '@nestjs/common';
-import { DocumentTypeService } from './document-type.service';
-import { DocumentTypeController } from './document-type.controller';
+import { GlobalAttributeService } from './global-attribute.service';
+import { GlobalAttributeController } from './global-attribute.controller';
 import { RoleAuthorizationGuard } from '@/common/guards/role_authorization.guard';
 import { LevelAuthorizationGuard } from '@/common/guards/level_authorization.guard';
 
 @Module({
   providers: [
-    DocumentTypeService,
+    GlobalAttributeService,
     RoleAuthorizationGuard,
     LevelAuthorizationGuard,
   ],
-  controllers: [DocumentTypeController],
+  controllers: [GlobalAttributeController],
+  exports: [GlobalAttributeService],
 })
-export class DocumentTypeModule {}
+export class GlobalAttributeModule {}

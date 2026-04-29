@@ -26,7 +26,9 @@ export class EInvoiceBatchDispatcher {
    * Reconcilia facturas pendientes en BD contra Redis.
    */
   async startupReconciliation(): Promise<void> {
-    this.logger.log('Startup reconciliation: checking for orphaned pending invoices...');
+    this.logger.log(
+      'Startup reconciliation: checking for orphaned pending invoices...',
+    );
     await this.dispatchPendingInvoices();
   }
 
@@ -45,7 +47,9 @@ export class EInvoiceBatchDispatcher {
     }
 
     // Protect against duplicates: check which invoices already have active jobs
-    const activeJobs = await this.queueFacade.getActiveJobs(EINVOICE_STATUS_QUEUE);
+    const activeJobs = await this.queueFacade.getActiveJobs(
+      EINVOICE_STATUS_QUEUE,
+    );
     const activeInvoiceIds = new Set(
       activeJobs.map((j) => j.data?.electronicInvoiceId),
     );
@@ -64,7 +68,11 @@ export class EInvoiceBatchDispatcher {
         createdAt: invoice.created_at,
       };
 
-      await this.queueFacade.enqueue(EINVOICE_STATUS_QUEUE, 'check-status', jobData);
+      await this.queueFacade.enqueue(
+        EINVOICE_STATUS_QUEUE,
+        'check-status',
+        jobData,
+      );
       enqueued++;
     }
 

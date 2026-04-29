@@ -8,7 +8,8 @@ function getEncryptionKey(): Buffer {
   const key = process.env.ENCRYPTION_KEY;
   if (!key) throw new Error('ENCRYPTION_KEY env var not set');
   const buf = Buffer.from(key, 'hex');
-  if (buf.length !== 32) throw new Error('ENCRYPTION_KEY must be 64 hex chars (32 bytes)');
+  if (buf.length !== 32)
+    throw new Error('ENCRYPTION_KEY must be 64 hex chars (32 bytes)');
   return buf;
 }
 

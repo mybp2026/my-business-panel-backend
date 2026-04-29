@@ -25,6 +25,11 @@ import {
 export class EmployeeController {
   constructor(private readonly employeeService: EmployeeService) {}
 
+  @Get('user/:user_id')
+  async getEmployeeByUserId(@Param('user_id') user_id: string) {
+    return this.employeeService.getEmployeeByUserId(user_id);
+  }
+
   @ApiOperation(getEmployeesByTenantDoc.operation)
   @ApiResponse(getEmployeesByTenantDoc.responses[200])
   @ApiResponse(getEmployeesByTenantDoc.responses[401])

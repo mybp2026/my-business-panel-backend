@@ -41,13 +41,13 @@ export async function paginate<T = any>({
     order = 'DESC',
   } = options;
 
-  // Sanitize sortBy: must be a valid SQL identifier (letters, numbers, underscores, dots)
   if (!IDENTIFIER_RE.test(sortBy)) {
     throw new Error(`Invalid sortBy value: ${sortBy}`);
   }
 
-  // Sanitize order: must be ASC or DESC
-  const safeOrder = VALID_ORDER.has(order.toUpperCase()) ? order.toUpperCase() : 'DESC';
+  const safeOrder = VALID_ORDER.has(order.toUpperCase())
+    ? order.toUpperCase()
+    : 'DESC';
 
   const params: any[] = [];
   const conditions: string[] = [];

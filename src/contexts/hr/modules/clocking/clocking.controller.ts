@@ -1,4 +1,4 @@
-import { Body, Controller, Param, Patch, Post } from '@nestjs/common';
+import { Body, Controller, Get, Param, Patch, Post } from '@nestjs/common';
 import { ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
 import { ClockingService } from './clocking.service';
 import { ClockInDto } from './dto/clockIn.dto';
@@ -8,6 +8,16 @@ import { clockInDoc, clockOutDoc } from '@/docs/contexts/hr/clocking';
 @Controller('clocking')
 export class ClockingController {
   constructor(private readonly clockingService: ClockingService) {}
+
+  @Get('branch/:branchId')
+  async getClockingByBranch(@Param('branchId') branchId: string) {
+    return this.clockingService.getClockingByBranch(branchId);
+  }
+
+  @Get('employee/:employeeId')
+  async getClockingByEmployee(@Param('employeeId') employeeId: string) {
+    return this.clockingService.getClockingByEmployee(employeeId);
+  }
 
   @ApiOperation(clockInDoc.operation)
   @ApiResponse(clockInDoc.responses[201])

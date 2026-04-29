@@ -39,13 +39,19 @@ export class EInvoiceService {
   }
 
   async getEInvoiceForSale(saleId: string, tenantId: string) {
-    const { rows } = await this.db.query(eInvoice.getEInvoiceForSale, [saleId, tenantId]);
+    const { rows } = await this.db.query(eInvoice.getEInvoiceForSale, [
+      saleId,
+      tenantId,
+    ]);
 
     return rows.map(this.decryptInvoiceRow);
   }
 
   async getEInvoiceById(invoiceId: string, tenantId: string) {
-    const { rows } = await this.db.query(eInvoice.getEInvoiceById, [invoiceId, tenantId]);
+    const { rows } = await this.db.query(eInvoice.getEInvoiceById, [
+      invoiceId,
+      tenantId,
+    ]);
     return rows[0] ? this.decryptInvoiceRow(rows[0]) : undefined;
   }
 
@@ -53,7 +59,9 @@ export class EInvoiceService {
     return {
       ...row,
       xml_signed: row.xml_signed ? decrypt(row.xml_signed) : null,
-      hacienda_response_xml: row.hacienda_response_xml ? decrypt(row.hacienda_response_xml) : null,
+      hacienda_response_xml: row.hacienda_response_xml
+        ? decrypt(row.hacienda_response_xml)
+        : null,
     };
   }
 
@@ -93,6 +101,13 @@ export class EInvoiceService {
     if (itemsWithoutCabys.length > 0) {
       throw new BadRequestException(
         'Algunos productos no tienen código CABYS asignado',
+      );
+    }
+
+    if (!sale.activity_code) {
+      throw new BadRequestException(
+        'El tenant no tiene un código de actividad económica configurado (campo econ_activity). ' +
+        'Configúrelo con el código registrado ante Hacienda en el perfil del tenant.',
       );
     }
 
@@ -136,6 +151,8 @@ export class EInvoiceService {
       credentials.p12Password,
     );
     const xmlSignedB64 = Buffer.from(xmlSigned).toString('base64');
+
+    this.logger.debug(`[XML base64 sin cifrar] ${xmlSignedB64}`);
 
     const haciendaPayload: HaciendaPayload = {
       clave: key,
@@ -187,12 +204,15 @@ export class EInvoiceService {
         haciendaPayload,
       );
     } catch (sendError) {
-      this.logger.error(`Error enviando a Hacienda (registro ya en BD): ${sendError}`);
+      this.logger.error(
+        `Error enviando a Hacienda (registro ya en BD): ${sendError}`,
+      );
       // No relanzamos: el registro existe, el worker chequeará si Hacienda lo recibió
     }
 
     // 3. Enqueue job para chequear estado
-    const initialDelay = Number(process.env.EINVOICE_INITIAL_CHECK_DELAY_MS) || 5 * 60 * 1000;
+    const initialDelay =
+      Number(process.env.EINVOICE_INITIAL_CHECK_DELAY_MS) || 5 * 60 * 1000;
     await this.queueFacade.enqueue(
       EINVOICE_STATUS_QUEUE,
       'check-status',

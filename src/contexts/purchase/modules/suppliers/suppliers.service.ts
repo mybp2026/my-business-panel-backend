@@ -1,4 +1,9 @@
-import { Inject, Injectable } from '@nestjs/common';
+import {
+  BadRequestException,
+  Inject,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import { CreateSupplierDto } from './dto/create-supplier.dto';
 import { UpdateSupplierDto } from './dto/update-supplier.dto';
 import Database from '@crane-technologies/database/dist/components/Database';
@@ -17,6 +22,7 @@ export class SuppliersService {
     createSupplierDto: CreateSupplierDto,
     userSession: IUserSession,
   ) {
+    const txn = await this.db.transaction();
     try {
       if (!userSession || !userSession.tenant_id) {
         throw new InvalidSessionError('INVALID');
@@ -29,7 +35,18 @@ export class SuppliersService {
         supplier_notes,
       } = createSupplierDto;
 
-      const newSupplier = await this.db.query(suppliers.create, [
+      const branchResult = await txn.query(suppliers.getTenantPrimaryBranch, [
+        userSession.tenant_id,
+      ]);
+
+      const primaryBranchId = branchResult.rows[0]?.branch_id;
+      if (!primaryBranchId) {
+        throw new BadRequestException(
+          'El tenant no tiene una sucursal disponible para asociar el proveedor',
+        );
+      }
+
+      const newSupplier = await txn.query(suppliers.create, [
         supplier_name,
         supplier_contact_info,
         supplier_address,
@@ -37,13 +54,23 @@ export class SuppliersService {
         userSession.tenant_id,
       ]);
 
+      await txn.query(suppliers.createBranchLink, [
+        newSupplier.rows[0].supplier_id,
+        primaryBranchId,
+      ]);
+
+      await txn.commit();
+
       return newSupplier.rows[0];
     } catch (error) {
+      await txn.rollback();
       console.error('Error creating supplier:', error);
       if (error instanceof InvalidSessionError) {
         throw error;
       }
-      throw new Error('Failed to create supplier');
+      throw error instanceof BadRequestException
+        ? error
+        : new Error('Failed to create supplier');
     }
   }
 
@@ -51,57 +78,65 @@ export class SuppliersService {
     createSuppliersDto: CreateSupplierDto[],
     userSession: IUserSession,
   ) {
+    const txn = await this.db.transaction();
     try {
       if (!userSession || !userSession.tenant_id) {
         throw new InvalidSessionError('INVALID');
       }
 
-      const rows = createSuppliersDto.map((dto) => {
-        return [
+      const branchResult = await txn.query(suppliers.getTenantPrimaryBranch, [
+        userSession.tenant_id,
+      ]);
+
+      const primaryBranchId = branchResult.rows[0]?.branch_id;
+      if (!primaryBranchId) {
+        throw new BadRequestException(
+          'El tenant no tiene una sucursal disponible para asociar los proveedores',
+        );
+      }
+
+      const createdSuppliers: Array<{
+        supplier_id: string;
+        supplier_name: string;
+      }> = [];
+
+      for (const dto of createSuppliersDto) {
+        const created = await txn.query(suppliers.create, [
           dto.supplier_name,
           dto.supplier_contact_info,
           dto.supplier_address,
           dto.supplier_notes,
           userSession.tenant_id,
-        ];
-      });
+        ]);
 
-      await this.db.query('BEGIN');
+        const supplier = created.rows[0];
+        await txn.query(suppliers.createBranchLink, [
+          supplier.supplier_id,
+          primaryBranchId,
+        ]);
 
-      await this.db.bulkInsert(
-        'purchase_schema.supplier',
-        [
-          'supplier_name',
-          'supplier_contact_info',
-          'supplier_address',
-          'supplier_notes',
-          'added_by',
-        ],
-        rows,
-        { header: false },
-      );
+        createdSuppliers.push({
+          supplier_id: supplier.supplier_id,
+          supplier_name: supplier.supplier_name,
+        });
+      }
 
-      const tenantsSuppliers = await this.getAllSuppliersByTenant(
-        userSession.tenant_id,
-      );
-
-      await this.db.query('COMMIT');
+      await txn.commit();
 
       return {
         message: 'suppliers added successfully!',
-        count: rows.length,
-        suppliers: tenantsSuppliers.slice(-rows.length).map((supplier) => ({
-          supplier_id: supplier.supplier_id,
-          supplier_name: supplier.supplier_name,
-        })),
+        count: createdSuppliers.length,
+        suppliers: createdSuppliers,
       };
     } catch (error) {
-      await this.db.query('ROLLBACK');
+      await txn.rollback();
       console.error('Error bulk creating suppliers:', error);
       if (error instanceof InvalidSessionError) {
         throw error;
       }
-      throw new Error('Failed to bulk create suppliers');
+      throw error instanceof BadRequestException
+        ? error
+        : new Error('Failed to bulk create suppliers');
     }
   }
 
@@ -125,10 +160,13 @@ export class SuppliersService {
     }
   }
 
-  async getSupplierById(id: string) {
+  async getSupplierById(id: string, tenantId: string) {
     try {
-      const result = await this.db.query(suppliers.getById, [id]);
-      return result.rows[0];
+      const result = await this.db.query(suppliers.getByIdAndTenant, [
+        id,
+        tenantId,
+      ]);
+      return result.rows[0] ?? null;
     } catch (error) {
       console.error(`Error fetching supplier with id ${id}:`, error);
       throw new Error('Failed to fetch supplier');
@@ -138,31 +176,21 @@ export class SuppliersService {
   async updateSupplier(
     supplierId: string,
     updateSupplierDto: UpdateSupplierDto,
+    tenantId: string,
   ) {
-    const { ...updates } = updateSupplierDto;
-
-    const updateKeys = Object.keys(updates).filter(
-      (key) => updates[key as keyof typeof updates] !== undefined,
-    );
-
-    if (updateKeys.length === 0) {
-      throw new Error('No valid fields to update');
+    const existing = await this.getSupplierById(supplierId, tenantId);
+    if (!existing) {
+      throw new NotFoundException('Supplier not found');
     }
 
-    const setClause: string[] = [];
-    const paramsArray: any[] = [];
-    let index = 1;
-
-    for (const key of updateKeys) {
-      const validKey = key as keyof typeof updates;
-      setClause.push(`${key} = $${index}`);
-      paramsArray.push(updates[validKey]);
-      index++;
-    }
-
-    paramsArray.push(supplierId);
-
-    const result = await this.db.query(suppliers.update, paramsArray);
+    const result = await this.db.query(suppliers.update, [
+      updateSupplierDto.supplier_name ?? existing.supplier_name,
+      updateSupplierDto.supplier_contact_info ?? existing.supplier_contact_info,
+      updateSupplierDto.supplier_address ?? existing.supplier_address,
+      updateSupplierDto.supplier_notes ?? existing.supplier_notes,
+      supplierId,
+      tenantId,
+    ]);
 
     return {
       message: 'Supplier updated successfully',
@@ -170,13 +198,23 @@ export class SuppliersService {
     };
   }
 
-  async deleteSupplier(supplierId: string) {
-    const exist = await this.getSupplierById(supplierId);
+  async deleteSupplier(supplierId: string, tenantId: string) {
+    const exist = await this.getSupplierById(supplierId, tenantId);
     if (!exist) {
-      throw new Error('Supplier not found');
+      throw new NotFoundException('Supplier not found');
     }
 
-    const result = await this.db.query(suppliers.delete, [supplierId]);
+    const ordersResult = await this.db.query(suppliers.countOrders, [
+      supplierId,
+    ]);
+
+    if ((ordersResult.rows[0]?.total ?? 0) > 0) {
+      throw new BadRequestException(
+        'No se puede eliminar un proveedor con órdenes de compra asociadas',
+      );
+    }
+
+    const result = await this.db.query(suppliers.delete, [supplierId, tenantId]);
     return {
       message: 'Supplier deleted successfully',
       supplier: result.rows[0],

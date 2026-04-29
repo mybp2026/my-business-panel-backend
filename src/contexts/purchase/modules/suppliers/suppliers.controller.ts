@@ -67,8 +67,11 @@ export class SuppliersController {
   @ApiResponse(getSupplierByIdDoc.responses[200])
   @ApiResponse(getSupplierByIdDoc.responses[401])
   @Get(':id')
-  getSupplierById(@Param('id') id: string) {
-    return this.suppliersService.getSupplierById(id);
+  getSupplierById(
+    @Param('id') id: string,
+    @Session() userSession: IUserSession,
+  ) {
+    return this.suppliersService.getSupplierById(id, userSession.tenant_id);
   }
 
   @ApiOperation(updateSupplierDoc.operation)
@@ -78,15 +81,23 @@ export class SuppliersController {
   updateSupplier(
     @Param('id') id: string,
     @Body() updateSupplierDto: UpdateSupplierDto,
+    @Session() userSession: IUserSession,
   ) {
-    return this.suppliersService.updateSupplier(id, updateSupplierDto);
+    return this.suppliersService.updateSupplier(
+      id,
+      updateSupplierDto,
+      userSession.tenant_id,
+    );
   }
 
   @ApiOperation(deleteSupplierDoc.operation)
   @ApiResponse(deleteSupplierDoc.responses[200])
   @ApiResponse(deleteSupplierDoc.responses[401])
   @Delete(':id')
-  deleteSupplier(@Param('id') id: string) {
-    return this.suppliersService.deleteSupplier(id);
+  deleteSupplier(
+    @Param('id') id: string,
+    @Session() userSession: IUserSession,
+  ) {
+    return this.suppliersService.deleteSupplier(id, userSession.tenant_id);
   }
 }

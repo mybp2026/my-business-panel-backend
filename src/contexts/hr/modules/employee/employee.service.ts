@@ -1,7 +1,7 @@
 import { Inject, Injectable } from '@nestjs/common';
 import { DATABASE } from '@/contexts/general/modules/db/db.provider';
 import Database from '@crane-technologies/database';
-import { Employee, IEmployee } from './interface/employee.interface';
+import { Employee, IEmployee, IEmployeeDetail } from './interface/employee.interface';
 import { hrQueries } from '@hr/hr.queries';
 import { NewEmployeeDto, NewSingleEmployeeDto } from './dto/newEmployeeDto.dto';
 import { CreateFullEmployeeError } from '@/common/errors/create_full_employee.error';
@@ -27,6 +27,12 @@ export class EmployeeService {
     const result = await this.db.query(employee.getById, [employee_id]);
     if (result.rows.length === 0) return null;
 
+    return result.rows[0];
+  }
+
+  async getEmployeeByUserId(user_id: string): Promise<IEmployeeDetail | null> {
+    const result = await this.db.query(employee.getByUserId, [user_id]);
+    if (result.rows.length === 0) return null;
     return result.rows[0];
   }
 
@@ -128,6 +134,7 @@ export class EmployeeService {
       phone,
       email,
       payment_schedule_id,
+      branch_id,
     } = data;
 
     const updatedEmp = await this.db.query(employee.update, [
@@ -137,6 +144,7 @@ export class EmployeeService {
       phone,
       email,
       payment_schedule_id,
+      branch_id,
       employee_id,
     ]);
 

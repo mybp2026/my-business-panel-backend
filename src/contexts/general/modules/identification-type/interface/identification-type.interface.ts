@@ -1,5 +1,5 @@
-export interface DocumentType {
-  document_type_id: string;
+export interface IdentificationType {
+  identification_type_id: string;
   type_name: string;
   description: string;
   ident_code: string;

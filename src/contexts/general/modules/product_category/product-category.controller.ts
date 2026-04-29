@@ -6,6 +6,7 @@ import {
   Param,
   Post,
   Put,
+  Query,
   UseGuards,
 } from '@nestjs/common';
 import { ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
@@ -31,7 +32,29 @@ export class ProductCategoryController {
   @ApiResponse(getAllCategoriesDoc.responses[200])
   @ApiResponse(getAllCategoriesDoc.responses[401])
   @Get()
-  async getAll() {
+  async getAll(
+    @Query('search') search?: string,
+    @Query('cabys_code') cabysCode?: string,
+    @Query('limit') limit?: string,
+    @Query('offset') offset?: string,
+  ) {
+    const parsedLimit = limit ? parseInt(limit, 10) : 100;
+    const parsedOffset = offset ? parseInt(offset, 10) : 0;
+
+    if (cabysCode !== undefined) {
+      return this.productCategoryService.getAllCategoriesByCabysCode(
+        cabysCode || null,
+        parsedLimit,
+        parsedOffset,
+      );
+    }
+    if (limit !== undefined || offset !== undefined || search !== undefined) {
+      return this.productCategoryService.getAllCategoriesPaginated(
+        search || null,
+        parsedLimit,
+        parsedOffset,
+      );
+    }
     return this.productCategoryService.getAllCategories();
   }
 
