@@ -4,7 +4,7 @@ from sqlalchemy.engine import Engine, Connection
 from typing import Dict, Optional, List
 
 class DatabaseClient:
-    tax_rates: Dict[str, float]
+    tax_rates: Dict[float, int]
     engine: Engine
     permanent_connection: Optional[Connection] = None
     
@@ -44,33 +44,38 @@ class DatabaseClient:
                 )
             
             connection.commit()
- 
 
-    def insert_category(self, code: str, description: str, hierarchy_level: int, parent_code: str | None = None):
+    def bulk_insert_categories(self, categories: List[Dict]):
+        """Inserta categorías en bloques."""
         if self.permanent_connection is None:
             raise Exception("Database connection is not established.")
-        self.permanent_connection.execute(
-            text("""
-                 INSERT INTO general_schema.product_category 
-                 (product_category_id, category_name, hierarchy_level, parent_category_id) 
-                 VALUES (:product_category_id, :category_name, :hierarchy_level, :parent_category_id)
-                 ON CONFLICT (product_category_id) DO NOTHING
-                """),
-            {"product_category_id": code, "category_name": description, "hierarchy_level": hierarchy_level, "parent_category_id": parent_code}
-        )
+        
+        query = text("""
+            INSERT INTO general_schema.product_category 
+            (product_category_id, category_name, hierarchy_level, parent_category_id) 
+            VALUES (:product_category_id, :category_name, :hierarchy_level, :parent_category_id)
+            ON CONFLICT (product_category_id) DO NOTHING
+        """)
+        
+        self.permanent_connection.execute(query, categories)
 
-    def insert_product(self, code: str, description: str, tax_rate: float, category_code: str):
+    def bulk_insert_products(self, products: List[Dict]):
+        """Inserta productos en bloques."""
         if self.permanent_connection is None:
             raise Exception("Database connection is not established.")
-        tax_rate_id = self.tax_rates.get(tax_rate)
-        if tax_rate_id is None:
-            raise ValueError(f"Tax rate {tax_rate} not found in tax_rates mapping.")
-        self.permanent_connection.execute(
-            text("""
-                 INSERT INTO general_schema.product 
-                 (cabys_code, product_name, tax_rate_id, product_category_id, is_exonerated) 
-                 VALUES (:code, :description, :tax_rate, :category_code, :is_exonerated)
-                 ON CONFLICT (cabys_code) DO NOTHING
-                 """),
-            {"code": code, "description": description, "tax_rate": tax_rate_id, "category_code": category_code, "is_exonerated": tax_rate == 0.0}
-        )
+        
+        query = text("""
+            INSERT INTO general_schema.product 
+            (cabys_code, product_name, tax_rate_id, product_category_id, is_exonerated) 
+            VALUES (:code, :description, :tax_rate, :category_code, :is_exonerated)
+            ON CONFLICT (cabys_code) DO NOTHING
+        """)
+        
+        # Convertimos las tasas de interés a sus IDs correspondientes
+        for p in products:
+            rate_val = p['tax_rate_value']
+            p['tax_rate'] = self.tax_rates.get(rate_val, self.tax_rates.get(0.0))
+            p['is_exonerated'] = (rate_val == 0.0)
+            del p['tax_rate_value']
+
+        self.permanent_connection.execute(query, products)
