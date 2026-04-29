@@ -96,6 +96,12 @@ export class ClockingService {
       throw new EmployeeNotFoundError(employeeId);
     }
 
+    const openClock = await this.db.query(clocking.get_open, [employeeId]);
+
+    if (openClock.rows.length === 0) {
+      return { message: 'No active clock-in found for this employee' };
+    }
+
     const turn = await this.db.query(turns.getOut, [emp.turn_id]);
 
     const clockOutRecord = await this.db.query(clocking.clock_out, [

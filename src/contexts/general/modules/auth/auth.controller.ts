@@ -15,7 +15,7 @@ export class AuthController {
   @ApiResponse(loginDoc.responses[200])
   @ApiResponse(loginDoc.responses[401])
   @Post('/login')
-  async login(@Body() loginDto: LoginDto, @Res() response: Response) {
+  async login(@Body() loginDto: LoginDto, @Res({ passthrough: true }) response: Response) {
     const { user, token } = await this.authService.login(loginDto);
     response.cookie('auth_token', token, {
       httpOnly: true,
@@ -23,7 +23,7 @@ export class AuthController {
       maxAge: 24 * 60 * 60 * 1000, // 1 day
       //   sameSite: 'strict',
     });
-    return response.json({ message: 'Login successful', user }).status(200);
+    return { message: 'Login successful', user };
   }
 
   @ApiOperation(logoutDoc.operation)
@@ -31,8 +31,8 @@ export class AuthController {
   @ApiResponse(logoutDoc.responses[401])
   @UseGuards(AuthenticationGuard)
   @Post('/logout')
-  logout(@Res() response: Response) {
+  logout(@Res({ passthrough: true }) response: Response) {
     response.clearCookie('auth_token');
-    return response.json({ message: 'Logout successful' }).status(200);
+    return { message: 'Logout successful' };
   }
 }
