@@ -36,16 +36,17 @@ console.log(`🔗 Conectando a la base de datos...`);
 const cabysLoaderDir = path.join(__dirname, '../src/common/utilities/cabys_loader');
 
 // 3. Ejecutar el comando de Python
-// Pasamos el dbUrl directamente como argumento para evitar problemas de shell
+// Nota: Usamos --header 1 porque el Excel tiene una fila vacía al inicio
 const loader = spawn('python', [
   '.', 
   'CABYS.xlsx', 
   '--conn-string', dbUrl, 
   '--reload-rates', 
-  '--last-column', '8'
+  '--header', '1',
+  '--last-column', '19'
 ], {
   cwd: cabysLoaderDir,
-  stdio: 'inherit', // Esto permite ver el progreso del script de Python en tiempo real
+  stdio: 'inherit', 
   shell: true
 });
 
