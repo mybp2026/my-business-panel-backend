@@ -14,6 +14,14 @@ NEW_MIGRATIONS=(
   "migrations/pos/014-add-sale-traceability.sql"
   "migrations/general/017-tenant-hacienda-config.sql"
   "migrations/hr/001-make-contract-turn-id-nullable.sql"
+  "migrations/hr/002-add-identification-type-to-employee.sql"
+  "migrations/hr/003-ensure-contract-turn-id-nullable.sql"
+  "migrations/general/029-add-bank-transfer-payment-method.sql"
+  "migrations/general/030-create-special-code.sql"
+  "migrations/general/028-ensure-product-variant-cost-price.sql"
+  "migrations/pos/017-sale-customer-nullable.sql"
+  "migrations/pos/018-customer-payment-customer-nullable.sql"
+  "migrations/purchase/007-apply-inventory-on-delivery.sql"
 )
 
 for f in "${NEW_MIGRATIONS[@]}"; do

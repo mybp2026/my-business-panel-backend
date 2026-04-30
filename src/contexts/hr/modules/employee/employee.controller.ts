@@ -6,6 +6,7 @@ import {
   Param,
   Patch,
   Post,
+  Query,
 } from '@nestjs/common';
 import { ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
 import { EmployeeService } from './employee.service';
@@ -28,6 +29,25 @@ export class EmployeeController {
   @Get('user/:user_id')
   async getEmployeeByUserId(@Param('user_id') user_id: string) {
     return this.employeeService.getEmployeeByUserId(user_id);
+  }
+
+  // Uniqueness probe — checks the global UNIQUE constraints on employee
+  // (doc_number, email). For phone, the column is not unique at the database
+  // level but we still want the frontend to warn about repetitions inside the
+  // same tenant.
+  @Get('availability')
+  async checkAvailability(
+    @Query('field') field: string,
+    @Query('value') value: string,
+    @Query('tenant_id') tenantId?: string,
+    @Query('exclude_id') excludeId?: string,
+  ) {
+    return this.employeeService.checkAvailability(
+      field,
+      value,
+      tenantId,
+      excludeId,
+    );
   }
 
   @ApiOperation(getEmployeesByTenantDoc.operation)

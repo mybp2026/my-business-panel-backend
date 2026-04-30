@@ -375,8 +375,8 @@ export const generalQueryDefs = {
         )
       `,
     create: `
-      INSERT INTO general_schema.product_variant (tenant_id, sku, variant_name, cabys_code, unit_price)
-      SELECT $1, $2, $3, $4, $5
+      INSERT INTO general_schema.product_variant (tenant_id, sku, variant_name, cabys_code, unit_price, cost_price)
+      SELECT $1, $2, $3, $4, $5, COALESCE($6, 0)
       WHERE NOT EXISTS (
         SELECT 1 FROM general_schema.product_variant pv
         WHERE pv.tenant_id = $1
@@ -876,6 +876,79 @@ export const generalQueryDefs = {
       WHERE tenant_id = $1
     `,
   },
+
+  onboardingAvailability: {
+    /**
+     * Endpoints sin sesión usados durante el onboarding para detectar
+     * conflictos antes de comprometer la transacción de creación. Cada
+     * query devuelve filas si el valor ya está tomado.
+     */
+    userEmailExists: `
+      SELECT 1 FROM general_schema.users WHERE email = $1
+      UNION ALL
+      SELECT 1 FROM hr_schema.employee WHERE email = $1
+      LIMIT 1
+    `,
+    employeeDocExists: `
+      SELECT 1 FROM hr_schema.employee WHERE doc_number = $1 LIMIT 1
+    `,
+    tenantIdentificationExists: `
+      SELECT 1 FROM general_schema.tenant WHERE identification = $1 LIMIT 1
+    `,
+    tenantNameExists: `
+      SELECT 1 FROM general_schema.tenant WHERE LOWER(tenant_name) = LOWER($1) LIMIT 1
+    `,
+  },
+
+  specialCode: {
+    listAll: `
+      SELECT
+        sc.special_code_id, sc.code, sc.description,
+        sc.is_used, sc.tenant_id, sc.used_at, sc.expires_at,
+        sc.created_by, sc.created_at, sc.updated_at,
+        t.tenant_name AS used_by_tenant_name,
+        creator.email AS created_by_email
+      FROM general_schema.special_code sc
+      LEFT JOIN general_schema.tenant t ON t.tenant_id = sc.tenant_id
+      LEFT JOIN general_schema.users creator ON creator.user_id = sc.created_by
+      ORDER BY sc.created_at DESC
+    `,
+    byCode: `
+      SELECT special_code_id, code, description, is_used, tenant_id,
+             used_at, expires_at, created_by, created_at, updated_at
+      FROM general_schema.special_code
+      WHERE code = $1
+      LIMIT 1
+    `,
+    create: `
+      INSERT INTO general_schema.special_code (code, description, created_by, expires_at)
+      VALUES ($1, $2, $3, $4)
+      RETURNING special_code_id, code, description, is_used, tenant_id,
+                used_at, expires_at, created_by, created_at, updated_at
+    `,
+    /**
+     * Marca un código como usado de forma atómica. Solo afecta filas con
+     * is_used = FALSE para impedir doble canje aunque dos onboardings
+     * compitan al mismo tiempo. Devuelve cero filas si el código ya fue
+     * consumido o no existe.
+     */
+    consume: `
+      UPDATE general_schema.special_code
+      SET is_used = TRUE,
+          tenant_id = $2,
+          used_at = NOW(),
+          updated_at = NOW()
+      WHERE code = $1
+        AND is_used = FALSE
+        AND (expires_at IS NULL OR expires_at > NOW())
+      RETURNING special_code_id, code, tenant_id, used_at
+    `,
+    delete: `
+      DELETE FROM general_schema.special_code
+      WHERE special_code_id = $1 AND is_used = FALSE
+      RETURNING special_code_id
+    `,
+  },
 };
 
 export const generalQueries = createQueries(generalQueryDefs);
@@ -896,6 +969,7 @@ export const bulkProducts = [
   'variant_name',
   'cabys_code',
   'unit_price',
+  'cost_price',
 ];
 
 export const bulkAttributeAssignations = [

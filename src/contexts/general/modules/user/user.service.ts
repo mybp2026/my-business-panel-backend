@@ -71,6 +71,24 @@ export class UserService {
     return fetchedData.rows[0];
   }
 
+  async checkEmailAvailability(
+    email: string,
+    excludeId?: string,
+  ): Promise<{ exists: boolean }> {
+    if (!email) return { exists: false };
+
+    const params: any[] = [email];
+    let query = `SELECT 1 FROM general_schema.users WHERE email = $1`;
+    if (excludeId) {
+      params.push(excludeId);
+      query += ` AND user_id <> $2`;
+    }
+    query += ' LIMIT 1';
+
+    const result = await this.db.query(query, params);
+    return { exists: result.rows.length > 0 };
+  }
+
   async getUsersByTenant(tenant_id: string): Promise<IUserResult[]> {
     if (isUUID(tenant_id) === false) throw new InvalidTenantError(tenant_id);
 
@@ -139,6 +157,7 @@ export class UserService {
           employeeInfo.email,
           employeeInfo.payment_schedule_id,
           employeeInfo.branch_id,
+          employeeInfo.identification_type_id ?? 1,
         ]);
 
         if (newEmployee.rows.length === 0) {
@@ -242,6 +261,7 @@ export class UserService {
           first_name,
           last_name,
           doc_number,
+          identification_type_id,
           phone,
           email,
           payment_schedule_id,
@@ -253,6 +273,7 @@ export class UserService {
           first_name,
           last_name,
           doc_number,
+          identification_type_id ?? 1,
           phone,
           email,
           payment_schedule_id,
@@ -269,6 +290,7 @@ export class UserService {
           'first_name',
           'last_name',
           'doc_number',
+          'identification_type_id',
           'phone',
           'email',
           'payment_schedule_id',

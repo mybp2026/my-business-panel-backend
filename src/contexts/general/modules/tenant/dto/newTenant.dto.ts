@@ -92,9 +92,14 @@ export class OnboardingHaciendaDto {
 }
 
 export class OnboardingSubscriptionDto {
-  @IsNotEmpty()
+  /**
+   * stripe_payment_method_id es opcional cuando el onboarding usa un
+   * special_code: ese flujo salta Stripe por completo. Cuando NO hay
+   * código, sigue siendo obligatorio.
+   */
+  @IsOptional()
   @IsString()
-  stripe_payment_method_id!: string;
+  stripe_payment_method_id?: string;
 
   @IsNotEmpty()
   @IsString()
@@ -119,6 +124,15 @@ export class OnboardingSubscriptionDto {
   @IsNotEmpty()
   @IsDateString()
   end_date!: string;
+
+  /**
+   * Si viene presente, el flujo intenta canjear el código en lugar de
+   * cobrar por Stripe. La transacción de onboarding lo marca como
+   * consumido atómicamente y aborta si está usado o vencido.
+   */
+  @IsOptional()
+  @IsString()
+  special_code?: string;
 }
 
 // ── Main DTO ────────────────────────────────────────────────────────────────

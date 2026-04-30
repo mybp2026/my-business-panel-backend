@@ -71,8 +71,8 @@ export class PromosService {
     }
 
     const promotionId = promo.rows[0].promotion_id;
-    rules.promotion_id = promotionId;
-    const rule = await this.insertRules(rules);
+    const rulesPayload: PromoRules = { ...(rules ?? {}), promotion_id: promotionId };
+    const rule = await this.insertRules(rulesPayload);
 
     if (targets && targets.length > 0) {
       await this.replaceTargets(promotionId, tenant_id, targets);

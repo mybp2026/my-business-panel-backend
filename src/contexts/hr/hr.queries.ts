@@ -47,6 +47,7 @@ export const hrQueryDefs = {
         e.first_name,
         e.last_name,
         e.doc_number,
+        e.identification_type_id,
         e.phone,
         e.email,
         e.payment_schedule_id,
@@ -84,8 +85,9 @@ export const hrQueryDefs = {
         phone = COALESCE($4, phone),
         email = COALESCE($5, email),
         payment_schedule_id = COALESCE($6, payment_schedule_id),
-        branch_id = COALESCE($7, branch_id)
-      WHERE employee_id = $8
+        branch_id = COALESCE($7, branch_id),
+        identification_type_id = COALESCE($8, identification_type_id)
+      WHERE employee_id = $9
       RETURNING employee_id
     `,
     delete: `
@@ -96,22 +98,23 @@ export const hrQueryDefs = {
     `,
     full: `
     SELECT hr_schema.create_new_employee(
-      $1::date,           
-      $2::date,           
-      $3::integer,        
-      $4::numeric,        
-      $5::text,           
+      $1::date,
+      $2::date,
+      $3::integer,
+      $4::numeric,
+      $5::text,
       $6::integer,
       $7::integer,
-      $8::uuid,           
-      $9::uuid,           
-      $10::varchar,        
-      $11::varchar,       
-      $12::varchar,       
-      $13::varchar,       
-      $14::varchar,       
-      $15::integer,        
-      $16::uuid        
+      $8::uuid,
+      $9::uuid,
+      $10::varchar,
+      $11::varchar,
+      $12::varchar,
+      $13::varchar,
+      $14::varchar,
+      $15::integer,
+      $16::uuid,
+      $17::integer
     ) AS employee_id
   `,
   },

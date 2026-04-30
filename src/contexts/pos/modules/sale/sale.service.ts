@@ -178,7 +178,7 @@ export class SaleService {
 
         await this.dInvoiceService.createDInvoice(
           {
-            tenant_customer_id: data.tenant_customer_id,
+            tenant_customer_id: data.tenant_customer_id ?? null,
             currency_id: data.currency_id,
             subtotal_amount: data.subtotal_amount,
             tax_amount: data.tax_amount,

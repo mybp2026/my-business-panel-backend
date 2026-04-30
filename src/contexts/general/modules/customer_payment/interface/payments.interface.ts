@@ -1,5 +1,6 @@
 export interface Payment {
-  tenant_customer_id: string;
+  /** Optional: walk-in / anonymous sales pay without a registered customer. */
+  tenant_customer_id?: string | null;
   sale_id?: string;
   payment_method_id: number;
   is_points_redemption: boolean;
