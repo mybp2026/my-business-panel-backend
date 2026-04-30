@@ -1,4 +1,4 @@
-import { Inject, Injectable } from '@nestjs/common';
+import { BadRequestException, Inject, Injectable } from '@nestjs/common';
 import { DATABASE } from '@/contexts/general/modules/db/db.provider';
 import Database from '@crane-technologies/database';
 import { Employee, IEmployee, IEmployeeDetail } from './interface/employee.interface';
@@ -36,6 +36,48 @@ export class EmployeeService {
     return result.rows[0];
   }
 
+  async checkAvailability(
+    field: string,
+    value: string,
+    tenantId?: string,
+    excludeId?: string,
+  ): Promise<{ exists: boolean }> {
+    const allowedFields: Record<string, { column: string; tenantScoped: boolean }> = {
+      doc_number: { column: 'doc_number', tenantScoped: false },
+      email: { column: 'email', tenantScoped: false },
+      phone: { column: 'phone', tenantScoped: true },
+    };
+
+    const def = allowedFields[field];
+    if (!def) {
+      throw new BadRequestException(
+        `Field '${field}' no soportado. Use doc_number | email | phone.`,
+      );
+    }
+    if (!value) return { exists: false };
+
+    const params: any[] = [value];
+    let where = `${def.column} = $1`;
+
+    if (def.tenantScoped) {
+      if (!tenantId) {
+        throw new BadRequestException('tenant_id es requerido para phone');
+      }
+      params.push(tenantId);
+      where += ` AND tenant_id = $${params.length}`;
+    }
+    if (excludeId) {
+      params.push(excludeId);
+      where += ` AND employee_id <> $${params.length}`;
+    }
+
+    const result = await this.db.query(
+      `SELECT 1 FROM hr_schema.employee WHERE ${where} LIMIT 1`,
+      params,
+    );
+    return { exists: result.rows.length > 0 };
+  }
+
   async getEmployeesByBranchAndTenant(
     branchId: string,
     tenantId: string,
@@ -58,6 +100,7 @@ export class EmployeeService {
       first_name,
       last_name,
       doc_number,
+      identification_type_id,
       phone,
       email,
       payment_schedule_id,
@@ -81,6 +124,7 @@ export class EmployeeService {
       email,
       payment_schedule_id,
       branch_id,
+      identification_type_id ?? 1,
     ]);
 
     if (newEmp.rowCount === 0) return new CreateFullEmployeeError();
@@ -131,6 +175,7 @@ export class EmployeeService {
       first_name,
       last_name,
       doc_number,
+      identification_type_id,
       phone,
       email,
       payment_schedule_id,
@@ -145,6 +190,7 @@ export class EmployeeService {
       email,
       payment_schedule_id,
       branch_id,
+      identification_type_id ?? null,
       employee_id,
     ]);
 

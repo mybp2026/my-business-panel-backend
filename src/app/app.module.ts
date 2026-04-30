@@ -30,6 +30,7 @@ import { SegmentModule } from '@/contexts/general/modules/segment/segment.module
 import { BranchModule } from '@/contexts/general/modules/branch/branch.module';
 import { TenantHaciendaConfigModule } from '@/contexts/general/modules/tenant_hacienda_config/tenant-hacienda-config.module';
 import { RegionModule } from '@/contexts/general/modules/region/region.module';
+import { SpecialCodeModule } from '@/contexts/general/modules/special_code/special_code.module';
 
 // POS Modules
 import { SaleModule } from '@/contexts/pos/modules/sale/sale.module';
@@ -121,6 +122,7 @@ import { ExpenseModule } from '@/contexts/finances/modules/expense/expense.modul
     EInvoiceModule,
     TenantHaciendaConfigModule,
     RegionModule,
+    SpecialCodeModule,
     AccountingModule,
     ExpenseModule,
     ReportingModule,

@@ -270,6 +270,8 @@ export class ProductService {
           values.push(
             valInsert === undefined ? 'No existe descripcion' : valInsert,
           );
+        } else if (k === 'cost_price') {
+          values.push(valInsert === undefined || valInsert === null ? 0 : valInsert);
         } else {
           values.push(valInsert === undefined ? null : valInsert);
         }

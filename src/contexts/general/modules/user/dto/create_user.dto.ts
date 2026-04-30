@@ -61,6 +61,10 @@ export class EmployeeInfoDto {
   @IsString()
   doc_number!: string;
 
+  @IsOptional()
+  @IsNumber()
+  identification_type_id?: number;
+
   @IsNotEmpty()
   @IsString()
   phone!: string;

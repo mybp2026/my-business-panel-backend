@@ -47,6 +47,25 @@ export class CustomerController {
     );
   }
 
+  // Uniqueness probe used by the frontend before submitting create/edit forms.
+  // Scoped to a tenant because the unique constraints on tenant_customer are
+  // (tenant_id, document_number), (tenant_id, email) and (tenant_id, phone).
+  @Get('availability')
+  @UseGuards(AuthenticationGuard)
+  async checkAvailability(
+    @Query('tenant_id') tenantId: string,
+    @Query('field') field: string,
+    @Query('value') value: string,
+    @Query('exclude_id') excludeId?: string,
+  ) {
+    return this.customerService.checkAvailability(
+      tenantId,
+      field,
+      value,
+      excludeId,
+    );
+  }
+
   @ApiOperation(getAllCustomersForTenantDoc.operation)
   @ApiResponse(getAllCustomersForTenantDoc.responses[200])
   @ApiResponse(getAllCustomersForTenantDoc.responses[401])

@@ -1,4 +1,4 @@
-import { Inject, Injectable } from '@nestjs/common';
+import { BadRequestException, Inject, Injectable } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { DATABASE } from '@/contexts/general/modules/db/db.provider';
 import Database from '@crane-technologies/database';
@@ -9,6 +9,7 @@ import { generalQueries } from '@general/general.queries';
 import { hrQueries } from '@hr/hr.queries';
 import { encrypt } from '@/common/crypto/aes-256-gcm';
 import { StateService } from '../state/state.service';
+import { SpecialCodeService } from '../special_code/special_code.service';
 import { NewTenantDto } from './dto/newTenant.dto';
 import { UpdateTenantDto } from './dto/updateTenant.dto';
 import { Tenant } from './interface/tenant.interface';
@@ -31,6 +32,7 @@ export class TenantService {
     @Inject('STRIPE') private readonly stripe: Stripe,
     private readonly jwtService: JwtService,
     private readonly stateService: StateService,
+    private readonly specialCodeService: SpecialCodeService,
   ) {
     this.tiers = {
       standard: process.env.STANDARD,
@@ -56,6 +58,32 @@ export class TenantService {
   async getAllTenants(): Promise<Tenant[]> {
     const { rows } = await this.db.query(tenant.all);
     return rows;
+  }
+
+  /**
+   * Sondeo público (sin sesión) usado por el onboarding para avisarle al
+   * usuario que un correo / documento / identificación / nombre comercial
+   * ya está tomado antes de que llene el formulario completo. NO previene
+   * race conditions: la transacción final sigue siendo la fuente de verdad
+   * vía las constraints UNIQUE.
+   */
+  async checkOnboardingAvailability(
+    field: 'email' | 'doc_number' | 'tenant_identification' | 'tenant_name',
+    value: string,
+  ): Promise<{ exists: boolean }> {
+    const trimmed = (value ?? '').trim();
+    if (!trimmed) return { exists: false };
+
+    const { onboardingAvailability } = generalQueries;
+    const queryByField = {
+      email: onboardingAvailability.userEmailExists,
+      doc_number: onboardingAvailability.employeeDocExists,
+      tenant_identification: onboardingAvailability.tenantIdentificationExists,
+      tenant_name: onboardingAvailability.tenantNameExists,
+    } as const;
+
+    const result = await this.db.query(queryByField[field], [trimmed]);
+    return { exists: result.rows.length > 0 };
   }
 
   async getTenantById(tenantId: string): Promise<Tenant> {
@@ -210,6 +238,7 @@ export class TenantService {
         user.email,
         paymentScheduleId,
         branchId,
+        tenantInfo.identification_type_id ?? 1, // identification_type_id del admin
       ]);
       if (employeeRows.length === 0) throw new CreateFullEmployeeError();
 
@@ -223,72 +252,130 @@ export class TenantService {
         encrypt(hacienda.p12_password),
       ]);
 
-      // ── 5. Operaciones con Stripe (externas) ─────────────────────────────
-      const newCustomer = await this.stripe.customers.create({
-        email: tenantInfo.contact_email,
-        name: tenantInfo.tenant_name,
-        metadata: { tenant_id: tenantId },
-      });
-      const tenantStripeId = newCustomer.id;
-
-      await this.stripe.paymentMethods.attach(
-        subscription.stripe_payment_method_id,
-        { customer: tenantStripeId },
-      );
-      await this.stripe.customers.update(tenantStripeId, {
-        invoice_settings: {
-          default_payment_method: subscription.stripe_payment_method_id,
-        },
-      });
-
-      const priceId =
-        this.tiers[subscription.plan.toLowerCase() as keyof typeof this.tiers];
+      // ── 5. Pago: Stripe o bypass por special_code ─────────────────────────
+      const usingSpecialCode = !!subscription.special_code;
       const tenantPaymentId = randomUUID();
 
-      const stripeSubscription = await this.stripe.subscriptions.create({
-        customer: tenantStripeId,
-        items: [{ price: priceId }],
-        default_payment_method: subscription.stripe_payment_method_id,
-        payment_behavior: 'default_incomplete',
-        payment_settings: {
-          payment_method_types: ['card'],
-          save_default_payment_method: 'on_subscription',
-        },
-        metadata: { tenantPaymentId, tenantId },
-        expand: ['latest_invoice.confirmation_secret'],
-      });
-      stripeSubscriptionIdToCompensate = stripeSubscription.id;
+      let stripeSubscriptionId: string | null = null;
+      let stripeInvoiceId: string | null = null;
+      let stripeStatus: string | null = null;
+      let clientSecret: string | null = null;
 
-      const invoice = stripeSubscription.latest_invoice as Stripe.Invoice;
-      if (!invoice) throw new Error('No invoice found on subscription');
-
-      const clientSecret = invoice.confirmation_secret?.client_secret ?? null;
-      if (!clientSecret)
-        throw new Error('Could not obtain payment client_secret from Stripe');
-
-      // ── 6. Registrar pago y suscripción en BD (misma transacción) ─────────
-      await txn.query(tenant.updateStripeId, [tenantStripeId, tenantId]);
-
-      await txn.rawQuery(
-        `INSERT INTO general_schema.tenant_payment
-           (tenant_payment_id, tenant_id, payment_method_id, payment_amount, details)
-         VALUES ($1, $2, $3, $4, $5)`,
-        [
-          tenantPaymentId,
+      if (usingSpecialCode) {
+        // Canje atómico: si el código no existe, ya fue usado o expiró,
+        // se lanza una excepción y el rollback general revierte tenant +
+        // branch + usuario.
+        await this.specialCodeService.consume(
+          subscription.special_code!,
           tenantId,
-          subscription.payment_method_id,
-          subscription.payment_amount,
-          `Suscripción plan ${subscription.plan} - onboarding`,
-        ],
-      );
+          txn,
+        );
 
-      await txn.query(subscriptions.createSubscription, [
-        tenantId,
-        subscription.subscription_type_id,
-        tenantPaymentId,
-        subscription.start_date,
-        subscription.end_date,
-      ]);
+        // El registro de pago queda con el método indicado (típicamente un
+        // método "Special Code" del catálogo) y el detalle aclara que se
+        // usó un código de bypass — no hay cargo a Stripe.
+        await txn.rawQuery(
+          `INSERT INTO general_schema.tenant_payment
+             (tenant_payment_id, tenant_id, payment_method_id, payment_amount, details)
+           VALUES ($1, $2, $3, $4, $5)`,
+          [
+            tenantPaymentId,
+            tenantId,
+            subscription.payment_method_id,
+            0,
+            `Suscripción plan ${subscription.plan} - onboarding (special_code: ${subscription.special_code})`,
+          ],
+        );
+
+        await txn.query(subscriptions.createSubscription, [
+          tenantId,
+          subscription.subscription_type_id,
+          tenantPaymentId,
+          subscription.start_date,
+          subscription.end_date,
+        ]);
+
+        stripeStatus = 'special_code';
+      } else {
+        if (!subscription.stripe_payment_method_id) {
+          throw new BadRequestException(
+            'stripe_payment_method_id es obligatorio cuando no se usa un código especial.',
+          );
+        }
+
+        // Operaciones con Stripe (externas a la transacción de BD).
+        const newCustomer = await this.stripe.customers.create({
+          email: tenantInfo.contact_email,
+          name: tenantInfo.tenant_name,
+          metadata: { tenant_id: tenantId },
+        });
+        const tenantStripeId = newCustomer.id;
+
+        await this.stripe.paymentMethods.attach(
+          subscription.stripe_payment_method_id,
+          { customer: tenantStripeId },
+        );
+        await this.stripe.customers.update(tenantStripeId, {
+          invoice_settings: {
+            default_payment_method: subscription.stripe_payment_method_id,
+          },
+        });
+
+        const priceId =
+          this.tiers[
+            subscription.plan.toLowerCase() as keyof typeof this.tiers
+          ];
+
+        const stripeSubscription = await this.stripe.subscriptions.create({
+          customer: tenantStripeId,
+          items: [{ price: priceId }],
+          default_payment_method: subscription.stripe_payment_method_id,
+          payment_behavior: 'default_incomplete',
+          payment_settings: {
+            payment_method_types: ['card'],
+            save_default_payment_method: 'on_subscription',
+          },
+          metadata: { tenantPaymentId, tenantId },
+          expand: ['latest_invoice.confirmation_secret'],
+        });
+        stripeSubscriptionIdToCompensate = stripeSubscription.id;
+        stripeSubscriptionId = stripeSubscription.id;
+        stripeStatus = stripeSubscription.status;
+
+        const invoice = stripeSubscription.latest_invoice as Stripe.Invoice;
+        if (!invoice) throw new Error('No invoice found on subscription');
+        stripeInvoiceId = invoice.id ?? null;
+
+        clientSecret = invoice.confirmation_secret?.client_secret ?? null;
+        if (!clientSecret)
+          throw new Error(
+            'Could not obtain payment client_secret from Stripe',
+          );
+
+        // ── 6. Registrar pago y suscripción en BD (misma transacción) ─────
+        await txn.query(tenant.updateStripeId, [tenantStripeId, tenantId]);
+
+        await txn.rawQuery(
+          `INSERT INTO general_schema.tenant_payment
+             (tenant_payment_id, tenant_id, payment_method_id, payment_amount, details)
+           VALUES ($1, $2, $3, $4, $5)`,
+          [
+            tenantPaymentId,
+            tenantId,
+            subscription.payment_method_id,
+            subscription.payment_amount,
+            `Suscripción plan ${subscription.plan} - onboarding`,
+          ],
+        );
+
+        await txn.query(subscriptions.createSubscription, [
+          tenantId,
+          subscription.subscription_type_id,
+          tenantPaymentId,
+          subscription.start_date,
+          subscription.end_date,
+        ]);
+      }
 
       // ── 7. Commit ─────────────────────────────────────────────────────────
       await txn.commit();
@@ -311,10 +398,11 @@ export class TenantService {
         branch: newBranch,
         user: { user_id: userId, email: user.email },
         subscription: {
-          subscriptionId: stripeSubscription.id,
+          subscriptionId: stripeSubscriptionId,
           clientSecret,
-          invoice: invoice.id,
-          status: stripeSubscription.status,
+          invoice: stripeInvoiceId,
+          status: stripeStatus,
+          usingSpecialCode,
         },
         token,
       };

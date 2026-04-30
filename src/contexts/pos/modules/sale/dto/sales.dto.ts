@@ -17,9 +17,9 @@ export class NewSingleSaleDto {
   @IsUUID()
   branch_id!: string;
 
-  @IsNotEmpty()
+  @IsOptional()
   @IsUUID()
-  tenant_customer_id!: string;
+  tenant_customer_id?: string | null;
 
   @IsOptional()
   @IsUUID()
@@ -71,9 +71,9 @@ export class FullSaleDto {
   @IsUUID()
   tenant_id!: string;
 
-  @IsNotEmpty()
+  @IsOptional()
   @IsUUID()
-  tenant_customer_id!: string;
+  tenant_customer_id?: string | null;
 
   @IsOptional()
   @IsUUID()

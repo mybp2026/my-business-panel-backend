@@ -52,11 +52,14 @@ export class WarehouseService {
         `Branch with ID ${createWarehouseDto.branch_id} not found for Tenant with ID ${tenant_id}`,
       );
 
+    // Always create as auxiliary bodega — the sales-floor warehouse is
+    // provisioned automatically by inventory_schema.fn_branch_create_warehouse
+    // when a branch is inserted. We never let the API client pass is_branch.
     const { rows } = await this.db.query(inventoryQueries.create, [
       createWarehouseDto.branch_id,
       createWarehouseDto.warehouse_name,
       createWarehouseDto.warehouse_address,
-      createWarehouseDto.is_branch ?? false,
+      false,
     ]);
 
     return rows[0] ?? new NotFoundException('Warehouse could not be created');
@@ -80,11 +83,13 @@ export class WarehouseService {
         `Warehouse with ID ${warehouse_id} not found for Tenant with ID ${tenant_id}`,
       );
 
+    // Pin is_branch to its current value so the type of warehouse can never
+    // be toggled through this endpoint.
     const { rows } = await this.db.query(inventoryQueries.update, [
       warehouse_id,
       updateWarehouseDto.warehouse_name ?? null,
       updateWarehouseDto.warehouse_address ?? null,
-      updateWarehouseDto.is_branch ?? null,
+      null,
     ]);
     return rows[0];
   }
@@ -101,11 +106,17 @@ export class WarehouseService {
       warehouse_id,
       tenant_id,
     ]);
-    // console.log(warehouse.rows);
     if (warehouse.rowCount === 0)
       throw new NotFoundException(
         `Warehouse with ID ${warehouse_id} not found for Tenant with ID ${tenant_id}`,
       );
+
+    if (warehouse.rows[0]?.is_branch) {
+      throw new BadRequestException(
+        'No se puede eliminar el piso de venta de una sucursal. ' +
+          'Elimina la sucursal asociada para retirar este almacén.',
+      );
+    }
 
     await this.db.query(inventoryQueries.delete, [warehouse_id]);
     return { message: 'Warehouse deleted successfully' };

@@ -258,12 +258,58 @@ export const purchaseQueryDefs = {
               poi.quantity_ordered,
               poi.unit_price,
               ROUND((poi.quantity_ordered * poi.unit_price)::numeric, 3) AS line_total,
+              -- Sales analytics: aggregates pulled from completed sale_items
+              -- for the same tenant + variant since the order was created.
+              -- Lifetime totals
+              COALESCE(sales_lifetime.total_quantity_sold, 0) AS sales_quantity_lifetime,
+              COALESCE(sales_lifetime.total_revenue, 0) AS sales_revenue_lifetime,
+              -- Trailing 30 days (proxy for current rotation)
+              COALESCE(sales_30d.total_quantity_sold, 0) AS sales_quantity_30d,
+              COALESCE(sales_30d.total_revenue, 0) AS sales_revenue_30d,
+              -- Since this PO was placed (so the user can see how much of
+              -- what they bought has actually moved out)
+              COALESCE(sales_since_po.total_quantity_sold, 0) AS sales_quantity_since_po,
+              COALESCE(sales_since_po.total_revenue, 0) AS sales_revenue_since_po,
+              sales_lifetime.last_sold_at,
               poi.created_at,
               poi.updated_at
             FROM purchase_schema.purchase_order_item poi
             JOIN general_schema.product_variant pv
               ON pv.tenant_id = poi.tenant_id
              AND pv.product_variant_id = poi.product_variant_id
+            LEFT JOIN LATERAL (
+              SELECT
+                COALESCE(SUM(si.quantity), 0) AS total_quantity_sold,
+                COALESCE(SUM(si.total_price), 0) AS total_revenue,
+                MAX(s.sale_date) AS last_sold_at
+              FROM pos_schema.sale_item si
+              JOIN pos_schema.sale s ON s.sale_id = si.sale_id
+              WHERE si.tenant_id = poi.tenant_id
+                AND si.product_variant_id = poi.product_variant_id
+                AND s.is_completed = TRUE
+            ) sales_lifetime ON TRUE
+            LEFT JOIN LATERAL (
+              SELECT
+                COALESCE(SUM(si.quantity), 0) AS total_quantity_sold,
+                COALESCE(SUM(si.total_price), 0) AS total_revenue
+              FROM pos_schema.sale_item si
+              JOIN pos_schema.sale s ON s.sale_id = si.sale_id
+              WHERE si.tenant_id = poi.tenant_id
+                AND si.product_variant_id = poi.product_variant_id
+                AND s.is_completed = TRUE
+                AND s.sale_date >= NOW() - INTERVAL '30 days'
+            ) sales_30d ON TRUE
+            LEFT JOIN LATERAL (
+              SELECT
+                COALESCE(SUM(si.quantity), 0) AS total_quantity_sold,
+                COALESCE(SUM(si.total_price), 0) AS total_revenue
+              FROM pos_schema.sale_item si
+              JOIN pos_schema.sale s ON s.sale_id = si.sale_id
+              WHERE si.tenant_id = poi.tenant_id
+                AND si.product_variant_id = poi.product_variant_id
+                AND s.is_completed = TRUE
+                AND s.sale_date >= po.purchase_order_date
+            ) sales_since_po ON TRUE
             WHERE poi.purchase_order_id = po.purchase_order_id
           ) item_row
         ), '[]'::json) AS items,
