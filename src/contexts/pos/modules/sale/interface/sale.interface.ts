@@ -1,6 +1,6 @@
 export interface Sale {
   branch_id: string;
-  tenant_customer_id: string;
+  tenant_customer_id: string | null;
   sale_condition: string;
   sale_date: string;
   user_id: string;

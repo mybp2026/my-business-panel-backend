@@ -3,6 +3,7 @@ import {
   IsDateString,
   IsEmail,
   IsNumber,
+  IsOptional,
   IsString,
   IsUUID,
   ValidateNested,
@@ -58,6 +59,10 @@ export class NewEmployeeDto {
   @IsString()
   doc_number!: string;
 
+  @IsOptional()
+  @IsNumber()
+  identification_type_id?: number;
+
   @ApiProperty(createEmployeeDoc.dto.phone)
   @IsString()
   phone!: string;
@@ -92,6 +97,10 @@ export class CreateUserEmployeeInfoDto {
   @IsString()
   doc_number!: string;
 
+  @IsOptional()
+  @IsNumber()
+  identification_type_id?: number;
+
   @IsString()
   phone!: string;
 
@@ -121,6 +130,10 @@ export class NewSingleEmployeeDto {
 
   @IsString()
   doc_number!: string;
+
+  @IsOptional()
+  @IsNumber()
+  identification_type_id?: number;
 
   @IsString()
   phone!: string;

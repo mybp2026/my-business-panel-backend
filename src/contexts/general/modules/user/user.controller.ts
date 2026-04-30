@@ -78,6 +78,16 @@ export class UserController {
     return this.userService.getUserRoles();
   }
 
+  // Uniqueness probe — checks the global unique constraint on users.email.
+  @Get('availability')
+  @RequiredLevel(3)
+  async checkAvailability(
+    @Query('email') email: string,
+    @Query('exclude_id') excludeId?: string,
+  ) {
+    return this.userService.checkEmailAvailability(email, excludeId);
+  }
+
   @ApiOperation(getSelfInfoDoc.operation)
   @ApiResponse(getSelfInfoDoc.responses[200])
   @ApiResponse(getSelfInfoDoc.responses[401])

@@ -19,6 +19,64 @@ export class PromotionTargetDto {
   target_id!: string;
 }
 
+export class PromoRulesDto {
+  @IsOptional()
+  @IsUUID()
+  promotion_id?: string;
+
+  @IsOptional()
+  @IsNumber()
+  discount_percentage?: number;
+
+  @IsOptional()
+  @IsNumber()
+  discount_amount?: number;
+
+  @IsOptional()
+  @IsNumber()
+  buy_quantity?: number;
+
+  @IsOptional()
+  @IsNumber()
+  get_quantity?: number;
+
+  @IsOptional()
+  @IsNumber()
+  get_discount_percentage?: number;
+
+  @IsOptional()
+  @IsNumber()
+  min_quantity?: number;
+
+  @IsOptional()
+  @IsNumber()
+  max_quantity?: number;
+
+  @IsOptional()
+  @IsNumber()
+  tier_level?: number;
+
+  @IsOptional()
+  @IsNumber()
+  tier_min_quantity?: number;
+
+  @IsOptional()
+  @IsNumber()
+  tier_max_quantity?: number;
+
+  @IsOptional()
+  @IsNumber()
+  tier_price?: number;
+
+  @IsOptional()
+  @IsNumber()
+  tier_discount_percentage?: number;
+
+  @IsOptional()
+  @IsNumber()
+  min_purchase_amount?: number;
+}
+
 export class NewPromoDto {
   @IsUUID()
   tenant_id!: string;
@@ -50,7 +108,10 @@ export class NewPromoDto {
   @IsBoolean()
   is_active!: boolean;
 
-  rules!: PromoRules;
+  @IsOptional()
+  @ValidateNested()
+  @Type(() => PromoRulesDto)
+  rules?: PromoRulesDto;
 
   @IsOptional()
   @IsArray()
@@ -59,19 +120,4 @@ export class NewPromoDto {
   targets?: PromotionTargetDto[];
 }
 
-export interface PromoRules {
-  promotion_id?: string;
-  discount_percentage?: number;
-  discount_amount?: number;
-  buy_quantity?: number;
-  get_quantity?: number;
-  get_discount_percentage?: number;
-  min_quantity?: number;
-  max_quantity?: number;
-  tier_level?: number;
-  tier_min_quantity?: number;
-  tier_max_quantity?: number;
-  tier_price?: number;
-  tier_discount_percentage?: number;
-  min_purchase_amount?: number;
-}
+export type PromoRules = PromoRulesDto;

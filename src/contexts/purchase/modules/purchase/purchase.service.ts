@@ -300,23 +300,15 @@ export class PurchaseService {
     if (statusId === 3) {
       const txn = await this.db.transaction();
       try {
+        // The status UPDATE fires purchase_schema.create_goods_receipt, which
+        // in turn calls purchase_schema.apply_inventory_on_delivery to push
+        // the items into inventory_schema.inventory at the destination
+        // warehouse (with composite expansion via product_variant_composition).
+        // Inventory is therefore handled at the DB level and we MUST NOT call
+        // warehouseService.addStockToProduct here: it uses a separate
+        // connection outside this txn, would block on the row lock that the
+        // trigger holds, and double-count the stock.
         await txn.query(purchase.updateOrderStatus, [statusId, orderId]);
-
-        const itemsResult = await txn.query(purchase.getItemsForInventory, [
-          orderId,
-        ]);
-        for (const item of itemsResult.rows) {
-          await this.warehouseService.addStockToProduct(
-            item.warehouse_id,
-            item.product_variant_id,
-            item.tenant_id,
-            item.quantity_ordered,
-            {
-              purchaseOrderId: item.purchase_order_id,
-              unitCost: Number(item.unit_cost),
-            },
-          );
-        }
 
         try {
           const amountsResult = await txn.query(purchase.getOrderAmountsForJournal, [

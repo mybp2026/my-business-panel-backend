@@ -181,6 +181,43 @@ export class CustomerService {
     }
   }
 
+  async checkAvailability(
+    tenantId: string,
+    field: string,
+    value: string,
+    excludeId?: string,
+  ): Promise<{ exists: boolean }> {
+    const allowedFields: Record<string, string> = {
+      document_number: 'document_number',
+      email: 'email',
+      phone: 'phone',
+    };
+
+    const column = allowedFields[field];
+    if (!column) {
+      throw new BadRequestException(
+        `Field '${field}' no soportado. Use document_number | email | phone.`,
+      );
+    }
+    if (!tenantId || !value) {
+      throw new BadRequestException('tenant_id y value son requeridos');
+    }
+
+    const params: any[] = [tenantId, value];
+    let query = `
+      SELECT 1 FROM general_schema.tenant_customer
+      WHERE tenant_id = $1 AND ${column} = $2
+    `;
+    if (excludeId) {
+      params.push(excludeId);
+      query += ` AND tenant_customer_id <> $3`;
+    }
+    query += ' LIMIT 1';
+
+    const result = await this.db.query(query, params);
+    return { exists: result.rows.length > 0 };
+  }
+
   async deleteCustomer(customerId: string) {
     const result = await this.findCustomerById(customerId);
     if (!result) {

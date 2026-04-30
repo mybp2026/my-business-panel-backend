@@ -1,4 +1,5 @@
 import {
+  BadRequestException,
   Body,
   Controller,
   Delete,
@@ -6,6 +7,7 @@ import {
   Param,
   Patch,
   Post,
+  Query,
   Res,
   UseGuards,
 } from '@nestjs/common';
@@ -42,6 +44,29 @@ export class TenantController {
   @Get()
   async getAllTenants() {
     return this.tenantService.getAllTenants();
+  }
+
+  /**
+   * Sonda pública del onboarding: el frontend valida si el correo,
+   * documento, identificación tributaria o nombre comercial ya están
+   * tomados antes de pasar el formulario. Sin autenticación porque el
+   * usuario aún no se ha registrado.
+   */
+  @Get('availability')
+  async checkOnboardingAvailability(
+    @Query('field') field: string,
+    @Query('value') value: string,
+  ) {
+    const allowed = ['email', 'doc_number', 'tenant_identification', 'tenant_name'];
+    if (!allowed.includes(field)) {
+      throw new BadRequestException(
+        `Campo no soportado. Usa uno de: ${allowed.join(', ')}`,
+      );
+    }
+    return this.tenantService.checkOnboardingAvailability(
+      field as 'email' | 'doc_number' | 'tenant_identification' | 'tenant_name',
+      value ?? '',
+    );
   }
 
   @ApiOperation(getSingleTenantDoc.operation)

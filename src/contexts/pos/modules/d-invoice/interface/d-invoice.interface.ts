@@ -1,5 +1,5 @@
 export interface DInvoice {
-  tenant_customer_id: string;
+  tenant_customer_id: string | null;
   currency_id: number;
   subtotal_amount: number;
   tax_amount: number;
