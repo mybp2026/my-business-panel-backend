@@ -22,6 +22,10 @@ export class PromotionTargetDto {
 export class PromoRulesDto {
   @IsOptional()
   @IsUUID()
+  promotion_rule_id?: string;
+
+  @IsOptional()
+  @IsUUID()
   promotion_id?: string;
 
   @IsOptional()
@@ -107,6 +111,14 @@ export class NewPromoDto {
 
   @IsBoolean()
   is_active!: boolean;
+
+  @IsOptional()
+  @IsBoolean()
+  is_default?: boolean;
+
+  @IsOptional()
+  @IsBoolean()
+  is_stackable?: boolean;
 
   @IsOptional()
   @ValidateNested()

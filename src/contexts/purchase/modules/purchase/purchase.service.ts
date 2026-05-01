@@ -149,6 +149,7 @@ export class PurchaseService {
           purchase_account_payable_id,
           amount_paid,
           payment_method_id,
+          dto.currency_id ?? null,
           payment_reference ?? null,
         ]);
       } catch (e: any) {
@@ -224,21 +225,31 @@ export class PurchaseService {
   }
 
   async getPurchaseCatalogs() {
-    const [orderStatuses, payableStatuses, paymentMethods] = await Promise.all([
-      this.db.query(catalog.getOrderStatuses),
-      this.db.query(catalog.getPayableStatuses),
-      this.db.query(catalog.getPaymentMethods),
-    ]);
+    const [orderStatuses, payableStatuses, paymentMethods, currencies] =
+      await Promise.all([
+        this.db.query(catalog.getOrderStatuses),
+        this.db.query(catalog.getPayableStatuses),
+        this.db.query(catalog.getPaymentMethods),
+        this.db.query(catalog.getCurrencies),
+      ]);
 
     return {
       order_statuses: orderStatuses.rows,
       payable_statuses: payableStatuses.rows,
       payment_methods: paymentMethods.rows,
+      currencies: currencies.rows,
       payment_conditions: [
         { value: 'CREDIT', label: 'Crédito' },
         { value: 'IN_FULL', label: 'Pago completo' },
       ],
     };
+  }
+
+  async getExchangeRate(fromCurrencyId: number) {
+    const result = await this.db.query(catalog.getLatestExchangeRate, [
+      fromCurrencyId,
+    ]);
+    return result.rows[0] ?? null;
   }
 
   async getPurchaseOrderById(id: string, session: IUserSession) {

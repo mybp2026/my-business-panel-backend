@@ -69,8 +69,7 @@ export class BranchController {
 
   // Explicit tenant endpoint (for frontend filtering by tenant)
   @Get('/tenant/:tenantId')
-  @UseGuards(AuthenticationGuard, LevelAuthorizationGuard)
-  @RequiredLevel(2)
+  @UseGuards(AuthenticationGuard)
   async findByTenant(
     @Param('tenantId') tenantId: string,
     @Query('page') page = '1',

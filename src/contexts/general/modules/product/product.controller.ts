@@ -15,6 +15,8 @@ import { ProductInsertDto } from './dto/newProduct.dto';
 import { UpdateProductDto } from './dto/updateProduct.dto';
 import { isUUID } from 'class-validator';
 import { AuthenticationGuard } from '@/common/guards/authentication.guard';
+import { LevelAuthorizationGuard } from '@/common/guards/level_authorization.guard';
+import { RequiredLevel } from '@/common/decorators/level_metadata.decorator';
 import {
   getAllProductsByTenantDoc,
   getProductBySkuDoc,
@@ -25,12 +27,12 @@ import {
 
 @ApiTags('Product')
 @Controller('product')
+@UseGuards(AuthenticationGuard)
 export class ProductController {
   constructor(private readonly productService: ProductService) {}
 
   // Global list for superusers — declared BEFORE :tenantId to avoid conflict
   @Get('all')
-  @UseGuards(AuthenticationGuard)
   async getAllProductsGlobal(
     @Query('page') page = '1',
     @Query('limit') limit = '100',
@@ -50,7 +52,6 @@ export class ProductController {
   }
 
   @Get(':tenantId/search')
-  @UseGuards(AuthenticationGuard)
   async searchProductsByTenant(
     @Param('tenantId') tenantId: string,
     @Query('q') q = '',
@@ -74,7 +75,6 @@ export class ProductController {
   }
 
   @Get(':tenantId/:id/with-attributes')
-  @UseGuards(AuthenticationGuard)
   async getProductByIdWithAttributes(
     @Param('tenantId') tenantId: string,
     @Param('id') id: string,
@@ -110,6 +110,8 @@ export class ProductController {
   @ApiResponse(createNewProductDoc.responses[400])
   @ApiResponse(createNewProductDoc.responses[401])
   @Post()
+  @UseGuards(LevelAuthorizationGuard)
+  @RequiredLevel(2)
   async createNewProduct(@Body() req: ProductInsertDto) {
     return this.productService.createProduct(req);
   }
@@ -119,6 +121,8 @@ export class ProductController {
   @ApiResponse(updateProductDoc.responses[400])
   @ApiResponse(updateProductDoc.responses[401])
   @Patch(':id')
+  @UseGuards(LevelAuthorizationGuard)
+  @RequiredLevel(2)
   async updateProduct(@Param('id') id: string, @Body() req: UpdateProductDto) {
     return this.productService.updateProduct(req, id);
   }
@@ -127,6 +131,8 @@ export class ProductController {
   @ApiResponse(deleteProductDoc.responses[200])
   @ApiResponse(deleteProductDoc.responses[401])
   @Delete(':id')
+  @UseGuards(LevelAuthorizationGuard)
+  @RequiredLevel(2)
   async deleteProduct(@Param('id') id: string) {
     return this.productService.deleteProduct(id);
   }

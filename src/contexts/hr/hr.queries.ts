@@ -125,6 +125,20 @@ export const hrQueryDefs = {
       VALUES ($1, $2, NOW(), NULL)
       RETURNING clocking_id
     `,
+    manual_clock_in: `
+      INSERT INTO hr_schema.clocking (employee_id, branch_id, clock_in, clock_out)
+      VALUES ($1, $2, $3::timestamptz, NULL)
+      RETURNING clocking_id
+    `,
+    manual_clock_out: `
+      UPDATE hr_schema.clocking
+      SET
+        clock_out   = $2::timestamptz,
+        turn_hours  = GREATEST(0, EXTRACT(EPOCH FROM ($2::timestamptz - clock_in)) / 3600)
+      WHERE clocking_id = $1
+        AND clock_out IS NULL
+      RETURNING clocking_id
+    `,
     get_open: `
       SELECT
         c.clocking_id,

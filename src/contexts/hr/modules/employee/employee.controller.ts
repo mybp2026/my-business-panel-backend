@@ -7,11 +7,13 @@ import {
   Patch,
   Post,
   Query,
+  UseGuards,
 } from '@nestjs/common';
 import { ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
 import { EmployeeService } from './employee.service';
 import { NewEmployeeDto } from './dto/newEmployeeDto.dto';
 import { UpdateEmployeeDto } from './dto/updateEmployee.dto';
+import { AuthenticationGuard } from '@/common/guards/authentication.guard';
 import {
   getEmployeesByTenantDoc,
   getEmployeeByIdDoc,
@@ -23,6 +25,7 @@ import {
 
 @ApiTags('Employee')
 @Controller('employee')
+@UseGuards(AuthenticationGuard)
 export class EmployeeController {
   constructor(private readonly employeeService: EmployeeService) {}
 

@@ -565,9 +565,9 @@ export const purchaseQueryDefs = {
   payments: {
     insertPayment: `
       INSERT INTO purchase_schema.purchase_order_payment
-        (purchase_account_payable_id, amount_paid, payment_method_id, payment_reference)
+        (purchase_account_payable_id, amount_paid, payment_method_id, currency_id, payment_reference)
       VALUES
-        ($1, $2, $3, $4)
+        ($1, $2, $3, COALESCE($4, 1), $5)
       RETURNING purchase_order_payment_id
     `,
 
@@ -728,6 +728,39 @@ export const purchaseQueryDefs = {
         description
       FROM general_schema.payment_method
       ORDER BY payment_method_id ASC
+    `,
+
+    getCurrencies: `
+      SELECT
+        currency_id,
+        currency_code,
+        currency_name,
+        symbol
+      FROM general_schema.currency
+      ORDER BY currency_id ASC
+    `,
+
+    getLatestExchangeRate: `
+      SELECT
+        er.exchange_rate_id,
+        er.from_currency_id,
+        fc.currency_code AS from_currency_code,
+        fc.currency_name AS from_currency_name,
+        fc.symbol        AS from_currency_symbol,
+        er.to_currency_id,
+        tc.currency_code AS to_currency_code,
+        tc.currency_name AS to_currency_name,
+        tc.symbol        AS to_currency_symbol,
+        er.rate,
+        er.effective_date,
+        er.updated_at
+      FROM general_schema.exchange_rate er
+      JOIN general_schema.currency fc ON fc.currency_id = er.from_currency_id
+      JOIN general_schema.currency tc ON tc.currency_id = er.to_currency_id
+      WHERE er.from_currency_id = $1
+        AND er.to_currency_id   = 1
+      ORDER BY er.effective_date DESC
+      LIMIT 1
     `,
   },
 };
