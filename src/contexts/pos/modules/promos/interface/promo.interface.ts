@@ -11,6 +11,8 @@ export interface Promo {
   promotion_end_date: string;
   type_name: string;
   is_active: boolean;
+  is_default?: boolean;
+  is_stackable?: boolean;
   created_at?: string;
   updated_at?: string;
 }
@@ -35,9 +37,23 @@ export interface PromoRule {
   updated_at?: string;
 }
 
+export interface PromotionTargetRow {
+  promotion_target_id?: string;
+  promotion_id?: string;
+  tenant_id?: string;
+  target_type: 'VARIANT' | 'GROUP';
+  target_product_variant_id?: string | null;
+  target_group_id?: string | null;
+  variant_sku?: string | null;
+  variant_name?: string | null;
+  group_name?: string | null;
+  type_name?: string | null;
+}
+
 export interface PromoWithRule extends Promo {
   rule?: PromoRule;
   rules: PromoRule[];
+  targets?: PromotionTargetRow[];
 }
 
 export interface PromoType {

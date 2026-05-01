@@ -19,6 +19,12 @@ export class CreatePaymentDto {
   @IsInt()
   payment_method_id!: number;
 
+  @ApiProperty({ description: 'Currency ID (from general_schema.currency). Defaults to 1 (CRC).', required: false })
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  currency_id?: number;
+
   @ApiProperty(registerPaymentDoc.dto.payment_reference)
   @IsOptional()
   @IsString()

@@ -31,6 +31,8 @@ import { BranchModule } from '@/contexts/general/modules/branch/branch.module';
 import { TenantHaciendaConfigModule } from '@/contexts/general/modules/tenant_hacienda_config/tenant-hacienda-config.module';
 import { RegionModule } from '@/contexts/general/modules/region/region.module';
 import { SpecialCodeModule } from '@/contexts/general/modules/special_code/special_code.module';
+import { CurrencyModule } from '@/contexts/general/modules/currency/currency.module';
+import { ExchangeRateModule } from '@/contexts/general/modules/exchange_rate/exchange-rate.module';
 
 // POS Modules
 import { SaleModule } from '@/contexts/pos/modules/sale/sale.module';
@@ -123,6 +125,8 @@ import { ExpenseModule } from '@/contexts/finances/modules/expense/expense.modul
     TenantHaciendaConfigModule,
     RegionModule,
     SpecialCodeModule,
+    CurrencyModule,
+    ExchangeRateModule,
     AccountingModule,
     ExpenseModule,
     ReportingModule,

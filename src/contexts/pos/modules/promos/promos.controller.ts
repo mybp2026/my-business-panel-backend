@@ -6,11 +6,15 @@ import {
   Param,
   Patch,
   Post,
+  UseGuards,
 } from '@nestjs/common';
-import { ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
+import { ApiBearerAuth, ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
 import { PromosService } from './promos.service';
 import { NewPromoDto } from './dto/newPromo.dto';
 import { UpdatePromotionDto } from './dto/updatePromo.dto';
+import { AuthenticationGuard } from '@/common/guards/authentication.guard';
+import { RoleAuthorizationGuard } from '@/common/guards/role_authorization.guard';
+import { RequiredRole } from '@/common/decorators/role_metadata.decorator';
 import {
   getTenantPromosDoc,
   getPromoInfoDoc,
@@ -20,8 +24,10 @@ import {
   deletePromotionDoc,
 } from '@/docs/contexts/pos/promos';
 
+@ApiBearerAuth()
 @ApiTags('Promos')
 @Controller('promos')
+@UseGuards(AuthenticationGuard)
 export class PromosController {
   constructor(private readonly promosService: PromosService) {}
 
@@ -31,6 +37,15 @@ export class PromosController {
   @Get(':tenantId')
   getTenantPromos(@Param('tenantId') tenantId: string) {
     return this.promosService.getPromos(tenantId);
+  }
+
+  /**
+   * Active default promotions for a tenant — the POS pre-applies these to
+   * every new sale while they are active.
+   */
+  @Get('defaults/:tenantId')
+  getActiveDefaults(@Param('tenantId') tenantId: string) {
+    return this.promosService.getActiveDefaults(tenantId);
   }
 
   @ApiOperation(getPromoInfoDoc.operation)
@@ -55,6 +70,8 @@ export class PromosController {
   @ApiResponse(createPromoWithRuleDoc.responses[400])
   @ApiResponse(createPromoWithRuleDoc.responses[401])
   @Post()
+  @UseGuards(RoleAuthorizationGuard)
+  @RequiredRole('admin', 'superuser')
   createPromoWithRule(@Body() newPromoDto: NewPromoDto) {
     return this.promosService.createPromoWithRule(newPromoDto);
   }
@@ -65,6 +82,8 @@ export class PromosController {
   @ApiResponse(updatePromotionDoc.responses[401])
   @ApiResponse(updatePromotionDoc.responses[404])
   @Patch(':id')
+  @UseGuards(RoleAuthorizationGuard)
+  @RequiredRole('admin', 'superuser')
   updatePromotion(
     @Param('id') id: string,
     @Body() updatePromoDto: UpdatePromotionDto,
@@ -77,6 +96,8 @@ export class PromosController {
   @ApiResponse(deletePromotionDoc.responses[401])
   @ApiResponse(deletePromotionDoc.responses[404])
   @Delete(':id')
+  @UseGuards(RoleAuthorizationGuard)
+  @RequiredRole('admin', 'superuser')
   deletePromotion(@Param('id') id: string) {
     return this.promosService.deletePromotion(id);
   }

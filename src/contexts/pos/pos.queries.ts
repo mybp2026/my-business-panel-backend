@@ -216,14 +216,36 @@ export const posQueryDefs = {
     byBranch: `
     SELECT * FROM pos_schema.cash_register WHERE branch_id = $1
     `,
+    /**
+     * Returns the plain-text key for a cash register. Used by the service to
+     * validate non-admin open/close attempts. Returns NULL if the register has
+     * no key configured (in which case any user may open/close).
+     */
+    getKey: `
+    SELECT cash_register_key FROM pos_schema.cash_register WHERE cash_register_id = $1 LIMIT 1
+    `,
     create: `
-    INSERT INTO pos_schema.cash_register (branch_id, register_name, is_active, created_at, updated_at) VALUES ($1, $2, $3, NOW(), NOW()) RETURNING *
+    INSERT INTO pos_schema.cash_register (branch_id, register_name, is_active, cash_register_key, created_at, updated_at)
+    VALUES ($1, $2, $3, $4, NOW(), NOW()) RETURNING *
     `,
     delete: `
     DELETE FROM pos_schema.cash_register WHERE cash_register_id = $1 RETURNING *
     `,
     update: `
-    UPDATE pos_schema.cash_register SET branch_id = COALESCE($2, branch_id), register_name = COALESCE($3, register_name), is_active = COALESCE($4, is_active), updated_at = NOW() WHERE cash_register_id = $1 RETURNING *
+    UPDATE pos_schema.cash_register
+       SET branch_id = COALESCE($2, branch_id),
+           register_name = COALESCE($3, register_name),
+           is_active = COALESCE($4, is_active),
+           cash_register_key = COALESCE($5, cash_register_key),
+           updated_at = NOW()
+     WHERE cash_register_id = $1 RETURNING *
+    `,
+    /**
+     * Returns the cash_register_id that owns a given session. Used to look up
+     * the configured key when validating a close attempt.
+     */
+    getRegisterIdForSession: `
+    SELECT cash_register_id FROM pos_schema.cash_register_session WHERE cash_register_session_id = $1 LIMIT 1
     `,
     startSession: `
     INSERT INTO pos_schema.cash_register_session (cash_register_id, opened_at, opening_amount, user_id, is_active) VALUES ($1, $2, $3, $4, true) RETURNING *
@@ -281,6 +303,8 @@ export const posQueryDefs = {
         p.promotion_end_date,
         pt.type_name,
         p.is_active,
+        p.is_default,
+        p.is_stackable,
         p.created_at,
         p.updated_at
       FROM pos_schema.promotion p
@@ -303,6 +327,8 @@ export const posQueryDefs = {
         p.promotion_end_date,
         pt.type_name,
         p.is_active,
+        p.is_default,
+        p.is_stackable,
         p.created_at,
         p.updated_at
       FROM pos_schema.promotion p
@@ -317,8 +343,8 @@ export const posQueryDefs = {
       ORDER BY tier_level NULLS FIRST, created_at
     `,
     insertPromo: `
-      INSERT INTO pos_schema.promotion (tenant_id, promotion_name, promotion_code, promotion_description, promotion_type_id, customer_segment_id, promotion_start_date, promotion_end_date, is_active)
-      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+      INSERT INTO pos_schema.promotion (tenant_id, promotion_name, promotion_code, promotion_description, promotion_type_id, customer_segment_id, promotion_start_date, promotion_end_date, is_active, is_default, is_stackable)
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, COALESCE($10, false), COALESCE($11, true))
       RETURNING promotion_id
     `,
     deletePromo:
@@ -333,9 +359,54 @@ export const posQueryDefs = {
           customer_segment_id = COALESCE($7, customer_segment_id),
           promotion_start_date = COALESCE($8, promotion_start_date),
           promotion_end_date = COALESCE($9, promotion_end_date),
-          is_active = COALESCE($10, is_active)
+          is_active = COALESCE($10, is_active),
+          is_default = COALESCE($11, is_default),
+          is_stackable = COALESCE($12, is_stackable),
+          updated_at = NOW()
       WHERE promotion_id = $1
       RETURNING promotion_id
+    `,
+    /**
+     * Active default promotions for a tenant on the current date. Pre-loads rules
+     * and targets so the frontend can pre-apply them when creating a sale.
+     */
+    getActiveDefaults: `
+      SELECT
+        p.promotion_id,
+        p.tenant_id,
+        p.promotion_name,
+        p.promotion_code,
+        p.promotion_description,
+        p.promotion_type_id,
+        pt.type_name,
+        p.customer_segment_id,
+        p.promotion_start_date,
+        p.promotion_end_date,
+        p.is_active,
+        p.is_default,
+        p.is_stackable,
+        COALESCE((
+          SELECT json_agg(pr.* ORDER BY pr.tier_level NULLS FIRST, pr.created_at)
+          FROM pos_schema.promotion_rule pr
+          WHERE pr.promotion_id = p.promotion_id
+        ), '[]'::json) AS rules,
+        COALESCE((
+          SELECT json_agg(json_build_object(
+            'promotion_target_id', pgt.promotion_target_id,
+            'target_type', pgt.target_type,
+            'target_product_variant_id', pgt.target_product_variant_id,
+            'target_group_id', pgt.target_group_id
+          ))
+          FROM pos_schema.promotion_target pgt
+          WHERE pgt.promotion_id = p.promotion_id
+        ), '[]'::json) AS targets
+      FROM pos_schema.promotion p
+      INNER JOIN pos_schema.promotion_type pt USING(promotion_type_id)
+      WHERE p.tenant_id = $1
+        AND p.is_active = TRUE
+        AND p.is_default = TRUE
+        AND CURRENT_DATE BETWEEN p.promotion_start_date AND p.promotion_end_date
+      ORDER BY p.created_at DESC
     `,
   },
 
@@ -402,6 +473,7 @@ export const posQueryDefs = {
       SELECT DISTINCT p.promotion_id, p.promotion_name, p.promotion_code,
              p.promotion_type_id, p.customer_segment_id,
              p.promotion_start_date, p.promotion_end_date, p.is_active,
+             p.is_default, p.is_stackable,
              pt.target_type, pt.target_product_variant_id, pt.target_group_id
       FROM pos_schema.promotion p
       JOIN pos_schema.promotion_target pt ON pt.promotion_id = p.promotion_id

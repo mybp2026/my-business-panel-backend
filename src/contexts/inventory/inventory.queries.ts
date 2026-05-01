@@ -1,4 +1,94 @@
 export const inventoryQueries = {
+  // HELPERS
+  checkIsComposite: `
+    SELECT is_composite, variant_name FROM general_schema.product_variant 
+    WHERE tenant_id = $1 AND product_variant_id = $2 LIMIT 1`,
+
+  getStock: `
+    SELECT COALESCE(stock, 0)::numeric AS stock 
+    FROM inventory_schema.inventory 
+    WHERE tenant_id = $1 AND product_variant_id = $2 AND warehouse_id = $3 
+    LIMIT 1`,
+
+  getComponents: `
+    SELECT child_product_variant_id, quantity 
+    FROM general_schema.product_variant_composition 
+    WHERE parent_product_variant_id = $1 AND tenant_id = $2`,
+
+  getInventoryId: `
+    SELECT inventory_id 
+    FROM inventory_schema.inventory 
+    WHERE warehouse_id = $1 AND product_variant_id = $2 AND tenant_id = $3`,
+
+  branchByIdAndTenant: `
+    SELECT * FROM general_schema.branch
+    WHERE branch_id = $1 AND tenant_id = $2`,
+
+  // TRANSFER REQUESTS
+  createTransferRequest: `
+    INSERT INTO inventory_schema.inventory_transfer_request (
+      tenant_id, from_warehouse_id, to_warehouse_id,
+      inventory_transfer_request_status_id, requested_by_user_id
+    ) VALUES (
+      $1, $2, $3, (SELECT inventory_transfer_request_status_id FROM inventory_schema.inventory_transfer_request_status WHERE status_name = 'pending'), $4
+    ) RETURNING *;`,
+
+  insertTransferRequestProduct: `
+    INSERT INTO inventory_schema.inventory_transfer_request_product (
+      inventory_transfer_request_id, tenant_id, product_variant_id, amount
+    ) VALUES ($1, $2, $3, $4);`,
+
+  getTransferRequestsByTenant: `
+    SELECT req.*, s.status_name,
+           fw.warehouse_name as from_warehouse_name, tw.warehouse_name as to_warehouse_name,
+           COALESCE(
+             json_agg(
+               json_build_object(
+                 'product_variant_id', p.product_variant_id,
+                 'variant_name', pv.variant_name,
+                 'sku', pv.sku,
+                 'amount', p.amount
+               )
+             ) FILTER (WHERE p.inventory_transfer_request_product_id IS NOT NULL),
+             '[]'
+           ) AS products
+    FROM inventory_schema.inventory_transfer_request req
+    INNER JOIN inventory_schema.inventory_transfer_request_status s ON req.inventory_transfer_request_status_id = s.inventory_transfer_request_status_id
+    INNER JOIN inventory_schema.warehouse fw ON req.from_warehouse_id = fw.warehouse_id
+    INNER JOIN inventory_schema.warehouse tw ON req.to_warehouse_id = tw.warehouse_id
+    LEFT JOIN inventory_schema.inventory_transfer_request_product p ON req.inventory_transfer_request_id = p.inventory_transfer_request_id
+    LEFT JOIN general_schema.product_variant pv ON p.product_variant_id = pv.product_variant_id AND p.tenant_id = pv.tenant_id
+    WHERE req.tenant_id = $1
+    GROUP BY req.inventory_transfer_request_id, s.status_name, fw.warehouse_name, tw.warehouse_name
+    ORDER BY req.created_at DESC;`,
+
+  getTransferRequestById: `
+    SELECT req.*, s.status_name,
+           COALESCE(
+             json_agg(
+               json_build_object(
+                 'product_variant_id', p.product_variant_id,
+                 'variant_name', pv.variant_name,
+                 'sku', pv.sku,
+                 'amount', p.amount
+               )
+             ) FILTER (WHERE p.inventory_transfer_request_product_id IS NOT NULL),
+             '[]'
+           ) AS products
+    FROM inventory_schema.inventory_transfer_request req
+    INNER JOIN inventory_schema.inventory_transfer_request_status s ON req.inventory_transfer_request_status_id = s.inventory_transfer_request_status_id
+    LEFT JOIN inventory_schema.inventory_transfer_request_product p ON req.inventory_transfer_request_id = p.inventory_transfer_request_id
+    LEFT JOIN general_schema.product_variant pv ON p.product_variant_id = pv.product_variant_id AND p.tenant_id = pv.tenant_id
+    WHERE req.inventory_transfer_request_id = $1 AND req.tenant_id = $2
+    GROUP BY req.inventory_transfer_request_id, s.status_name;`,
+
+  updateTransferRequestStatus: `
+    UPDATE inventory_schema.inventory_transfer_request
+    SET inventory_transfer_request_status_id = (SELECT inventory_transfer_request_status_id FROM inventory_schema.inventory_transfer_request_status WHERE status_name = $3),
+        approved_by_user_id = $4, rejection_reason = $5, inventory_transfer_id = $6, updated_at = CURRENT_TIMESTAMP
+    WHERE inventory_transfer_request_id = $1 AND tenant_id = $2
+    RETURNING *;`,
+
   create: `
     INSERT INTO inventory_schema.warehouse
       (branch_id, warehouse_name, warehouse_address, is_branch, created_at, updated_at)
@@ -62,7 +152,9 @@ export const inventoryQueries = {
       pv.variant_name,
       pv.sku,
       pv.product_variant_id AS product_id,
-      pv.variant_name AS product_name
+      pv.variant_name AS product_name,
+      pv.is_composite,
+      pv.unit_price
     FROM inventory_schema.inventory i
     INNER JOIN general_schema.product_variant pv USING(tenant_id, product_variant_id)
     WHERE i.warehouse_id = $1 AND i.tenant_id = $2
@@ -179,7 +271,17 @@ export const inventoryQueries = {
         ON itp.inventory_transfer_id = it.inventory_transfer_id
        AND itp.tenant_id = $1
     WHERE bf.tenant_id = $1
-    GROUP BY it.inventory_transfer_id, wf.warehouse_name, wt.warehouse_name
+    GROUP BY 
+      it.inventory_transfer_id, 
+      it.from_warehouse_id, 
+      it.to_warehouse_id, 
+      it.transfer_date, 
+      it.inventory_transfer_departure_date, 
+      it.inventory_transfer_arrival_date, 
+      it.created_at, 
+      it.updated_at, 
+      wf.warehouse_name, 
+      wt.warehouse_name
     ORDER BY it.transfer_date DESC`,
   getInventoryTransferById: `
     SELECT * FROM inventory_schema.inventory_transfer
@@ -232,3 +334,5 @@ export const inventoryQueries = {
       $1::uuid, $2::uuid, $3::uuid, $4::int, $5::numeric, $6::int, $7::numeric
     )`,
 };
+
+

@@ -5,6 +5,8 @@ import {
   IsDateString,
   IsOptional,
   IsNumber,
+  IsString,
+  MaxLength,
 } from 'class-validator';
 import { ApiProperty } from '@nestjs/swagger';
 import { startCashRegisterSessionDoc } from '@/docs/contexts/pos/cash_register';
@@ -25,4 +27,13 @@ export class StartCashRegisterSessionDto {
   @IsOptional()
   @IsDateString()
   opened_at: string = new Date().toISOString();
+
+  /**
+   * Required for non-admin roles when the cash register has a key configured.
+   * Admin / superuser sessions bypass the check at the service level.
+   */
+  @IsOptional()
+  @IsString()
+  @MaxLength(64)
+  cash_register_key?: string;
 }

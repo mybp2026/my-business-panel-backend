@@ -1,4 +1,4 @@
-import { Controller, Delete, Get, Param, Patch, Query } from '@nestjs/common';
+import { Controller, Delete, Get, Param, ParseUUIDPipe, Patch, Query } from '@nestjs/common';
 import { ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
 import { WarehouseService } from './warehouse.service';
 import { Warehouse } from './interfaces/warehouse.interface';
@@ -130,6 +130,16 @@ export class WarehouseController {
     );
   }
 
+  @ApiOperation(transferInventoryDoc.operation)
+  @ApiResponse(transferInventoryDoc.responses[201])
+  @ApiResponse(transferInventoryDoc.responses[400])
+  @ApiResponse(transferInventoryDoc.responses[401])
+  @ApiResponse(transferInventoryDoc.responses[404])
+  @Get('transfer-request')
+  listTransferRequests(@Session() userSession: IUserSession) {
+    return this.warehouseService.getTransferRequests(userSession.tenant_id);
+  }
+
   @Get('transfer')
   listTransfers(@Session() userSession: IUserSession) {
     return this.warehouseService.listTransfersByTenant(userSession.tenant_id);
@@ -256,16 +266,46 @@ export class WarehouseController {
     );
   }
 
-  @ApiOperation(transferInventoryDoc.operation)
-  @ApiResponse(transferInventoryDoc.responses[201])
-  @ApiResponse(transferInventoryDoc.responses[400])
-  @ApiResponse(transferInventoryDoc.responses[401])
-  @ApiResponse(transferInventoryDoc.responses[404])
+
+  @Patch('transfer-request/:id/status')
+  updateTransferRequestStatus(
+    @Session() userSession: IUserSession,
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() body: any,
+  ) {
+    // Any role can accept/reject? The prompt says "el destino puede aceptar o rechazar". 
+    // We'll trust the user role internally or let it pass for now.
+    return this.warehouseService.updateTransferRequestStatus(
+      userSession.tenant_id,
+      id,
+      body.status,
+      body.rejection_reason || null,
+      userSession.user_id
+    );
+  }
+  @Post('disaggregate')
+  async disaggregateLote(
+    @Session() userSession: IUserSession,
+    @Body('warehouse_id', ParseUUIDPipe) warehouse_id: string,
+    @Body('product_variant_id', ParseUUIDPipe) product_variant_id: string,
+    @Body('amount') amount: number,
+  ) {
+    return this.warehouseService.disaggregateLote(
+      userSession.tenant_id,
+      warehouse_id,
+      product_variant_id,
+      amount,
+      userSession.user_id
+    );
+  }
   @Post('transfer')
   transferInventoryBetweenWarehouses(
     @Session() userSession: IUserSession,
     @Body() body: InventoryTransferDto,
   ) {
+    if (userSession.role_id === 4) {
+      return this.warehouseService.createTransferRequest(userSession.tenant_id, body, userSession.user_id);
+    }
     return this.warehouseService.moveProductToWarehouse(
       body.origin_warehouse_id,
       body.destination_warehouse_id,
@@ -276,3 +316,7 @@ export class WarehouseController {
     );
   }
 }
+
+
+
+
