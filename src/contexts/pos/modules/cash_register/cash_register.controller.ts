@@ -55,7 +55,7 @@ export class CashRegisterController {
   @ApiOperation(findCashRegistersDoc.operation)
   @ApiResponse(findCashRegistersDoc.responses[200])
   @ApiResponse(findCashRegistersDoc.responses[401])
-  @RequiredLevel(2)
+  @RequiredLevel(1)
   @Get()
   find(@Query() query: { branch_id?: string }) {
     return query.branch_id
@@ -63,7 +63,7 @@ export class CashRegisterController {
       : this.cashRegisterService.findAll();
   }
 
-  @RequiredLevel(2)
+  @RequiredLevel(1)
   @Get('sessions/all')
   findSessions(
     @Session() session: IUserSession,
@@ -90,10 +90,7 @@ export class CashRegisterController {
     @Session() session: IUserSession,
     @Body() startSessionDto: StartCashRegisterSessionDto,
   ) {
-    return this.cashRegisterService.startSession(
-      session.user_id,
-      startSessionDto,
-    );
+    return this.cashRegisterService.startSession(session, startSessionDto);
   }
 
   @ApiOperation(closeCashRegisterSessionDoc.operation)
@@ -103,8 +100,11 @@ export class CashRegisterController {
   @ApiResponse(closeCashRegisterSessionDoc.responses[404])
   @RequiredLevel(1)
   @Post('close')
-  closeSession(@Body() closeSessionDto: CloseCashRegisterSessionDto) {
-    return this.cashRegisterService.closeSession(closeSessionDto);
+  closeSession(
+    @Session() session: IUserSession,
+    @Body() closeSessionDto: CloseCashRegisterSessionDto,
+  ) {
+    return this.cashRegisterService.closeSession(session, closeSessionDto);
   }
 
   @ApiOperation(findOneCashRegisterDoc.operation)

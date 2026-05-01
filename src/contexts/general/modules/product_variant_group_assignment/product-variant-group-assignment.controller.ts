@@ -1,14 +1,16 @@
-import { Body, Controller, Get, Param, Post } from '@nestjs/common';
+import { Body, Controller, Get, Param, Post, UseGuards } from '@nestjs/common';
 import { ApiTags } from '@nestjs/swagger';
 import { ProductVariantGroupAssignmentService } from './product-variant-group-assignment.service';
 import { ReplaceVariantGroupsDto } from './dto/product-variant-group-assignment.dto';
+import { AuthenticationGuard } from '@/common/guards/authentication.guard';
+import { LevelAuthorizationGuard } from '@/common/guards/level_authorization.guard';
+import { RequiredLevel } from '@/common/decorators/level_metadata.decorator';
 
 @ApiTags('Product Variant Group Assignment')
 @Controller('product-variant-group')
+@UseGuards(AuthenticationGuard)
 export class ProductVariantGroupAssignmentController {
-  constructor(
-    private readonly service: ProductVariantGroupAssignmentService,
-  ) {}
+  constructor(private readonly service: ProductVariantGroupAssignmentService) {}
 
   @Get(':tenantId/variant/:variantId')
   async getByVariant(
@@ -27,6 +29,8 @@ export class ProductVariantGroupAssignmentController {
   }
 
   @Post()
+  @UseGuards(LevelAuthorizationGuard)
+  @RequiredLevel(2)
   async replace(@Body() body: ReplaceVariantGroupsDto) {
     return this.service.replaceForVariant(body);
   }

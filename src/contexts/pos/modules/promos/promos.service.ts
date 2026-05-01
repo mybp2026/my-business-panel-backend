@@ -24,18 +24,32 @@ export class PromosService {
     return promos.rows;
   }
 
+  /**
+   * Returns active default promotions for a tenant on the current date,
+   * with their rules and targets pre-loaded so the POS can apply them
+   * automatically when starting a sale.
+   */
+  async getActiveDefaults(tenantId: string) {
+    const result = await this.db.query(promotions.getActiveDefaults, [tenantId]);
+    return result.rows;
+  }
+
   async getPromoInfo(promoID: string): Promise<PromoWithRule | null> {
     const promo = await this.db.query(promotions.getPromoInfo, [promoID]);
     const row = promo.rows[0] as Promo | undefined;
     if (!row) return null;
 
-    const rules = await this.db.query(promotions.getPromotionRules, [promoID]);
+    const [rules, targets] = await Promise.all([
+      this.db.query(promotions.getPromotionRules, [promoID]),
+      this.db.query(promotionTarget.byPromotion, [promoID]),
+    ]);
     const ruleRows = rules.rows as PromoRule[];
 
     return {
       ...row,
       rule: ruleRows[0],
       rules: ruleRows,
+      targets: targets.rows,
     };
   }
 
@@ -50,6 +64,8 @@ export class PromosService {
       promotion_start_date,
       promotion_end_date,
       is_active,
+      is_default,
+      is_stackable,
       rules,
       targets,
     } = newPromoDto;
@@ -64,6 +80,8 @@ export class PromosService {
       promotion_start_date,
       promotion_end_date,
       is_active,
+      is_default ?? false,
+      is_stackable ?? true,
     ]);
 
     if (promo.rows.length === 0) {
@@ -183,6 +201,8 @@ export class PromosService {
       promotion_start_date,
       promotion_end_date,
       is_active,
+      is_default,
+      is_stackable,
     } = updatePromoDto;
 
     let updateRule: { queryString: string; paramsArray: any[] } | null = null;
@@ -205,6 +225,8 @@ export class PromosService {
         promotion_start_date,
         promotion_end_date,
         is_active,
+        is_default,
+        is_stackable,
       ]);
 
       if (updateRule) {
@@ -238,11 +260,18 @@ export class PromosService {
   }
 
   buildUpdateQuery(data: PromoRules) {
-    const { ...updates } = data;
+    const {
+      promotion_rule_id: promotionRuleId,
+      ...updates
+    } = data;
 
     const updateKeys = Object.keys(updates).filter(
       (key) => updates[key as keyof typeof updates] !== undefined,
     );
+
+    if (!promotionRuleId) {
+      throw new BadRequestException('promotion_rule_id is required');
+    }
 
     if (updateKeys.length === 0) {
       throw new BadRequestException('No valid fields to update');
@@ -259,7 +288,7 @@ export class PromosService {
       index++;
     }
 
-    paramsArray.push(data.promotion_id);
+    paramsArray.push(promotionRuleId);
 
     const setString = setClause.join(', ');
 

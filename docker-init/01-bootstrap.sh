@@ -22,6 +22,7 @@ NEW_MIGRATIONS=(
   "migrations/pos/017-sale-customer-nullable.sql"
   "migrations/pos/018-customer-payment-customer-nullable.sql"
   "migrations/purchase/007-apply-inventory-on-delivery.sql"
+  "migrations/inventory/006-branch-creates-warehouse-trigger.sql"
 )
 
 for f in "${NEW_MIGRATIONS[@]}"; do

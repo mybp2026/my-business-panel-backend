@@ -2,6 +2,7 @@ import { Body, Controller, Get, Param, Patch, Post } from '@nestjs/common';
 import { ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
 import { ClockingService } from './clocking.service';
 import { ClockInDto } from './dto/clockIn.dto';
+import { ManualClockInDto, ManualClockOutDto } from './dto/manual-clocking.dto';
 import { clockInDoc, clockOutDoc } from '@/docs/contexts/hr/clocking';
 
 @ApiTags('Clocking')
@@ -35,5 +36,19 @@ export class ClockingController {
   @Patch()
   async clockOut(@Body() data: { employeeId: string }) {
     return this.clockingService.registerClockOut(data.employeeId);
+  }
+
+  @ApiOperation({ summary: 'Registrar clock-in manual con fecha y hora específica' })
+  @ApiResponse({ status: 201, description: 'Clock-in manual registrado' })
+  @Post('manual-in')
+  async manualClockIn(@Body() dto: ManualClockInDto) {
+    return this.clockingService.registerManualClockIn(dto);
+  }
+
+  @ApiOperation({ summary: 'Registrar clock-out manual con fecha y hora específica' })
+  @ApiResponse({ status: 200, description: 'Clock-out manual registrado' })
+  @Patch('manual-out')
+  async manualClockOut(@Body() dto: ManualClockOutDto) {
+    return this.clockingService.registerManualClockOut(dto);
   }
 }

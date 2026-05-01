@@ -177,6 +177,83 @@ export const generalQueryDefs = {
     all: 'SELECT * FROM general_schema.region ORDER BY region_id',
   },
 
+  currency: {
+    all: `
+      SELECT currency_id, currency_code, currency_name, symbol, created_at, updated_at
+      FROM general_schema.currency
+      ORDER BY currency_code
+    `,
+    byId: `
+      SELECT currency_id, currency_code, currency_name, symbol
+      FROM general_schema.currency
+      WHERE currency_id = $1 LIMIT 1
+    `,
+  },
+
+  exchangeRate: {
+    all: `
+      SELECT er.exchange_rate_id, er.from_currency_id, er.to_currency_id,
+             er.rate, er.effective_date, er.source, er.created_at, er.updated_at,
+             fc.currency_code AS from_currency_code, fc.currency_name AS from_currency_name, fc.symbol AS from_currency_symbol,
+             tc.currency_code AS to_currency_code,   tc.currency_name AS to_currency_name,   tc.symbol AS to_currency_symbol
+      FROM general_schema.exchange_rate er
+      JOIN general_schema.currency fc ON fc.currency_id = er.from_currency_id
+      JOIN general_schema.currency tc ON tc.currency_id = er.to_currency_id
+      ORDER BY er.effective_date DESC, fc.currency_code, tc.currency_code
+    `,
+    byId: `
+      SELECT exchange_rate_id, from_currency_id, to_currency_id, rate,
+             effective_date, source, created_at, updated_at
+      FROM general_schema.exchange_rate
+      WHERE exchange_rate_id = $1 LIMIT 1
+    `,
+    latestForPair: `
+      SELECT er.exchange_rate_id, er.from_currency_id, er.to_currency_id,
+             er.rate, er.effective_date, er.source, er.created_at, er.updated_at,
+             fc.currency_code AS from_currency_code, fc.symbol AS from_currency_symbol,
+             tc.currency_code AS to_currency_code,   tc.symbol AS to_currency_symbol
+      FROM general_schema.exchange_rate er
+      JOIN general_schema.currency fc ON fc.currency_id = er.from_currency_id
+      JOIN general_schema.currency tc ON tc.currency_id = er.to_currency_id
+      WHERE er.from_currency_id = $1 AND er.to_currency_id = $2
+      ORDER BY er.effective_date DESC, er.created_at DESC
+      LIMIT 1
+    `,
+    create: `
+      INSERT INTO general_schema.exchange_rate
+        (from_currency_id, to_currency_id, rate, effective_date, source)
+      VALUES ($1, $2, $3, $4, COALESCE($5, 'MANUAL'))
+      RETURNING exchange_rate_id, from_currency_id, to_currency_id, rate,
+                effective_date, source, created_at, updated_at
+    `,
+    upsert: `
+      INSERT INTO general_schema.exchange_rate
+        (from_currency_id, to_currency_id, rate, effective_date, source)
+      VALUES ($1, $2, $3, $4, COALESCE($5, 'MANUAL'))
+      ON CONFLICT (from_currency_id, to_currency_id, effective_date)
+      DO UPDATE SET rate = EXCLUDED.rate,
+                    source = EXCLUDED.source,
+                    updated_at = NOW()
+      RETURNING exchange_rate_id, from_currency_id, to_currency_id, rate,
+                effective_date, source, created_at, updated_at
+    `,
+    update: `
+      UPDATE general_schema.exchange_rate
+      SET rate = COALESCE($2, rate),
+          effective_date = COALESCE($3, effective_date),
+          source = COALESCE($4, source),
+          updated_at = NOW()
+      WHERE exchange_rate_id = $1
+      RETURNING exchange_rate_id, from_currency_id, to_currency_id, rate,
+                effective_date, source, created_at, updated_at
+    `,
+    delete: `
+      DELETE FROM general_schema.exchange_rate
+      WHERE exchange_rate_id = $1
+      RETURNING exchange_rate_id
+    `,
+  },
+
   tenant: {
     all: 'SELECT * FROM general_schema.tenant',
     byId: 'SELECT * FROM general_schema.tenant WHERE tenant_id = $1',
@@ -244,20 +321,62 @@ export const generalQueryDefs = {
 
   products: {
     getAll: `
-    SELECT pv.product_variant_id, pv.sku, pv.variant_name, pv.cabys_code, pv.unit_price, pv.is_active
+    SELECT pv.product_variant_id, pv.sku, pv.variant_name, pv.cabys_code,
+           CASE
+             WHEN pv.is_composite THEN COALESCE(comp.computed_unit_price, pv.unit_price)
+             ELSE pv.unit_price
+           END AS unit_price,
+           pv.is_active, pv.is_composite
     FROM general_schema.product_variant pv
+    LEFT JOIN LATERAL (
+      SELECT SUM(child.unit_price * pvc.quantity)::numeric(10,2) AS computed_unit_price
+      FROM general_schema.product_variant_composition pvc
+      JOIN general_schema.product_variant child
+        ON child.tenant_id = pvc.tenant_id
+       AND child.product_variant_id = pvc.child_product_variant_id
+      WHERE pvc.tenant_id = pv.tenant_id
+        AND pvc.parent_product_variant_id = pv.product_variant_id
+    ) comp ON TRUE
     WHERE pv.tenant_id = $1
     `,
     getAllPaginated: `
-      SELECT pv.product_variant_id, pv.sku, pv.variant_name, pv.cabys_code, pv.unit_price, pv.is_active, pv.tenant_id
+      SELECT pv.product_variant_id, pv.sku, pv.variant_name, pv.cabys_code,
+             CASE
+               WHEN pv.is_composite THEN COALESCE(comp.computed_unit_price, pv.unit_price)
+               ELSE pv.unit_price
+             END AS unit_price,
+             pv.is_active, pv.is_composite, pv.tenant_id
       FROM general_schema.product_variant pv
+      LEFT JOIN LATERAL (
+        SELECT SUM(child.unit_price * pvc.quantity)::numeric(10,2) AS computed_unit_price
+        FROM general_schema.product_variant_composition pvc
+        JOIN general_schema.product_variant child
+          ON child.tenant_id = pvc.tenant_id
+         AND child.product_variant_id = pvc.child_product_variant_id
+        WHERE pvc.tenant_id = pv.tenant_id
+          AND pvc.parent_product_variant_id = pv.product_variant_id
+      ) comp ON TRUE
       WHERE pv.tenant_id = $1
       ORDER BY pv.sku
       LIMIT $2 OFFSET $3
     `,
     getAllGlobal: `
-      SELECT pv.product_variant_id, pv.sku, pv.variant_name, pv.cabys_code, pv.unit_price, pv.is_active, pv.tenant_id, t.tenant_name
+      SELECT pv.product_variant_id, pv.sku, pv.variant_name, pv.cabys_code,
+             CASE
+               WHEN pv.is_composite THEN COALESCE(comp.computed_unit_price, pv.unit_price)
+               ELSE pv.unit_price
+             END AS unit_price,
+             pv.is_active, pv.is_composite, pv.tenant_id, t.tenant_name
       FROM general_schema.product_variant pv
+      LEFT JOIN LATERAL (
+        SELECT SUM(child.unit_price * pvc.quantity)::numeric(10,2) AS computed_unit_price
+        FROM general_schema.product_variant_composition pvc
+        JOIN general_schema.product_variant child
+          ON child.tenant_id = pvc.tenant_id
+         AND child.product_variant_id = pvc.child_product_variant_id
+        WHERE pvc.tenant_id = pv.tenant_id
+          AND pvc.parent_product_variant_id = pv.product_variant_id
+      ) comp ON TRUE
       LEFT JOIN general_schema.tenant t USING(tenant_id)
       ORDER BY t.tenant_name, pv.sku
       LIMIT $1 OFFSET $2
@@ -267,13 +386,41 @@ export const generalQueryDefs = {
     countAll:
       'SELECT COUNT(*)::int AS total FROM general_schema.product_variant',
     getBySku: `
-      SELECT pv.product_variant_id, pv.sku, pv.variant_name, pv.cabys_code, pv.unit_price, pv.is_active
+      SELECT pv.product_variant_id, pv.sku, pv.variant_name, pv.cabys_code,
+             CASE
+               WHEN pv.is_composite THEN COALESCE(comp.computed_unit_price, pv.unit_price)
+               ELSE pv.unit_price
+             END AS unit_price,
+             pv.is_active, pv.is_composite
       FROM general_schema.product_variant pv
+      LEFT JOIN LATERAL (
+        SELECT SUM(child.unit_price * pvc.quantity)::numeric(10,2) AS computed_unit_price
+        FROM general_schema.product_variant_composition pvc
+        JOIN general_schema.product_variant child
+          ON child.tenant_id = pvc.tenant_id
+         AND child.product_variant_id = pvc.child_product_variant_id
+        WHERE pvc.tenant_id = pv.tenant_id
+          AND pvc.parent_product_variant_id = pv.product_variant_id
+      ) comp ON TRUE
       WHERE pv.sku = $1
       `,
     searchByTenant: `
-      SELECT pv.product_variant_id, pv.sku, pv.variant_name, pv.cabys_code, pv.unit_price, pv.is_active, pv.tenant_id
+      SELECT pv.product_variant_id, pv.sku, pv.variant_name, pv.cabys_code,
+             CASE
+               WHEN pv.is_composite THEN COALESCE(comp.computed_unit_price, pv.unit_price)
+               ELSE pv.unit_price
+             END AS unit_price,
+             pv.is_active, pv.is_composite, pv.tenant_id
       FROM general_schema.product_variant pv
+      LEFT JOIN LATERAL (
+        SELECT SUM(child.unit_price * pvc.quantity)::numeric(10,2) AS computed_unit_price
+        FROM general_schema.product_variant_composition pvc
+        JOIN general_schema.product_variant child
+          ON child.tenant_id = pvc.tenant_id
+         AND child.product_variant_id = pvc.child_product_variant_id
+        WHERE pvc.tenant_id = pv.tenant_id
+          AND pvc.parent_product_variant_id = pv.product_variant_id
+      ) comp ON TRUE
       WHERE pv.tenant_id = $1
         AND pv.is_active = TRUE
         AND ($2::text IS NULL OR $2 = '' OR pv.sku ILIKE '%' || $2 || '%' OR pv.variant_name ILIKE '%' || $2 || '%')
@@ -335,8 +482,21 @@ export const generalQueryDefs = {
         WHERE pg.tenant_id = $1
       )
       SELECT pv.product_variant_id, pv.sku, pv.variant_name, pv.cabys_code,
-             pv.unit_price, pv.is_active, pv.is_composite, pv.tenant_id
+             CASE
+               WHEN pv.is_composite THEN COALESCE(comp.computed_unit_price, pv.unit_price)
+               ELSE pv.unit_price
+             END AS unit_price,
+             pv.is_active, pv.is_composite, pv.tenant_id
       FROM general_schema.product_variant pv
+      LEFT JOIN LATERAL (
+        SELECT SUM(child.unit_price * pvc.quantity)::numeric(10,2) AS computed_unit_price
+        FROM general_schema.product_variant_composition pvc
+        JOIN general_schema.product_variant child
+          ON child.tenant_id = pvc.tenant_id
+         AND child.product_variant_id = pvc.child_product_variant_id
+        WHERE pvc.tenant_id = pv.tenant_id
+          AND pvc.parent_product_variant_id = pv.product_variant_id
+      ) comp ON TRUE
       WHERE pv.tenant_id = $1
         AND pv.is_active = TRUE
         AND ($2::text IS NULL OR $2 = '' OR pv.sku ILIKE '%' || $2 || '%' OR pv.variant_name ILIKE '%' || $2 || '%')

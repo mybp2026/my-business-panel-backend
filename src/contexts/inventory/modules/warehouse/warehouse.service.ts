@@ -13,7 +13,6 @@ import { Warehouse } from './interfaces/warehouse.interface';
 import { CreateWarehouseDto } from './dto/create_warehouse.dto';
 import { UpdateWarehouseDto } from './dto/update_warehouse.dto';
 import { BulkInsertInventoryDto } from './dto/bulk_insert_inventory.dto';
-import { generalQueries } from '@general/general.queries';
 import { ProductService } from '@/contexts/general/modules/product/product.service';
 import { explodeForInventory } from '@/contexts/general/modules/product_composition/helpers/explode';
 import { ProductCount } from './interfaces/product_count.interface';
@@ -23,9 +22,8 @@ import { InventoryTransferSummary } from './interfaces/inventory_transfer_summar
 import { InventoryTransferProduct } from './interfaces/inventory_transfer_product.interface';
 import { InventoryTransfer } from './interfaces/inventory_transfer.interface';
 import { inventoryQueries } from '../../inventory.queries';
+import { generalQueries } from '@/contexts/general/general.queries';
 import { StateService } from '@/contexts/general/modules/state/state.service';
-
-const { branch } = generalQueries;
 
 @Injectable()
 export class WarehouseService {
@@ -43,7 +41,7 @@ export class WarehouseService {
     if (!tenant)
       throw new NotFoundException(`Tenant with ID ${tenant_id} not found`);
 
-    const result = await this.db.query(branch.byIdAndTenant, [
+    const result = await this.db.query(inventoryQueries.branchByIdAndTenant, [
       createWarehouseDto.branch_id,
       tenant_id,
     ]);
@@ -52,7 +50,7 @@ export class WarehouseService {
         `Branch with ID ${createWarehouseDto.branch_id} not found for Tenant with ID ${tenant_id}`,
       );
 
-    // Always create as auxiliary bodega — the sales-floor warehouse is
+    // Always create as auxiliary bodega â€” the sales-floor warehouse is
     // provisioned automatically by inventory_schema.fn_branch_create_warehouse
     // when a branch is inserted. We never let the API client pass is_branch.
     const { rows } = await this.db.query(inventoryQueries.create, [
@@ -359,7 +357,7 @@ export class WarehouseService {
     if (!tenant)
       throw new NotFoundException(`Tenant with ID ${tenant_id} not found`);
 
-    const result = await this.db.query(branch.byIdAndTenant, [
+    const result = await this.db.query(inventoryQueries.branchByIdAndTenant, [
       branch_id,
       tenant_id,
     ]);
@@ -513,16 +511,15 @@ export class WarehouseService {
   ): Promise<void> {
     // Composite parents are virtual: explode into child components and apply
     // reception per-child, dividing unit cost proportionally to the ratio.
-    const meta = await this.db.query(
-      `SELECT is_composite FROM general_schema.product_variant
-       WHERE tenant_id = $1 AND product_variant_id = $2 LIMIT 1`,
-      [tenant_id, product_variant_id],
-    );
+    const meta = await this.db.query(inventoryQueries.checkIsComposite, [
+      tenant_id,
+      product_variant_id,
+    ]);
     if (meta.rows[0]?.is_composite === true) {
-      const components = await this.db.query(
-        generalQueries.productComposition.byParent,
-        [tenant_id, product_variant_id],
-      );
+      const components = await this.db.query(inventoryQueries.getComponents, [
+        product_variant_id,
+        tenant_id,
+      ]);
       for (const c of components.rows) {
         const ratio = Number(c.quantity);
         const childQty = quantity * ratio;
@@ -592,30 +589,158 @@ export class WarehouseService {
     warehouseId: string,
     items: Array<{ product_variant_id: string; quantity: number }>,
     txn: {
-      query: (text: string, params?: any[]) => Promise<{ rows: any[]; rowCount?: number | null }>;
+      query: (
+        text: string,
+        params?: any[],
+      ) => Promise<{ rows: any[]; rowCount?: number | null }>;
     },
   ): Promise<void> {
     for (const item of items) {
+      // 1. Try to consume the item directly (requested variant, could be composite or simple)
+      const directStockRes = await txn.query(inventoryQueries.getStock, [
+        tenantId,
+        item.product_variant_id,
+        warehouseId,
+      ]);
+      let directAvailable = Number(directStockRes.rows[0]?.stock ?? 0);
+      let quantityToProcess = Number(item.quantity);
+
+      if (directAvailable > 0) {
+        const toConsumeDirectly = Math.min(directAvailable, quantityToProcess);
+        await txn.query(inventoryQueries.removeStock, [
+          toConsumeDirectly,
+          warehouseId,
+          item.product_variant_id,
+          tenantId,
+        ]);
+        await txn.query(inventoryQueries.logInventoryMovement, [
+          2, // OUT
+          warehouseId,
+          tenantId,
+          item.product_variant_id,
+          toConsumeDirectly,
+        ]);
+        quantityToProcess -= toConsumeDirectly;
+      }
+
+      if (quantityToProcess <= 0) continue;
+
+      // 2. If shortfall remains, explode it (if composite) and consume leaves
       const leaves = await explodeForInventory(
         txn,
         tenantId,
         item.product_variant_id,
-        Number(item.quantity),
+        quantityToProcess,
       );
       for (const leaf of leaves) {
-        const stockRes = await txn.query(
-          `SELECT COALESCE(stock, 0)::numeric AS stock
-           FROM inventory_schema.inventory
-           WHERE tenant_id = $1 AND product_variant_id = $2 AND warehouse_id = $3
-           LIMIT 1`,
-          [tenantId, leaf.product_variant_id, warehouseId],
-        );
-        const current = Number(stockRes.rows[0]?.stock ?? 0);
+        let stockRes = await txn.query(inventoryQueries.getStock, [
+          tenantId,
+          leaf.product_variant_id,
+          warehouseId,
+        ]);
+        let current = Number(stockRes.rows[0]?.stock ?? 0);
+
+        // If insufficient, attempt automatic disaggregation from parent composites
+        if (current < leaf.quantity) {
+          // Find candidate parents that include this child
+          const { rows: parents } = await txn.query(
+            generalQueries.productComposition.byChild,
+            [tenantId, leaf.product_variant_id],
+          );
+
+          // Try parents with available stock until shortfall is covered or no parents left
+          let shortfall = leaf.quantity - current;
+          for (const p of parents) {
+            if (shortfall <= 0) break;
+            const parentId = p.parent_product_variant_id;
+            const parentStockRes = await txn.query(inventoryQueries.getStock, [
+              tenantId,
+              parentId,
+              warehouseId,
+            ]);
+            let parentStock = Number(parentStockRes.rows[0]?.stock ?? 0);
+            while (parentStock > 0 && shortfall > 0) {
+              // Disaggregate one unit of parent into its components
+              const { rows: components } = await txn.query(
+                inventoryQueries.getComponents,
+                [parentId, tenantId],
+              );
+              if (components.length === 0) break;
+
+              // Remove one parent
+              const { rows: removed } = await txn.query(
+                inventoryQueries.removeStock,
+                [1, warehouseId, parentId, tenantId],
+              );
+              if (!removed || removed.length === 0) break;
+              await txn.query(inventoryQueries.logInventoryMovement, [
+                2,
+                warehouseId,
+                tenantId,
+                parentId,
+                1,
+              ]);
+
+              // Add children quantities
+              for (const comp of components) {
+                const addedQty = Number(comp.quantity) * 1;
+                const { rows: existing } = await txn.query(
+                  inventoryQueries.getInventoryId,
+                  [warehouseId, comp.child_product_variant_id, tenantId],
+                );
+                if (existing.length > 0) {
+                  await txn.query(inventoryQueries.addStock, [
+                    addedQty,
+                    warehouseId,
+                    comp.child_product_variant_id,
+                    tenantId,
+                  ]);
+                } else {
+                  await txn.query(inventoryQueries.insertIntoInventory, [
+                    tenantId,
+                    warehouseId,
+                    comp.child_product_variant_id,
+                    addedQty,
+                    null,
+                  ]);
+                }
+                await txn.query(inventoryQueries.logInventoryMovement, [
+                  1,
+                  warehouseId,
+                  tenantId,
+                  comp.child_product_variant_id,
+                  addedQty,
+                ]);
+              }
+
+              // Update counters
+              parentStock -= 1;
+
+              // Refresh current for the leaf
+              stockRes = await txn.query(inventoryQueries.getStock, [
+                tenantId,
+                leaf.product_variant_id,
+                warehouseId,
+              ]);
+              current = Number(stockRes.rows[0]?.stock ?? 0);
+              shortfall = leaf.quantity - current;
+            }
+          }
+        }
+
+        // Final check
+        stockRes = await txn.query(inventoryQueries.getStock, [
+          tenantId,
+          leaf.product_variant_id,
+          warehouseId,
+        ]);
+        current = Number(stockRes.rows[0]?.stock ?? 0);
         if (current < leaf.quantity) {
           throw new BadRequestException(
             `Stock insuficiente para variante ${leaf.product_variant_id}: disponible ${current}, requerido ${leaf.quantity}`,
           );
         }
+
         await txn.query(inventoryQueries.removeStock, [
           leaf.quantity,
           warehouseId,
@@ -692,7 +817,12 @@ export class WarehouseService {
     try {
       const { rows: transferRows } = await txn.query(
         inventoryQueries.createInventoryTransfer,
-        [origin_warehouse_id, destination_warehouse_id, departure_date ?? null, arrival_date ?? null],
+        [
+          origin_warehouse_id,
+          destination_warehouse_id,
+          departure_date ?? null,
+          arrival_date ?? null,
+        ],
       );
       const transfer = transferRows[0] as InventoryTransfer;
 
@@ -702,20 +832,9 @@ export class WarehouseService {
             `Quantity for product ${product.product_id} must be greater than zero`,
           );
 
-        const { rowCount: outCount, rows: outRows } = await txn.rawQuery(
-          `UPDATE inventory_schema.inventory
-             SET stock = stock - $1, updated_at = NOW()
-           WHERE warehouse_id = $2
-             AND product_variant_id = $3
-             AND tenant_id = $4
-             AND stock >= $1
-           RETURNING stock`,
-          [
-            product.amount,
-            origin_warehouse_id,
-            product.product_id,
-            tenant_id,
-          ],
+        const { rowCount: outCount, rows: outRows } = await txn.query(
+          inventoryQueries.removeStock,
+          [product.amount, origin_warehouse_id, product.product_id, tenant_id],
         );
 
         if (outCount === 0 || outRows.length === 0)
@@ -810,19 +929,49 @@ export class WarehouseService {
         `Discrepancy Report ${discrepancyCountId} has already been applied`,
       );
 
-    const { warehouse_id, product_variant_id, stored_quantity, physical_quantity } = report;
+    const {
+      warehouse_id,
+      product_variant_id,
+      stored_quantity,
+      physical_quantity,
+    } = report;
     const delta = physical_quantity - stored_quantity;
 
     const txn = await this.db.transaction();
     try {
       if (delta > 0) {
-        await txn.query(inventoryQueries.addStock, [delta, warehouse_id, product_variant_id, tenantId]);
-        await txn.query(inventoryQueries.logInventoryMovement, [1, warehouse_id, tenantId, product_variant_id, delta]);
+        await txn.query(inventoryQueries.addStock, [
+          delta,
+          warehouse_id,
+          product_variant_id,
+          tenantId,
+        ]);
+        await txn.query(inventoryQueries.logInventoryMovement, [
+          1,
+          warehouse_id,
+          tenantId,
+          product_variant_id,
+          delta,
+        ]);
       } else if (delta < 0) {
-        await txn.query(inventoryQueries.removeStock, [Math.abs(delta), warehouse_id, product_variant_id, tenantId]);
-        await txn.query(inventoryQueries.logInventoryMovement, [2, warehouse_id, tenantId, product_variant_id, Math.abs(delta)]);
+        await txn.query(inventoryQueries.removeStock, [
+          Math.abs(delta),
+          warehouse_id,
+          product_variant_id,
+          tenantId,
+        ]);
+        await txn.query(inventoryQueries.logInventoryMovement, [
+          2,
+          warehouse_id,
+          tenantId,
+          product_variant_id,
+          Math.abs(delta),
+        ]);
       }
-      await txn.query(inventoryQueries.applyDiscrepancyReport, [discrepancyCountId, tenantId]);
+      await txn.query(inventoryQueries.applyDiscrepancyReport, [
+        discrepancyCountId,
+        tenantId,
+      ]);
       await txn.commit();
       return { success: true };
     } catch (error) {
@@ -839,13 +988,208 @@ export class WarehouseService {
     if (!tenant)
       throw new NotFoundException(`Tenant with ID ${tenant_id} not found`);
 
+    const { rows } = await this.db.query(inventoryQueries.getExpiringStock, [
+      tenant_id,
+      days,
+    ]);
+    return rows;
+  }
+
+  // --- TRANSFER REQUEST WORKFLOW ---
+
+  async createTransferRequest(tenant_id: string, dto: any, user_id: string) {
     const { rows } = await this.db.query(
-      inventoryQueries.getExpiringStock,
-      [tenant_id, days],
+      inventoryQueries.createTransferRequest,
+      [
+        tenant_id,
+        dto.origin_warehouse_id,
+        dto.destination_warehouse_id,
+        user_id,
+      ],
+    );
+    const request = rows[0];
+    const products: { product_id: string; amount: number }[] = dto.products ?? [];
+    for (const product of products) {
+      await this.db.query(inventoryQueries.insertTransferRequestProduct, [
+        request.inventory_transfer_request_id,
+        tenant_id,
+        product.product_id,
+        product.amount,
+      ]);
+    }
+    return request;
+  }
+
+  async getTransferRequests(tenant_id: string) {
+    const { rows } = await this.db.query(
+      inventoryQueries.getTransferRequestsByTenant,
+      [tenant_id],
     );
     return rows;
   }
 
+  async updateTransferRequestStatus(
+    tenant_id: string,
+    request_id: string,
+    status: string,
+    rejection_reason: string | null,
+    user_id: string,
+  ) {
+    const { rows: requests } = await this.db.query(
+      inventoryQueries.getTransferRequestById,
+      [request_id, tenant_id],
+    );
+    if (requests.length === 0)
+      throw new NotFoundException('Transfer request not found');
+
+    const req = requests[0];
+    if (req.status_name !== 'pending') {
+      throw new BadRequestException('Can only update pending requests');
+    }
+
+    let transferId = null;
+
+    if (status === 'approved') {
+      const rawProducts: { product_variant_id: string; amount: number }[] =
+        Array.isArray(req.products) ? req.products : [];
+      const products: InventoryTransferProduct[] = rawProducts.map(p => ({
+        product_id: p.product_variant_id,
+        amount: p.amount,
+      }));
+      await this.moveProductToWarehouse(
+        req.from_warehouse_id,
+        req.to_warehouse_id,
+        tenant_id,
+        products,
+      );
+    }
+
+    const { rows: updated } = await this.db.query(
+      inventoryQueries.updateTransferRequestStatus,
+      [
+        request_id,
+        tenant_id,
+        status,
+        user_id,
+        rejection_reason || null,
+        transferId,
+      ],
+    );
+
+    return updated[0];
+  }
+
+  // --- LOTE DISAGGREGATION ---
+
+  async disaggregateLote(
+    tenant_id: string,
+    warehouse_id: string,
+    composite_product_variant_id: string,
+    quantity_to_disaggregate: number,
+    user_id?: string,
+  ) {
+    const tenant = this.state.getTenant(tenant_id);
+    if (!tenant)
+      throw new NotFoundException(`Tenant with ID ${tenant_id} not found`);
+
+    if (quantity_to_disaggregate <= 0) {
+      throw new BadRequestException(
+        'Quantity to disaggregate must be greater than 0',
+      );
+    }
+
+    // 1. Verify product is composite
+    const { rows: products } = await this.db.query(
+      inventoryQueries.checkIsComposite,
+      [tenant_id, composite_product_variant_id],
+    );
+
+    if (products.length === 0) throw new NotFoundException('Product not found');
+    if (!products[0].is_composite)
+      throw new BadRequestException('Product is not a composite (lote)');
+
+    // 2. Fetch components
+    const { rows: components } = await this.db.query(
+      inventoryQueries.getComponents,
+      [composite_product_variant_id, tenant_id],
+    );
+
+    if (components.length === 0)
+      throw new BadRequestException(
+        'Composite product has no components defined',
+      );
+
+    // 3. Start transaction
+    const txn = await this.db.transaction();
+    try {
+      // 4. Decrease composite stock
+      const { rows: removed } = await txn.query(inventoryQueries.removeStock, [
+        quantity_to_disaggregate,
+        warehouse_id,
+        composite_product_variant_id,
+        tenant_id,
+      ]);
+
+      if (removed.length === 0) {
+        throw new BadRequestException(
+          'Not enough stock of the composite product to disaggregate',
+        );
+      }
+
+      // Log out for parent
+      const OUT_LOG_TYPE_ID = 2; // OUT
+      await txn.query(inventoryQueries.logInventoryMovement, [
+        OUT_LOG_TYPE_ID,
+        warehouse_id,
+        tenant_id,
+        composite_product_variant_id,
+        quantity_to_disaggregate,
+      ]);
+
+      // 5. Increase children stock
+      const IN_LOG_TYPE_ID = 1; // IN
+      for (const comp of components) {
+        const addedQty = quantity_to_disaggregate * Number(comp.quantity);
+
+        const { rows: existing } = await txn.query(
+          inventoryQueries.getInventoryId,
+          [warehouse_id, comp.child_product_variant_id, tenant_id],
+        );
+
+        if (existing.length > 0) {
+          await txn.query(inventoryQueries.addStock, [
+            addedQty,
+            warehouse_id,
+            comp.child_product_variant_id,
+            tenant_id,
+          ]);
+        } else {
+          await txn.query(inventoryQueries.insertIntoInventory, [
+            tenant_id,
+            warehouse_id,
+            comp.child_product_variant_id,
+            addedQty,
+            null,
+          ]);
+        }
+
+        // Log in for child
+        await txn.query(inventoryQueries.logInventoryMovement, [
+          IN_LOG_TYPE_ID,
+          warehouse_id,
+          tenant_id,
+          comp.child_product_variant_id,
+          addedQty,
+        ]);
+      }
+
+      await txn.commit();
+      return { message: 'Lote disaggregated successfully' };
+    } catch (e) {
+      await txn.rollback();
+      throw e;
+    }
+  }
   @Cron('0 8 * * *')
   async notifyExpiringProducts() {
     const logger = new Logger('WarehouseScheduler');

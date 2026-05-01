@@ -6,6 +6,7 @@ import {
   Param,
   Patch,
   Post,
+  UseGuards,
 } from '@nestjs/common';
 import { ApiTags } from '@nestjs/swagger';
 import { ProductCompositionService } from './product-composition.service';
@@ -13,9 +14,13 @@ import {
   ReplaceCompositionDto,
   UpdateComponentQuantityDto,
 } from './dto/product-composition.dto';
+import { AuthenticationGuard } from '@/common/guards/authentication.guard';
+import { LevelAuthorizationGuard } from '@/common/guards/level_authorization.guard';
+import { RequiredLevel } from '@/common/decorators/level_metadata.decorator';
 
 @ApiTags('Product Composition')
 @Controller('product-composition')
+@UseGuards(AuthenticationGuard)
 export class ProductCompositionController {
   constructor(private readonly service: ProductCompositionService) {}
 
@@ -51,6 +56,8 @@ export class ProductCompositionController {
   }
 
   @Post()
+  @UseGuards(LevelAuthorizationGuard)
+  @RequiredLevel(2)
   async replace(@Body() body: ReplaceCompositionDto) {
     return this.service.replace(body);
   }
@@ -66,6 +73,8 @@ export class ProductCompositionController {
   }
 
   @Delete(':tenantId/parent/:parentId')
+  @UseGuards(LevelAuthorizationGuard)
+  @RequiredLevel(2)
   async clear(
     @Param('tenantId') tenantId: string,
     @Param('parentId') parentId: string,

@@ -1,7 +1,8 @@
-import { Inject, Injectable } from '@nestjs/common';
+import { BadRequestException, Inject, Injectable, NotFoundException } from '@nestjs/common';
 import { DATABASE } from '@/contexts/general/modules/db/db.provider';
 import Database from '@crane-technologies/database';
 import { ClockInDto } from './dto/clockIn.dto';
+import { ManualClockInDto, ManualClockOutDto } from './dto/manual-clocking.dto';
 import { EmployeeService } from '../employee/employee.service';
 import { EmployeeNotFoundError } from '@/common/errors/employee_not_found.error';
 import { hrQueries } from '@hr/hr.queries';
@@ -153,6 +154,50 @@ export class ClockingService {
     return {
       message: alertMessage,
       clockOut: clockOutRecord.rows[0].clocking_id,
+    };
+  }
+
+  async registerManualClockIn(dto: ManualClockInDto) {
+    const { employeeId, branchId, clockIn } = dto;
+
+    const employee = await this.employeeService.getEmployeeById(employeeId);
+    if (!employee) {
+      throw new EmployeeNotFoundError(employeeId);
+    }
+
+    const record = await this.db.query(clocking.manual_clock_in, [
+      employeeId,
+      branchId,
+      clockIn,
+    ]);
+
+    if (!record.rows.length) {
+      throw new BadRequestException('No se pudo registrar el clock-in manual');
+    }
+
+    return {
+      message: 'Clock-in manual registrado correctamente',
+      clockingId: record.rows[0].clocking_id,
+    };
+  }
+
+  async registerManualClockOut(dto: ManualClockOutDto) {
+    const { clockingId, clockOut } = dto;
+
+    const record = await this.db.query(clocking.manual_clock_out, [
+      clockingId,
+      clockOut,
+    ]);
+
+    if (!record.rows.length) {
+      throw new NotFoundException(
+        `No se encontró un turno abierto con ID ${clockingId}`,
+      );
+    }
+
+    return {
+      message: 'Clock-out manual registrado correctamente',
+      clockingId: record.rows[0].clocking_id,
     };
   }
 
