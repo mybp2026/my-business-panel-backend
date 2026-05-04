@@ -48,7 +48,10 @@ export class CashRegisterService {
     if (this.isAdmin(session)) return;
 
     const { rows } = await this.db.query(cashRegister.getKey, [cashRegisterId]);
-    const configuredKey = rows[0]?.cash_register_key as string | null | undefined;
+    const configuredKey = rows[0]?.cash_register_key as
+      | string
+      | null
+      | undefined;
 
     if (!configuredKey) return;
     if (!suppliedKey || suppliedKey !== configuredKey) {
@@ -61,6 +64,39 @@ export class CashRegisterService {
   async findAll(): Promise<{ results: CashRegister[] }> {
     const { rows } = await this.db.query(cashRegister.all, []);
     return { results: rows };
+  }
+
+  async findAllPaginated(
+    branchId?: string,
+    isActive?: boolean,
+    page = 1,
+    limit = 20,
+  ): Promise<{
+    results: CashRegister[];
+    total: number;
+    page: number;
+    limit: number;
+  }> {
+    const offset = (page - 1) * limit;
+    const branchParam = branchId ?? null;
+    const isActiveParam = typeof isActive === 'boolean' ? isActive : null;
+
+    const [dataResult, countResult] = await Promise.all([
+      this.db.query(cashRegister.allPaginated, [
+        branchParam,
+        isActiveParam,
+        limit,
+        offset,
+      ]),
+      this.db.query(cashRegister.countPaginated, [branchParam, isActiveParam]),
+    ]);
+
+    return {
+      results: dataResult.rows,
+      total: countResult.rows[0]?.total ?? 0,
+      page,
+      limit,
+    };
   }
 
   async findById(cash_register_id: string): Promise<{ result: CashRegister }> {
@@ -80,8 +116,7 @@ export class CashRegisterService {
     is_active?: boolean,
   ): Promise<{ results: CashRegisterSession[] }> {
     const branchParam = branch_id ?? null;
-    const isActiveParam =
-      typeof is_active === 'boolean' ? is_active : null;
+    const isActiveParam = typeof is_active === 'boolean' ? is_active : null;
     const { rows } = await this.db.query(cashRegister.findSessions, [
       tenant_id,
       branchParam,
@@ -134,8 +169,12 @@ export class CashRegisterService {
     session: IUserSession,
     closeSession: CloseCashRegisterSessionDto,
   ) {
-    const { cash_register_session_id, closed_at, closing_amount, cash_register_key } =
-      closeSession;
+    const {
+      cash_register_session_id,
+      closed_at,
+      closing_amount,
+      cash_register_key,
+    } = closeSession;
 
     const cash_session = await this.getSession(cash_register_session_id);
     if (!cash_session.is_active) throw new InvalidCashRegisterSessionError();
@@ -155,10 +194,14 @@ export class CashRegisterService {
   }
 
   async update(updateDto: UpdateCashRegisterDto) {
-    const { branch_id, cash_register_id, is_active, cash_register_key } =
-      updateDto;
+    const {
+      branch_id,
+      cash_register_id,
+      register_name,
+      is_active,
+      cash_register_key,
+    } = updateDto;
 
-    // Empty string clears the key; undefined preserves the existing value.
     const normalisedKey =
       cash_register_key === undefined
         ? null
@@ -169,6 +212,7 @@ export class CashRegisterService {
     const { rows } = await this.db.query(cashRegister.update, [
       cash_register_id,
       branch_id,
+      register_name,
       is_active,
       normalisedKey,
     ]);

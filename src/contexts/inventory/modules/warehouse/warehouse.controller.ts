@@ -81,6 +81,19 @@ export class WarehouseController {
     );
   }
 
+  @Get('inventory/:warehouse_id/aggregated')
+  listInventoryAggregated(
+    @Param('warehouse_id') warehouse_id: string,
+    @Query('search') search: string | undefined,
+    @Session() userSession: IUserSession,
+  ) {
+    return this.warehouseService.listInventoryAggregated(
+      warehouse_id,
+      userSession.tenant_id,
+      search,
+    );
+  }
+
   @Get('inventory/:warehouse_id')
   listInventoryByWarehouse(
     @Param('warehouse_id') warehouse_id: string,

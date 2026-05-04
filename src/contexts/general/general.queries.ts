@@ -65,8 +65,8 @@ export const generalQueryDefs = {
       SELECT
         tenant_customer_id AS customer_id, tenant_id,
         first_name, last_name,
-        identification_type_id AS doc_type,
-        document_number AS doc_number,
+        identification_type_id AS identification_type,
+        document_number,
         econ_activity, email, phone, birthdate, address,
         customer_segment_id AS segment_id,
         is_tenant, created_at, updated_at
@@ -77,8 +77,8 @@ export const generalQueryDefs = {
       SELECT
         tenant_customer_id AS customer_id, tenant_id,
         first_name, last_name,
-        identification_type_id AS doc_type,
-        document_number AS doc_number,
+        identification_type_id AS identification_type,
+        document_number,
         econ_activity, email, phone, birthdate, address,
         customer_segment_id AS segment_id,
         is_tenant, created_at, updated_at
@@ -91,8 +91,8 @@ export const generalQueryDefs = {
       SELECT
         tc.tenant_customer_id AS customer_id, tc.tenant_id,
         tc.first_name, tc.last_name,
-        tc.identification_type_id AS doc_type,
-        tc.document_number AS doc_number,
+        tc.identification_type_id AS identification_type,
+        tc.document_number,
         tc.econ_activity, tc.email, tc.phone, tc.birthdate, tc.address,
         tc.customer_segment_id AS segment_id,
         tc.is_tenant, tc.created_at, tc.updated_at,
@@ -110,8 +110,8 @@ export const generalQueryDefs = {
       SELECT
         tenant_customer_id AS customer_id, tenant_id,
         first_name, last_name,
-        identification_type_id AS doc_type,
-        document_number AS doc_number,
+        identification_type_id AS identification_type,
+        document_number,
         econ_activity, email, phone, birthdate, address,
         customer_segment_id AS segment_id,
         is_tenant, created_at, updated_at
@@ -151,8 +151,8 @@ export const generalQueryDefs = {
       RETURNING
         tenant_customer_id AS customer_id, tenant_id,
         first_name, last_name,
-        identification_type_id AS doc_type,
-        document_number AS doc_number,
+        identification_type_id AS identification_type,
+        document_number,
         econ_activity, email, phone, birthdate, address,
         customer_segment_id AS segment_id,
         is_tenant, created_at, updated_at
@@ -161,8 +161,8 @@ export const generalQueryDefs = {
       SELECT
         tenant_customer_id AS customer_id, tenant_id,
         first_name, last_name,
-        identification_type_id AS doc_type,
-        document_number AS doc_number,
+        identification_type_id AS identification_type,
+        document_number,
         econ_activity, email, phone, birthdate, address,
         customer_segment_id AS segment_id,
         is_tenant, created_at, updated_at
@@ -171,6 +171,86 @@ export const generalQueryDefs = {
     `,
     delete:
       'DELETE FROM general_schema.tenant_customer WHERE tenant_customer_id = $1',
+
+    // Enriched detail: customer + segment name + loyalty score
+    detail: `
+      SELECT
+        tc.tenant_customer_id AS customer_id,
+        tc.tenant_id,
+        tc.first_name,
+        tc.last_name,
+        tc.identification_type_id AS identification_type,
+        tc.document_number,
+        tc.econ_activity,
+        tc.email,
+        tc.phone,
+        tc.birthdate,
+        tc.address,
+        tc.is_tenant,
+        tc.created_at,
+        tc.updated_at,
+        tc.customer_segment_id AS segment_id,
+        cs.segment_name,
+        cs.segment_hierarchy,
+        COALESCE(tcs.score, 0)          AS loyalty_score,
+        COALESCE(tcs.lifetime_score, 0) AS loyalty_lifetime_score,
+        COALESCE(tcs.score_redeemed, 0) AS loyalty_score_redeemed,
+        tcs.last_earned_at,
+        tcs.last_redeemed_at,
+        lp.loyalty_program_id,
+        lp.points_earned_per_currency_unit,
+        lp.points_redeemed_per_currency_unit,
+        lp.minimum_purchase_for_points,
+        lp.is_active AS loyalty_program_active
+      FROM general_schema.tenant_customer tc
+      LEFT JOIN general_schema.customer_segment cs USING(customer_segment_id)
+      LEFT JOIN pos_schema.tenant_customer_score tcs
+        ON tcs.tenant_customer_id = tc.tenant_customer_id
+        AND tcs.tenant_id = tc.tenant_id
+      LEFT JOIN pos_schema.loyalty_program lp
+        ON lp.tenant_id = tc.tenant_id AND lp.is_active = true
+      WHERE tc.tenant_customer_id = $1
+      LIMIT 1
+    `,
+
+    // Paginated sales history for a specific customer
+    salesHistory: `
+      SELECT
+        s.sale_id,
+        s.sale_date,
+        s.subtotal_amount,
+        s.tax_amount,
+        s.total_amount,
+        s.is_completed,
+        s.has_electronic_invoice,
+        cur.currency_code,
+        cur.symbol AS currency_symbol,
+        b.branch_name,
+        dsi.digital_sale_invoice_id,
+        dsi.invoiced_at   AS digital_invoiced_at,
+        esi.electronic_sale_invoice_id,
+        esi.consecutive_number AS electronic_consecutive,
+        rt.return_transaction_id,
+        rt.return_status_id,
+        rt.total_refund_amount
+      FROM pos_schema.sale s
+      LEFT JOIN general_schema.branch b ON b.branch_id = s.branch_id
+      LEFT JOIN general_schema.currency cur ON cur.currency_id = s.currency_id
+      LEFT JOIN pos_schema.digital_sale_invoice dsi ON dsi.sale_id = s.sale_id
+      LEFT JOIN pos_schema.electronic_sale_invoice esi ON esi.sale_id = s.sale_id
+      LEFT JOIN pos_schema.return_transaction rt
+        ON (rt.digital_sale_invoice_id = dsi.digital_sale_invoice_id
+            OR rt.electronic_sale_invoice_id = esi.electronic_sale_invoice_id)
+      WHERE s.tenant_customer_id = $1
+      ORDER BY s.sale_date DESC
+      LIMIT $2 OFFSET $3
+    `,
+
+    salesHistoryCount: `
+      SELECT COUNT(*)::int AS total
+      FROM pos_schema.sale
+      WHERE tenant_customer_id = $1
+    `,
   },
 
   region: {
@@ -326,7 +406,10 @@ export const generalQueryDefs = {
              WHEN pv.is_composite THEN COALESCE(comp.computed_unit_price, pv.unit_price)
              ELSE pv.unit_price
            END AS unit_price,
-           pv.is_active, pv.is_composite
+           pv.cost_price, pv.is_active, pv.is_composite,
+           pv.supplier_id, s.supplier_name,
+           pv.giftable, pv.giftable_from,
+           pv.created_at, pv.updated_at
     FROM general_schema.product_variant pv
     LEFT JOIN LATERAL (
       SELECT SUM(child.unit_price * pvc.quantity)::numeric(10,2) AS computed_unit_price
@@ -337,6 +420,7 @@ export const generalQueryDefs = {
       WHERE pvc.tenant_id = pv.tenant_id
         AND pvc.parent_product_variant_id = pv.product_variant_id
     ) comp ON TRUE
+    LEFT JOIN purchase_schema.supplier s ON s.supplier_id = pv.supplier_id
     WHERE pv.tenant_id = $1
     `,
     getAllPaginated: `
@@ -345,7 +429,10 @@ export const generalQueryDefs = {
                WHEN pv.is_composite THEN COALESCE(comp.computed_unit_price, pv.unit_price)
                ELSE pv.unit_price
              END AS unit_price,
-             pv.is_active, pv.is_composite, pv.tenant_id
+             pv.cost_price, pv.is_active, pv.is_composite, pv.tenant_id,
+             pv.supplier_id, s.supplier_name,
+             pv.giftable, pv.giftable_from,
+             pv.created_at, pv.updated_at
       FROM general_schema.product_variant pv
       LEFT JOIN LATERAL (
         SELECT SUM(child.unit_price * pvc.quantity)::numeric(10,2) AS computed_unit_price
@@ -356,6 +443,7 @@ export const generalQueryDefs = {
         WHERE pvc.tenant_id = pv.tenant_id
           AND pvc.parent_product_variant_id = pv.product_variant_id
       ) comp ON TRUE
+      LEFT JOIN purchase_schema.supplier s ON s.supplier_id = pv.supplier_id
       WHERE pv.tenant_id = $1
       ORDER BY pv.sku
       LIMIT $2 OFFSET $3
@@ -410,7 +498,10 @@ export const generalQueryDefs = {
                WHEN pv.is_composite THEN COALESCE(comp.computed_unit_price, pv.unit_price)
                ELSE pv.unit_price
              END AS unit_price,
-             pv.is_active, pv.is_composite, pv.tenant_id
+             pv.cost_price, pv.is_active, pv.is_composite, pv.tenant_id,
+             pv.supplier_id, s.supplier_name,
+             pv.giftable, pv.giftable_from,
+             pv.created_at, pv.updated_at
       FROM general_schema.product_variant pv
       LEFT JOIN LATERAL (
         SELECT SUM(child.unit_price * pvc.quantity)::numeric(10,2) AS computed_unit_price
@@ -421,6 +512,7 @@ export const generalQueryDefs = {
         WHERE pvc.tenant_id = pv.tenant_id
           AND pvc.parent_product_variant_id = pv.product_variant_id
       ) comp ON TRUE
+      LEFT JOIN purchase_schema.supplier s ON s.supplier_id = pv.supplier_id
       WHERE pv.tenant_id = $1
         AND pv.is_active = TRUE
         AND ($2::text IS NULL OR $2 = '' OR pv.sku ILIKE '%' || $2 || '%' OR pv.variant_name ILIKE '%' || $2 || '%')
@@ -1130,6 +1222,9 @@ export const bulkProducts = [
   'cabys_code',
   'unit_price',
   'cost_price',
+  'supplier_id',
+  'giftable',
+  'giftable_from',
 ];
 
 export const bulkAttributeAssignations = [

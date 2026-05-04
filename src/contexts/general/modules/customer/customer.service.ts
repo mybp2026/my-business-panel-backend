@@ -169,7 +169,14 @@ export class CustomerService {
       UPDATE general_schema.tenant_customer
       SET ${setString}
       WHERE tenant_customer_id = $${index}
-      RETURNING *
+      RETURNING
+        tenant_customer_id AS customer_id, tenant_id,
+        first_name, last_name,
+        identification_type_id AS identification_type,
+        document_number,
+        econ_activity, email, phone, birthdate, address,
+        customer_segment_id AS segment_id,
+        is_tenant, created_at, updated_at
     `;
 
     try {
@@ -229,5 +236,31 @@ export class CustomerService {
     } catch (error) {
       throw new InternalServerErrorException(error);
     }
+  }
+
+  async getCustomerDetail(customerId: string) {
+    const { rows } = await this.db.query(customer.detail, [customerId]);
+    if (!rows || rows.length === 0) {
+      throw new NotFoundException('Customer not found');
+    }
+    return rows[0];
+  }
+
+  async getCustomerSalesHistory(
+    customerId: string,
+    page = 1,
+    limit = 10,
+  ): Promise<{ sales: unknown[]; total: number; page: number; limit: number }> {
+    const offset = (page - 1) * limit;
+    const [dataResult, countResult] = await Promise.all([
+      this.db.query(customer.salesHistory, [customerId, limit, offset]),
+      this.db.query(customer.salesHistoryCount, [customerId]),
+    ]);
+    return {
+      sales: dataResult.rows,
+      total: countResult.rows[0]?.total ?? 0,
+      page,
+      limit,
+    };
   }
 }

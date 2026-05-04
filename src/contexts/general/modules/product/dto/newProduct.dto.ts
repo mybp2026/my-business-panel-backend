@@ -1,4 +1,5 @@
 import {
+  IsBoolean,
   IsNumber,
   IsOptional,
   IsString,
@@ -41,6 +42,18 @@ export class NewProductDto {
   cost_price?: number;
 
   @IsOptional()
+  @IsUUID()
+  supplier_id?: string;
+
+  @IsOptional()
+  @IsBoolean()
+  giftable?: boolean;
+
+  @IsOptional()
+  @IsNumber()
+  giftable_from?: number;
+
+  @IsOptional()
   @IsArray()
   @IsUUID('4', { each: true })
   attribute_value_ids?: string[];
@@ -58,6 +71,9 @@ export interface ProductInsert {
   cabys_code?: string;
   unit_price: number;
   cost_price?: number;
+  supplier_id?: string;
+  giftable?: boolean;
+  giftable_from?: number;
   attribute_value_ids?: string[];
   group_ids?: string[];
 }

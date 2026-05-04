@@ -21,8 +21,12 @@ import { UpdateProductDto } from './dto/updateProduct.dto';
 import { Product } from './interface/product.interface';
 import { isUUID } from 'class-validator';
 
-const { products, attributeAssignation, tenantProductGroup, productVariantGroupAssignment } =
-  generalQueries;
+const {
+  products,
+  attributeAssignation,
+  tenantProductGroup,
+  productVariantGroupAssignment,
+} = generalQueries;
 
 @Injectable()
 export class ProductService {
@@ -271,7 +275,9 @@ export class ProductService {
             valInsert === undefined ? 'No existe descripcion' : valInsert,
           );
         } else if (k === 'cost_price') {
-          values.push(valInsert === undefined || valInsert === null ? 0 : valInsert);
+          values.push(
+            valInsert === undefined || valInsert === null ? 0 : valInsert,
+          );
         } else {
           values.push(valInsert === undefined ? null : valInsert);
         }
@@ -298,11 +304,7 @@ export class ProductService {
     const hasAttributeUpdate = attribute_value_ids !== undefined;
     const hasGroupUpdate = group_ids !== undefined;
 
-    if (
-      updateKeys.length === 0 &&
-      !hasAttributeUpdate &&
-      !hasGroupUpdate
-    ) {
+    if (updateKeys.length === 0 && !hasAttributeUpdate && !hasGroupUpdate) {
       throw new BadRequestException('No valid fields to update');
     }
 

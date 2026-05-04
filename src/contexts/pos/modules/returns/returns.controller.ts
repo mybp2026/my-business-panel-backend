@@ -39,6 +39,11 @@ export class ReturnsController {
     return this.returnsService.findReturns(findReturnsDto);
   }
 
+  @Get(':id/detail')
+  getReturnDetail(@Param('id', ParseUUIDPipe) id: string) {
+    return this.returnsService.getReturnDetail(id);
+  }
+
   /**
    * Get the full refund context (sale + digital + electronic invoices + items)
    * for a given sale_id. Used by the refunds UI to populate fields after

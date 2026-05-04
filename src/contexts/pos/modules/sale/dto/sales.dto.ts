@@ -115,6 +115,26 @@ export class FullSaleDto {
   @IsUUID()
   seller_user_id?: string;
 
+  @IsOptional()
+  @IsUUID()
+  cash_register_session_id?: string;
+
+  @IsOptional()
+  @IsString()
+  due_date?: string;
+
+  @IsOptional()
+  @IsString()
+  ad_message?: string;
+
+  @IsOptional()
+  @IsNumber()
+  amount_paid?: number;
+
+  @IsOptional()
+  @IsNumber()
+  change_amount?: number;
+
   @IsNotEmpty()
   @IsArray()
   payments!: Payment[];

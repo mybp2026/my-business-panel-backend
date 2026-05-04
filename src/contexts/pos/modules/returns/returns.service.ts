@@ -36,7 +36,6 @@ interface SaleContextRow {
   document_number: string | null;
   customer_email: string | null;
   digital_sale_invoice_id: string | null;
-  digital_invoice_number: string | null;
   digital_invoiced_at: Date | null;
   digital_subtotal: string | null;
   digital_tax: string | null;
@@ -96,7 +95,6 @@ export class ReturnsService {
       digital_invoice: row.digital_sale_invoice_id
         ? {
             digital_sale_invoice_id: row.digital_sale_invoice_id,
-            invoice_number: row.digital_invoice_number,
             invoiced_at: row.digital_invoiced_at,
             subtotal_amount: Number(row.digital_subtotal ?? 0),
             tax_amount: Number(row.digital_tax ?? 0),
@@ -132,7 +130,7 @@ export class ReturnsService {
    * Resolves both digital and electronic invoice IDs from the sale.
    */
   async createPartialRefund(data: ReturnTransactionDto) {
-    const { sale_id, return_products, refund_method, return_status_id } = data;
+    const { sale_id, return_products, refund_method, return_status_id, description } = data;
 
     if (!Array.isArray(return_products) || return_products.length === 0) {
       throw new BadRequestException(
@@ -177,6 +175,7 @@ export class ReturnsService {
         Number(totalRefund.toFixed(2)),
         refund_method ?? null,
         return_status_id ?? null,
+        description,
         null, // return_date — falls back to NOW() in SQL
       ]);
 
@@ -265,6 +264,24 @@ export class ReturnsService {
           : 'Error al procesar reembolso completo',
       );
     }
+  }
+
+  async getReturnDetail(returnTransactionId: string) {
+    const [headerResult, productsResult] = await Promise.all([
+      this.db.query(returns.getById, [returnTransactionId]),
+      this.db.query(returns.getProducts, [returnTransactionId]),
+    ]);
+
+    if (!headerResult.rows.length) {
+      throw new NotFoundException(
+        `Return transaction not found: ${returnTransactionId}`,
+      );
+    }
+
+    return {
+      transaction: headerResult.rows[0],
+      products: productsResult.rows,
+    };
   }
 
   async findReturns(findReturnsDto: FindReturnsDto) {

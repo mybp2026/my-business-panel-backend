@@ -98,8 +98,14 @@ export class NewPromoDto {
   @IsNumber()
   promotion_type_id!: number;
 
-  @IsNumber()
-  customer_segment_id!: number;
+  @IsOptional()
+  @IsBoolean()
+  is_universal?: boolean;
+
+  @IsOptional()
+  @IsArray()
+  @IsNumber({}, { each: true })
+  customer_segment_ids?: number[];
 
   @Type(() => Date)
   @IsDate()
