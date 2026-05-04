@@ -18,7 +18,7 @@ import { AccountingJournalService } from '../../../finances/modules/accounting/a
 import { SaleItemService } from '../sale-item/sale-item.service';
 import { WarehouseService } from '@/contexts/inventory/modules/warehouse/warehouse.service';
 
-const { sales } = posQueries;
+const { sales, loyaltyScore } = posQueries;
 
 @Injectable()
 export class SaleService {
@@ -66,9 +66,17 @@ export class SaleService {
   }
 
   async createFullSale(data: FullSaleDto) {
+    const { items, payments } = data;
+
+    const hasPointsPayment = (payments ?? []).some((p) => p.is_points_redemption);
+    if (hasPointsPayment && !data.tenant_customer_id) {
+      throw new BadRequestException(
+        'Se requiere asociar un cliente para realizar pagos con puntos de fidelidad.',
+      );
+    }
+
     const txn = await this.db.transaction();
     try {
-      const { items, payments } = data;
 
       let saleId: string;
       try {
@@ -176,6 +184,21 @@ export class SaleService {
           ]),
         );
 
+        // Compute points_accumulated from the active loyalty program inside the txn
+        let pointsAccumulated = 0;
+        if (data.tenant_customer_id) {
+          const { rows: lpRows } = await txn.query(
+            loyaltyScore.getActiveProgramForTenant,
+            [data.tenant_id],
+          );
+          const lp = lpRows[0];
+          if (lp && data.total_amount >= Number(lp.minimum_purchase_for_points)) {
+            pointsAccumulated = Math.floor(
+              data.total_amount * Number(lp.points_earned_per_currency_unit),
+            );
+          }
+        }
+
         await this.dInvoiceService.createDInvoice(
           {
             tenant_customer_id: data.tenant_customer_id ?? null,
@@ -183,6 +206,12 @@ export class SaleService {
             subtotal_amount: data.subtotal_amount,
             tax_amount: data.tax_amount,
             total_amount: data.total_amount,
+            due_date: data.due_date ? new Date(data.due_date) : new Date(),
+            cash_register_session_id: data.cash_register_session_id ?? null,
+            points_accumulated: pointsAccumulated,
+            ad_message: data.ad_message ?? null,
+            amount_paid: data.amount_paid ?? 0,
+            change_amount: data.change_amount ?? 0,
             invoiced_at: new Date(),
             updated_at: new Date(),
             sale_id: saleId,
@@ -249,6 +278,45 @@ export class SaleService {
       } catch (txnError) {
         await txn.rollback();
         throw txnError;
+      }
+
+      // Accumulate loyalty points — non-blocking, must not fail the sale
+      if (data.tenant_customer_id) {
+        try {
+          const { rows: programRows } = await this.db.query(
+            loyaltyScore.getActiveProgramForTenant,
+            [data.tenant_id],
+          );
+          const program = programRows[0];
+          if (program && data.total_amount >= Number(program.minimum_purchase_for_points)) {
+            const pointsEarned = Math.floor(
+              data.total_amount * Number(program.points_earned_per_currency_unit),
+            );
+            if (pointsEarned > 0) {
+              await this.db.query(loyaltyScore.upsertEarned, [
+                data.tenant_id,
+                data.tenant_customer_id,
+                pointsEarned,
+              ]);
+            }
+          }
+          // Deduct redeemed points from any points-redemption payment rows
+          const redeemedPoints = (data.payments ?? []).reduce(
+            (sum, p) => sum + (p.is_points_redemption ? (p.points_redeemed ?? 0) : 0),
+            0,
+          );
+          if (redeemedPoints > 0) {
+            await this.db.query(loyaltyScore.deductRedeemed, [
+              data.tenant_id,
+              data.tenant_customer_id,
+              redeemedPoints,
+            ]);
+          }
+        } catch (loyaltyError) {
+          this.logger.error(
+            `Loyalty points update failed for sale ${saleId}: ${(loyaltyError as Error).message}`,
+          );
+        }
       }
 
       if (data.has_electronic_invoice) {

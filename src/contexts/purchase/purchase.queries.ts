@@ -727,6 +727,7 @@ export const purchaseQueryDefs = {
         name,
         description
       FROM general_schema.payment_method
+      WHERE name <> 'loyalty_points'
       ORDER BY payment_method_id ASC
     `,
 

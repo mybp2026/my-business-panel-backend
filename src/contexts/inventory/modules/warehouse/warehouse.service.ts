@@ -145,6 +145,31 @@ export class WarehouseService {
     return rows as InventoryItem[];
   }
 
+  async listInventoryAggregated(
+    warehouse_id: string,
+    tenant_id: string,
+    search?: string,
+  ): Promise<InventoryItem[]> {
+    const tenant = this.state.getTenant(tenant_id);
+    if (!tenant)
+      throw new NotFoundException(`Tenant with ID ${tenant_id} not found`);
+
+    const warehouse = await this.db.query(inventoryQueries.byTenantAndId, [
+      warehouse_id,
+      tenant_id,
+    ]);
+    if (warehouse.rowCount === 0)
+      throw new NotFoundException(
+        `Warehouse with ID ${warehouse_id} not found for Tenant with ID ${tenant_id}`,
+      );
+
+    const { rows } = await this.db.query(
+      inventoryQueries.listInventoryByWarehouseAggregated,
+      [warehouse_id, tenant_id, search ?? null],
+    );
+    return rows as InventoryItem[];
+  }
+
   async updateInventoryItem(
     inventory_id: string,
     tenant_id: string,

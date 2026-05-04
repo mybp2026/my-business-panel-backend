@@ -9,7 +9,7 @@ import {
 } from '@/docs/contexts/pos/d-invoice';
 
 @ApiTags('D-Invoice')
-@Controller('invoice')
+@Controller('d-invoice')
 export class DInvoiceController {
   constructor(private readonly invoiceService: DInvoiceService) {}
 

@@ -95,6 +95,26 @@ export class CustomerController {
   @ApiResponse(getOneCustomerByIdDoc.responses[200])
   @ApiResponse(getOneCustomerByIdDoc.responses[401])
   @ApiResponse(getOneCustomerByIdDoc.responses[404])
+  @Get(':id/detail')
+  @UseGuards(AuthenticationGuard)
+  async getCustomerDetail(@Param('id') id: string) {
+    return this.customerService.getCustomerDetail(id);
+  }
+
+  @Get(':id/sales')
+  @UseGuards(AuthenticationGuard)
+  async getCustomerSalesHistory(
+    @Param('id') id: string,
+    @Query('page') page = '1',
+    @Query('limit') limit = '10',
+  ) {
+    return this.customerService.getCustomerSalesHistory(
+      id,
+      parseInt(page),
+      parseInt(limit),
+    );
+  }
+
   @Get(':id')
   async getOneCustomerById(@Param('id') id: string) {
     return this.customerService.findCustomerById(id);

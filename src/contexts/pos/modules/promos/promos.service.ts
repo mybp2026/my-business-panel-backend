@@ -60,7 +60,8 @@ export class PromosService {
       promotion_code,
       promotion_description,
       promotion_type_id,
-      customer_segment_id,
+      is_universal,
+      customer_segment_ids,
       promotion_start_date,
       promotion_end_date,
       is_active,
@@ -70,13 +71,15 @@ export class PromosService {
       targets,
     } = newPromoDto;
 
+    const effectiveIsUniversal = is_universal ?? true;
+
     const promo = await this.db.query(promotions.insertPromo, [
       tenant_id,
       promotion_name,
       promotion_code,
       promotion_description,
       promotion_type_id,
-      customer_segment_id,
+      effectiveIsUniversal,
       promotion_start_date,
       promotion_end_date,
       is_active,
@@ -92,6 +95,10 @@ export class PromosService {
     const rulesPayload: PromoRules = { ...(rules ?? {}), promotion_id: promotionId };
     const rule = await this.insertRules(rulesPayload);
 
+    if (!effectiveIsUniversal && customer_segment_ids && customer_segment_ids.length > 0) {
+      await this.replacePromoSegments(promotionId, customer_segment_ids);
+    }
+
     if (targets && targets.length > 0) {
       await this.replaceTargets(promotionId, tenant_id, targets);
     }
@@ -100,6 +107,13 @@ export class PromosService {
       message: `Promotion and rule with id: ${rule} created successfully`,
       promotion_id: promotionId,
     };
+  }
+
+  async replacePromoSegments(promotionId: string, segmentIds: number[]) {
+    await this.db.query(promotions.deletePromoSegments, [promotionId]);
+    for (const segId of segmentIds) {
+      await this.db.query(promotions.insertPromoSegment, [promotionId, segId]);
+    }
   }
 
   async replaceTargets(
@@ -197,7 +211,8 @@ export class PromosService {
       promotion_code,
       promotion_description,
       promotion_type_id,
-      customer_segment_id,
+      is_universal,
+      customer_segment_ids,
       promotion_start_date,
       promotion_end_date,
       is_active,
@@ -221,7 +236,7 @@ export class PromosService {
         promotion_code,
         promotion_description,
         promotion_type_id,
-        customer_segment_id,
+        is_universal,
         promotion_start_date,
         promotion_end_date,
         is_active,
@@ -231,6 +246,16 @@ export class PromosService {
 
       if (updateRule) {
         await this.db.query(updateRule.queryString, updateRule.paramsArray);
+      }
+
+      if (customer_segment_ids !== undefined) {
+        await this.db.query(promotions.deletePromoSegments, [promotionId]);
+        const effectiveUniversal = is_universal ?? updatedPromo.rows[0]?.is_universal;
+        if (!effectiveUniversal && customer_segment_ids.length > 0) {
+          for (const segId of customer_segment_ids) {
+            await this.db.query(promotions.insertPromoSegment, [promotionId, segId]);
+          }
+        }
       }
 
       if (updatePromoDto.targets !== undefined) {

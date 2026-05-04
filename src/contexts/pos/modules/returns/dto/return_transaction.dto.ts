@@ -2,8 +2,10 @@ import { Type } from 'class-transformer';
 import {
   ArrayNotEmpty,
   IsArray,
+  IsNotEmpty,
   IsNumber,
   IsOptional,
+  IsString,
   IsUUID,
   ValidateNested,
 } from 'class-validator';
@@ -42,6 +44,10 @@ export class ReturnTransactionDto {
   @IsOptional()
   @IsNumber()
   return_status_id?: number;
+
+  @IsString()
+  @IsNotEmpty()
+  description!: string;
 
   @IsArray()
   @ArrayNotEmpty()

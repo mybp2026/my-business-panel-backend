@@ -5,8 +5,9 @@ export interface Promo {
   promotion_code: string;
   promotion_description?: string;
   promotion_type_id?: number;
-  customer_segment_id?: number;
-  segment_name: string;
+  is_universal: boolean;
+  customer_segment_ids?: number[];
+  segment_names?: string[];
   promotion_start_date: string;
   promotion_end_date: string;
   type_name: string;
