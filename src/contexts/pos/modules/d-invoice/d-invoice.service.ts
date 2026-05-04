@@ -27,6 +27,12 @@ export class DInvoiceService {
       subtotal_amount,
       tax_amount,
       total_amount,
+      due_date,
+      cash_register_session_id,
+      points_accumulated,
+      ad_message,
+      amount_paid,
+      change_amount,
       invoiced_at,
       updated_at,
       sale_id,
@@ -37,6 +43,12 @@ export class DInvoiceService {
       subtotal_amount,
       tax_amount,
       total_amount,
+      due_date ?? null,
+      cash_register_session_id ?? null,
+      points_accumulated ?? 0,
+      ad_message ?? null,
+      amount_paid ?? 0,
+      change_amount ?? 0,
       invoiced_at,
       updated_at,
       sale_id,
@@ -67,10 +79,9 @@ export class DInvoiceService {
     return result.rows[0];
   }
 
-  async getDInvoiceBySaleId(saleId: string): Promise<FullInvoice> {
+  async getDInvoiceBySaleId(saleId: string): Promise<FullInvoice | null> {
     const result = await this.db.query(dInvoice.getDInvoiceBySaleId, [saleId]);
-    if (result.rows.length == 0) throw new InvalidInvoice();
-    return result.rows[0];
+    return result.rows[0] ?? null;
   }
 
   async deleteDInvoice(invoiceId: string) {

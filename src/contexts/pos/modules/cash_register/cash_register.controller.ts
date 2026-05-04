@@ -64,6 +64,26 @@ export class CashRegisterController {
   }
 
   @RequiredLevel(1)
+  @Get('all/paginated')
+  findPaginated(
+    @Query('branch_id') branchId?: string,
+    @Query('is_active') isActive?: string,
+    @Query('page') page = '1',
+    @Query('limit') limit = '20',
+  ) {
+    const isActiveParam =
+      isActive === undefined || isActive === ''
+        ? undefined
+        : isActive === 'true';
+    return this.cashRegisterService.findAllPaginated(
+      branchId || undefined,
+      isActiveParam,
+      parseInt(page),
+      parseInt(limit),
+    );
+  }
+
+  @RequiredLevel(1)
   @Get('sessions/all')
   findSessions(
     @Session() session: IUserSession,
@@ -119,7 +139,7 @@ export class CashRegisterController {
   @ApiOperation(updateCashRegisterDoc.operation)
   @ApiResponse(updateCashRegisterDoc.responses[200])
   @ApiResponse(updateCashRegisterDoc.responses[401])
-  @RequiredLevel(4)
+  @RequiredLevel(3)
   @Put(':id')
   update(@Body() updateCashRegisterDto: UpdateCashRegisterDto) {
     return this.cashRegisterService.update(updateCashRegisterDto);
