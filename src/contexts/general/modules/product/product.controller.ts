@@ -56,7 +56,7 @@ export class ProductController {
     @Param('tenantId') tenantId: string,
     @Query('q') q = '',
     @Query('page') page = '1',
-    @Query('limit') limit = '50',
+    @Query('limit') limit = '100',
     @Query('group_ids') groupIds?: string,
   ) {
     const groups = groupIds

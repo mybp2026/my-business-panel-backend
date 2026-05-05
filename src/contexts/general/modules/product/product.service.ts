@@ -319,13 +319,14 @@ export class ProductService {
         for (const key of updateKeys) {
           const validKey = key as keyof typeof updates;
           setClause.push(`"${key}" = $${index}`);
-          paramsArray.push(updates[validKey]);
+          const value = updates[validKey];
+          paramsArray.push(value);
           index++;
         }
         paramsArray.push(productId);
         const queryString = `
           UPDATE general_schema.product_variant
-          SET ${setClause.join(', ')}
+          SET ${setClause.join(', ')}, updated_at = CURRENT_TIMESTAMP
           WHERE product_variant_id = $${index}
           RETURNING *
         `;
