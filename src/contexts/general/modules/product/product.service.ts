@@ -93,6 +93,8 @@ export class ProductService {
     page = 1,
     limit = 50,
     groupIds?: string[],
+    attributeValueIds?: string[],
+    noSupplier?: boolean,
   ): Promise<{
     products: Product[];
     total: number;
@@ -105,33 +107,29 @@ export class ProductService {
     const offset = (page - 1) * limit;
     const term = (query ?? '').trim();
     const groups = groupIds && groupIds.length > 0 ? groupIds : null;
-
-    if (groups) {
-      const [dataResult, countResult] = await Promise.all([
-        this.db.query(products.searchByTenantWithGroups, [
-          tenantId,
-          term,
-          limit,
-          offset,
-          groups,
-        ]),
-        this.db.query(products.countSearchByTenantWithGroups, [
-          tenantId,
-          term,
-          groups,
-        ]),
-      ]);
-      return {
-        products: dataResult.rows,
-        total: countResult.rows[0]?.total ?? 0,
-        page,
-        limit,
-      };
-    }
+    const attrValues =
+      attributeValueIds && attributeValueIds.length > 0
+        ? attributeValueIds
+        : null;
+    const noSup = noSupplier === true ? true : null;
 
     const [dataResult, countResult] = await Promise.all([
-      this.db.query(products.searchByTenant, [tenantId, term, limit, offset]),
-      this.db.query(products.countSearchByTenant, [tenantId, term]),
+      this.db.query(products.searchByTenantFiltered, [
+        tenantId,
+        term,
+        limit,
+        offset,
+        groups,
+        attrValues,
+        noSup,
+      ]),
+      this.db.query(products.countSearchByTenantFiltered, [
+        tenantId,
+        term,
+        groups,
+        attrValues,
+        noSup,
+      ]),
     ]);
     return {
       products: dataResult.rows,

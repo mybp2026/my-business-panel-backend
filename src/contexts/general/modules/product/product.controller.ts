@@ -58,6 +58,8 @@ export class ProductController {
     @Query('page') page = '1',
     @Query('limit') limit = '100',
     @Query('group_ids') groupIds?: string,
+    @Query('attribute_value_ids') attributeValueIds?: string,
+    @Query('no_supplier') noSupplier?: string,
   ) {
     const groups = groupIds
       ? groupIds
@@ -65,12 +67,21 @@ export class ProductController {
           .map((g) => g.trim())
           .filter((g) => g.length > 0)
       : undefined;
+    const attrValues = attributeValueIds
+      ? attributeValueIds
+          .split(',')
+          .map((v) => v.trim())
+          .filter((v) => v.length > 0)
+      : undefined;
+    const noSup = noSupplier === 'true' ? true : undefined;
     return this.productService.searchProductsByTenant(
       tenantId,
       q,
       parseInt(page),
       parseInt(limit),
       groups,
+      attrValues,
+      noSup,
     );
   }
 

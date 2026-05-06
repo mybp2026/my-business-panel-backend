@@ -266,6 +266,13 @@ export const posQueryDefs = {
       ORDER BY si.created_at
     `,
 
+    markSaleRefunded: `
+      UPDATE pos_schema.sale
+      SET is_refunded = true, updated_at = NOW()
+      WHERE sale_id = $1
+      RETURNING sale_id, is_refunded
+    `,
+
     // Full refund: delete invoice records
     deleteDigitalInvoiceBySaleId: `
       DELETE FROM pos_schema.digital_sale_invoice
@@ -342,7 +349,18 @@ export const posQueryDefs = {
     INSERT INTO pos_schema.cash_register_session (cash_register_id, opened_at, opening_amount, user_id, is_active) VALUES ($1, $2, $3, $4, true) RETURNING *
     `,
     getSessionById: `
-    SELECT * FROM pos_schema.cash_register_session WHERE cash_register_session_id = $1 LIMIT 1
+    SELECT
+      crs.*,
+      cr.register_name,
+      b.branch_name,
+      e.first_name AS user_first_name,
+      e.last_name AS user_last_name
+    FROM pos_schema.cash_register_session crs
+    INNER JOIN pos_schema.cash_register cr ON cr.cash_register_id = crs.cash_register_id
+    INNER JOIN general_schema.branch b ON b.branch_id = cr.branch_id
+    LEFT JOIN hr_schema.employee e ON e.user_id = crs.user_id
+    WHERE crs.cash_register_session_id = $1
+    LIMIT 1
     `,
     getSessionsByCashRegister: `
     SELECT * FROM pos_schema.cash_register_session WHERE cash_register_id = $1 ORDER BY opened_at DESC
@@ -359,20 +377,38 @@ export const posQueryDefs = {
         crs.is_active,
         crs.created_at,
         crs.updated_at,
+        crs.cash_sales_amount,
+        crs.debit_sales_amount,
+        crs.credit_sales_amount,
+        crs.transfer_sales_amount,
+        crs.points_sales_amount,
+        crs.total_sales_amount,
+        crs.mismatch,
+        crs.mismatch_amount,
+        crs.mismatch_type,
         cr.register_name,
         cr.branch_id,
         b.branch_name,
-        b.tenant_id
+        b.tenant_id,
+        e.first_name AS user_first_name,
+        e.last_name AS user_last_name
       FROM pos_schema.cash_register_session crs
       INNER JOIN pos_schema.cash_register cr ON cr.cash_register_id = crs.cash_register_id
       INNER JOIN general_schema.branch b ON b.branch_id = cr.branch_id
+      LEFT JOIN hr_schema.employee e ON e.user_id = crs.user_id
       WHERE b.tenant_id = $1
         AND ($2::uuid IS NULL OR cr.branch_id = $2)
         AND ($3::boolean IS NULL OR crs.is_active = $3)
       ORDER BY crs.opened_at DESC
     `,
     closeSession: `
-    UPDATE pos_schema.cash_register_session SET closed_at = $1, closing_amount = $2, is_active = false WHERE cash_register_session_id = $3 RETURNING *
+      SELECT * FROM pos_schema.close_cash_register_session($1::uuid, $2::numeric)
+    `,
+    getSessionGroupSales: `
+      SELECT tenant_product_group_id, group_name, total_amount
+      FROM pos_schema.session_group_sales
+      WHERE cash_register_session_id = $1
+      ORDER BY total_amount DESC
     `,
     registerTransaction: `
     INSERT INTO cash_register_sale_transaction (cash_register_session_id, amount, transaction_time, created_at, updated_at) VALUES ($1, $2, $3, NOW(), NOW()) RETURNING *

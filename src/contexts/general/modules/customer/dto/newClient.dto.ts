@@ -43,8 +43,16 @@ export class NewClientDto {
   @IsString()
   address?: string;
 
+  @IsOptional()
+  @IsNumber()
+  segment_id?: number;
+
   @IsNotEmpty()
   @IsBoolean()
   @IsOptional()
   is_tenant?: boolean;
+
+  @IsOptional()
+  @IsBoolean()
+  is_wholesale?: boolean;
 }
