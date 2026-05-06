@@ -173,7 +173,9 @@ export class ProductService {
       return { message: 'No products to create', product: [] };
     }
 
-    const insertData = this.bulkInsertProducts(items);
+    const insertData = this.bulkInsertProducts(
+      items as unknown as ProductInsert[],
+    );
 
     const txn = await this.db.transaction();
     try {
