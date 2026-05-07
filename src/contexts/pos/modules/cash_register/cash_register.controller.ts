@@ -127,6 +127,12 @@ export class CashRegisterController {
     return this.cashRegisterService.closeSession(session, closeSessionDto);
   }
 
+  @RequiredLevel(1)
+  @Get('sessions/:sessionId/report')
+  getSessionReport(@Param('sessionId') sessionId: string) {
+    return this.cashRegisterService.getSessionGroupSales(sessionId);
+  }
+
   @ApiOperation(findOneCashRegisterDoc.operation)
   @ApiResponse(findOneCashRegisterDoc.responses[200])
   @ApiResponse(findOneCashRegisterDoc.responses[401])

@@ -169,12 +169,8 @@ export class CashRegisterService {
     session: IUserSession,
     closeSession: CloseCashRegisterSessionDto,
   ) {
-    const {
-      cash_register_session_id,
-      closed_at,
-      closing_amount,
-      cash_register_key,
-    } = closeSession;
+    const { cash_register_session_id, closing_amount, cash_register_key } =
+      closeSession;
 
     const cash_session = await this.getSession(cash_register_session_id);
     if (!cash_session.is_active) throw new InvalidCashRegisterSessionError();
@@ -186,11 +182,18 @@ export class CashRegisterService {
     );
 
     const { rows } = await this.db.query(cashRegister.closeSession, [
-      closed_at,
-      closing_amount,
       cash_register_session_id,
+      closing_amount,
     ]);
     return { closed: rows[0] };
+  }
+
+  async getSessionGroupSales(cash_register_session_id: string) {
+    const { rows } = await this.db.query(
+      cashRegister.getSessionGroupSales,
+      [cash_register_session_id],
+    );
+    return rows;
   }
 
   async update(updateDto: UpdateCashRegisterDto) {

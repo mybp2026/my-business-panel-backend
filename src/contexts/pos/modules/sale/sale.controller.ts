@@ -62,7 +62,7 @@ export class SaleController {
   @Get(':branch_id')
   @Paginate({
     table:
-      `(SELECT s.sale_id, s.sale_date, s.total_amount, s.subtotal_amount, s.tax_amount, s.is_completed, s.has_electronic_invoice, s.tenant_customer_id, s.created_at, b.branch_id, b.branch_name, c.currency_code, c.symbol,
+      `(SELECT s.sale_id, s.sale_date, s.total_amount, s.subtotal_amount, s.tax_amount, s.is_completed, s.has_electronic_invoice, s.is_refunded, s.tenant_customer_id, s.created_at, b.branch_id, b.branch_name, c.currency_code, c.symbol,
         (SELECT rt.return_transaction_id FROM pos_schema.return_transaction rt
           LEFT JOIN pos_schema.digital_sale_invoice dsi ON dsi.digital_sale_invoice_id = rt.digital_sale_invoice_id
           LEFT JOIN pos_schema.electronic_sale_invoice esi ON esi.electronic_sale_invoice_id = rt.electronic_sale_invoice_id
@@ -76,6 +76,7 @@ export class SaleController {
       'tax_amount',
       'is_completed',
       'has_electronic_invoice',
+      'is_refunded',
       'branch_id',
       'branch_name',
       'currency_code',

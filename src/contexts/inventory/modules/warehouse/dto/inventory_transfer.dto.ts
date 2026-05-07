@@ -40,4 +40,8 @@ export class InventoryTransferProductDto {
   @IsNumber()
   @IsPositive()
   amount!: number;
+
+  @IsOptional()
+  @IsUUID()
+  from_composite_id?: string;
 }
