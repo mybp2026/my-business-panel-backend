@@ -43,6 +43,8 @@ import { PromosModule } from '@/contexts/pos/modules/promos/promos.module';
 import { ReturnsModule } from '@/contexts/pos/modules/returns/returns.module';
 import { CashRegisterModule } from '@/contexts/pos/modules/cash_register/cash_register.module';
 import { LoyalProgramModule } from '@/contexts/pos/modules/loyal-program/loyalty-program.module';
+import { PosExpenseModule } from '@/contexts/pos/modules/pos-expense/pos-expense.module';
+import { PosRoyaltyModule } from '@/contexts/pos/modules/pos-royalty/pos-royalty.module';
 
 // PURCHASE Modules
 import { PurchaseModule } from '@/contexts/purchase/modules/purchase/purchase.module';
@@ -104,6 +106,8 @@ import { ExpenseModule } from '@/contexts/finances/modules/expense/expense.modul
     BranchModule,
     CashRegisterModule,
     LoyalProgramModule,
+    PosExpenseModule,
+    PosRoyaltyModule,
     SubscriptionModule,
     ClockingModule,
     EmployeeModule,

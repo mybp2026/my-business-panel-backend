@@ -43,7 +43,7 @@ export class NewProductDto {
 
   @IsOptional()
   @IsUUID()
-  supplier_id?: string;
+  supplier_id?: string | null;
 
   @IsOptional()
   @IsBoolean()

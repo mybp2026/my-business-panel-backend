@@ -4,6 +4,7 @@ import { PurchaseService } from './purchase.service';
 import { CreatePurchaseDto } from './dto/create-purchase.dto';
 import { UpdatePurchaseDto } from './dto/update-purchase.dto';
 import { CreatePaymentDto } from './dto/create-payment.dto';
+import { UpdatePaymentDto } from './dto/update-payment.dto';
 import { UpdateOrderStatusDto } from './dto/update-order-status.dto';
 import { AuthenticationGuard } from '@/common/guards/authentication.guard';
 import { Session } from '@/common/decorators/session.decorator';
@@ -58,6 +59,18 @@ export class PurchaseController {
     @Session() session: IUserSession,
   ) {
     return this.purchaseService.registerPayment(dto, session);
+  }
+
+  @ApiOperation({ summary: 'Actualizar un pago ya registrado' })
+  @ApiResponse({ status: 200, description: 'Pago actualizado correctamente' })
+  @ApiResponse({ status: 404, description: 'Pago no encontrado' })
+  @Patch('payment/:id')
+  updatePayment(
+    @Param('id') id: string,
+    @Body() dto: UpdatePaymentDto,
+    @Session() session: IUserSession,
+  ) {
+    return this.purchaseService.updatePayment(id, dto, session);
   }
 
   @ApiOperation(getAllPurchaseOrdersDoc.operation)

@@ -10,6 +10,7 @@ export interface Customer {
   phone: string;
   birthdate?: string;
   address: string;
+  is_wholesale?: boolean;
   created_at: Date;
   updated_at: Date;
 }

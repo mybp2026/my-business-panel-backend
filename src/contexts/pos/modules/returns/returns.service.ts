@@ -212,49 +212,50 @@ export class ReturnsService {
   }
 
   /**
-   * Full refund: deletes the digital_sale_invoice (and electronic if present)
-   * for the given sale. CASCADE handles invoice items.
+   * Full refund: marks the sale as refunded and creates a return_transaction
+   * record. Invoices are preserved with the is_refunded flag on the sale
+   * serving as the authoritative cancelled indicator.
    */
-  async processFullRefund(saleId: string) {
+  async processFullRefund(saleId: string, description: string) {
     const ctxResult = await this.db.query(returns.getSaleContext, [saleId]);
     if (!ctxResult.rows.length) {
       throw new NotFoundException(`Sale not found: ${saleId}`);
     }
     const ctx: SaleContextRow = ctxResult.rows[0];
 
-    if (!ctx.digital_sale_invoice_id && !ctx.electronic_sale_invoice_id) {
+    if (!ctx.digital_sale_invoice_id) {
       throw new BadRequestException(
-        'La venta no tiene facturas asociadas para eliminar',
+        'La venta no tiene factura digital asociada — no se puede reembolsar',
       );
     }
 
+    const electronicId =
+      ctx.has_electronic_invoice && ctx.electronic_sale_invoice_id
+        ? ctx.electronic_sale_invoice_id
+        : null;
+
     await this.db.query('BEGIN');
     try {
-      const result = {
-        digital_deleted: null as string | null,
-        electronic_deleted: null as string | null,
-      };
+      const headerRes = await this.db.query(returns.newTransaction, [
+        ctx.digital_sale_invoice_id,
+        electronicId,
+        ctx.tenant_customer_id ?? null,
+        Number(ctx.total_amount),
+        null,
+        null,
+        description,
+        null,
+      ]);
 
-      if (ctx.digital_sale_invoice_id) {
-        const r = await this.db.query(returns.deleteDigitalInvoiceBySaleId, [
-          saleId,
-        ]);
-        result.digital_deleted =
-          r.rows[0]?.digital_sale_invoice_id ?? null;
-      }
-      if (ctx.electronic_sale_invoice_id) {
-        const r = await this.db.query(
-          returns.deleteElectronicInvoiceBySaleId,
-          [saleId],
-        );
-        result.electronic_deleted =
-          r.rows[0]?.electronic_sale_invoice_id ?? null;
-      }
+      const returnTransactionId: string =
+        headerRes.rows[0].return_transaction_id;
+
+      await this.db.query(returns.markSaleRefunded, [saleId]);
 
       await this.db.query('COMMIT');
       return {
-        message: 'Reembolso completo registrado: facturas eliminadas',
-        ...result,
+        message: 'Reembolso completo registrado',
+        return_transaction_id: returnTransactionId,
       };
     } catch (error) {
       await this.db.query('ROLLBACK');

@@ -1,7 +1,6 @@
 import {
   Body,
   Controller,
-  Delete,
   Get,
   Param,
   ParseUUIDPipe,
@@ -10,7 +9,7 @@ import {
 } from '@nestjs/common';
 import { ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
 import { ReturnsService } from './returns.service';
-import { ReturnTransactionDto } from './dto/return_transaction.dto';
+import { FullRefundDto, ReturnTransactionDto } from './dto/return_transaction.dto';
 import { FindReturnsDto } from './dto/find_returns.dto';
 import {
   createReturnTransactionDoc,
@@ -55,10 +54,14 @@ export class ReturnsController {
   }
 
   /**
-   * Full refund: deletes the digital and electronic invoice records for a sale.
+   * Full refund: marks the sale as refunded and creates a return_transaction.
+   * Invoices are preserved; the is_refunded flag on the sale marks it cancelled.
    */
-  @Delete('sale/:saleId')
-  processFullRefund(@Param('saleId', ParseUUIDPipe) saleId: string) {
-    return this.returnsService.processFullRefund(saleId);
+  @Post('sale/:saleId/full-refund')
+  processFullRefund(
+    @Param('saleId', ParseUUIDPipe) saleId: string,
+    @Body() body: FullRefundDto,
+  ) {
+    return this.returnsService.processFullRefund(saleId, body.description);
   }
 }

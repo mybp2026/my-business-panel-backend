@@ -74,11 +74,31 @@ export class CustomerController {
     @Param('tenantId') tenantId: string,
     @Query('page') page = '1',
     @Query('limit') limit = '100',
+    @Query('segment_id') segmentId?: string,
   ) {
     return this.customerService.getAllCustomersPaginated(
       tenantId,
       parseInt(page),
       parseInt(limit),
+      segmentId,
+    );
+  }
+
+  @Get('tenant/:tenantId/search')
+  @UseGuards(AuthenticationGuard)
+  async searchCustomers(
+    @Param('tenantId') tenantId: string,
+    @Query('q') query: string,
+    @Query('page') page = '1',
+    @Query('limit') limit = '100',
+    @Query('segment_id') segmentId?: string,
+  ) {
+    return this.customerService.search(
+      tenantId,
+      query,
+      parseInt(page),
+      parseInt(limit),
+      segmentId,
     );
   }
 

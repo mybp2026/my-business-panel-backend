@@ -44,6 +44,7 @@ export class CustomerService {
     tenantId: string,
     page = 1,
     limit = 100,
+    segmentId?: string,
   ): Promise<{
     customers: Customer[];
     total: number;
@@ -52,8 +53,44 @@ export class CustomerService {
   }> {
     const offset = (page - 1) * limit;
     const [dataResult, countResult] = await Promise.all([
-      this.db.query(customer.allPaginated, [tenantId, limit, offset]),
-      this.db.query(customer.countByTenant, [tenantId]),
+      this.db.query(customer.allPaginated, [
+        tenantId,
+        limit,
+        offset,
+        segmentId || null,
+      ]),
+      this.db.query(customer.countByTenant, [tenantId, segmentId || null]),
+    ]);
+    return {
+      customers: dataResult.rows,
+      total: countResult.rows[0]?.total ?? 0,
+      page,
+      limit,
+    };
+  }
+
+  async search(
+    tenantId: string,
+    query: string,
+    page = 1,
+    limit = 100,
+    segmentId?: string,
+  ): Promise<{
+    customers: Customer[];
+    total: number;
+    page: number;
+    limit: number;
+  }> {
+    const offset = (page - 1) * limit;
+    const [dataResult, countResult] = await Promise.all([
+      this.db.query(customer.search, [
+        tenantId,
+        query,
+        limit,
+        segmentId || null,
+        offset,
+      ]),
+      this.db.query(customer.countSearch, [tenantId, query, segmentId || null]),
     ]);
     return {
       customers: dataResult.rows,
@@ -97,6 +134,7 @@ export class CustomerService {
       phone,
       birthdate,
       address,
+      segment_id,
       is_tenant,
     } = customerData;
 
@@ -112,6 +150,7 @@ export class CustomerService {
       birthdate || null,
       address || null,
       is_tenant || false,
+      segment_id || null,
     ]);
 
     if (rows.length == 0) throw new ClientCreateError(email!);
@@ -139,6 +178,7 @@ export class CustomerService {
       'identification_type_id',
       'customer_segment_id',
       'is_tenant',
+      'is_wholesale',
     ]);
 
     const updateKeys = Object.keys(updates).filter((key) => {
@@ -176,7 +216,7 @@ export class CustomerService {
         document_number,
         econ_activity, email, phone, birthdate, address,
         customer_segment_id AS segment_id,
-        is_tenant, created_at, updated_at
+        is_tenant, is_wholesale, created_at, updated_at
     `;
 
     try {

@@ -9,6 +9,7 @@ import {
 import { CreatePurchaseDto } from './dto/create-purchase.dto';
 import { UpdatePurchaseDto } from './dto/update-purchase.dto';
 import { CreatePaymentDto } from './dto/create-payment.dto';
+import { UpdatePaymentDto } from './dto/update-payment.dto';
 import Database from '@crane-technologies/database/dist/components/Database';
 import { DATABASE } from '@/contexts/general/modules/db/db.provider';
 import { purchaseQueries } from '@purchase/purchase.queries';
@@ -199,6 +200,63 @@ export class PurchaseService {
         purchase_account_payable: payableResult.rows[0] ?? null,
         order: await this.getPurchaseOrderById(
           payableAccess.purchase_order_id,
+          session,
+        ),
+      };
+    } catch (error) {
+      await txn.rollback();
+      throw error;
+    }
+  }
+
+  async updatePayment(
+    paymentId: string,
+    dto: UpdatePaymentDto,
+    session: IUserSession,
+  ) {
+    const accessResult = await this.db.query(payments.getPaymentAccess, [
+      paymentId,
+    ]);
+    const paymentAccess = accessResult.rows[0] as
+      | {
+          tenant_id: string;
+          purchase_order_id: string;
+          purchase_account_payable_id: string;
+        }
+      | undefined;
+
+    if (!paymentAccess) {
+      throw new NotFoundException('Pago no encontrado');
+    }
+
+    this.assertTenantAccess(paymentAccess.tenant_id, session);
+
+    const txn = await this.db.transaction();
+    try {
+      const { amount_paid, payment_method_id, currency_id, payment_reference } =
+        dto;
+
+      // Update the payment record
+      await txn.query(payments.updatePayment, [
+        amount_paid,
+        payment_method_id,
+        currency_id ?? null,
+        payment_reference ?? null,
+        paymentId,
+      ]);
+
+      // Return the updated order and payable info
+      const payableResult = await txn.query(ap.getUpdatedPayableById, [
+        paymentAccess.purchase_account_payable_id,
+      ]);
+
+      await txn.commit();
+
+      return {
+        payment_id: paymentId,
+        purchase_account_payable: payableResult.rows[0] ?? null,
+        order: await this.getPurchaseOrderById(
+          paymentAccess.purchase_order_id,
           session,
         ),
       };

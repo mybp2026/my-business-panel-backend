@@ -84,8 +84,31 @@ export const generalQueryDefs = {
         is_tenant, created_at, updated_at
       FROM general_schema.tenant_customer
       WHERE tenant_id = $1
+        AND ($4::int IS NULL OR customer_segment_id = $4)
       ORDER BY created_at DESC
       LIMIT $2 OFFSET $3
+    `,
+    search: `
+      SELECT
+        tenant_customer_id AS customer_id, tenant_id,
+        first_name, last_name,
+        identification_type_id AS identification_type,
+        document_number,
+        econ_activity, email, phone, birthdate, address,
+        customer_segment_id AS segment_id,
+        is_tenant, created_at, updated_at
+      FROM general_schema.tenant_customer
+      WHERE tenant_id = $1
+        AND ($4::int IS NULL OR customer_segment_id = $4)
+        AND (
+          first_name ILIKE '%' || $2 || '%' OR
+          last_name ILIKE '%' || $2 || '%' OR
+          document_number ILIKE '%' || $2 || '%' OR
+          email ILIKE '%' || $2 || '%' OR
+          phone ILIKE '%' || $2 || '%'
+        )
+      ORDER BY created_at DESC
+      LIMIT $3 OFFSET $5
     `,
     allGlobal: `
       SELECT
@@ -103,7 +126,20 @@ export const generalQueryDefs = {
       LIMIT $1 OFFSET $2
     `,
     countByTenant:
-      'SELECT COUNT(*)::int AS total FROM general_schema.tenant_customer WHERE tenant_id = $1',
+      'SELECT COUNT(*)::int AS total FROM general_schema.tenant_customer WHERE tenant_id = $1 AND ($2::int IS NULL OR customer_segment_id = $2)',
+    countSearch: `
+      SELECT COUNT(*)::int AS total
+      FROM general_schema.tenant_customer
+      WHERE tenant_id = $1
+        AND ($3::int IS NULL OR customer_segment_id = $3)
+        AND (
+          first_name ILIKE '%' || $2 || '%' OR
+          last_name ILIKE '%' || $2 || '%' OR
+          document_number ILIKE '%' || $2 || '%' OR
+          email ILIKE '%' || $2 || '%' OR
+          phone ILIKE '%' || $2 || '%'
+        )
+    `,
     countAll:
       'SELECT COUNT(*)::int AS total FROM general_schema.tenant_customer',
     byId: `
@@ -146,8 +182,8 @@ export const generalQueryDefs = {
     `,
     create: `
       INSERT INTO general_schema.tenant_customer
-        (tenant_id, first_name, last_name, identification_type_id, document_number, econ_activity, email, phone, birthdate, address, created_at, updated_at, is_tenant)
-      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, NOW(), NOW(), $11)
+        (tenant_id, first_name, last_name, identification_type_id, document_number, econ_activity, email, phone, birthdate, address, created_at, updated_at, is_tenant, customer_segment_id)
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, NOW(), NOW(), $11, $12)
       RETURNING
         tenant_customer_id AS customer_id, tenant_id,
         first_name, last_name,
@@ -625,6 +661,88 @@ export const generalQueryDefs = {
               AND a.tenant_product_group_id IN (SELECT node FROM group_tree)
           )
         )
+      `,
+    searchByTenantFiltered: `
+      WITH RECURSIVE group_tree(node) AS (
+        SELECT unnest($5::uuid[])
+        UNION
+        SELECT pg.tenant_product_group_id
+        FROM general_schema.tenant_product_group pg
+        JOIN group_tree gt ON gt.node = pg.parent_group_id
+        WHERE pg.tenant_id = $1
+      )
+      SELECT pv.product_variant_id, pv.sku, pv.variant_name, pv.cabys_code,
+             CASE
+               WHEN pv.is_composite THEN COALESCE(comp.computed_unit_price, pv.unit_price)
+               ELSE pv.unit_price
+             END AS unit_price,
+             pv.cost_price, pv.is_active, pv.is_composite, pv.tenant_id,
+             pv.supplier_id, s.supplier_name,
+             pv.giftable, pv.giftable_from,
+             pv.created_at, pv.updated_at
+      FROM general_schema.product_variant pv
+      LEFT JOIN LATERAL (
+        SELECT SUM(child.unit_price * pvc.quantity)::numeric(10,2) AS computed_unit_price
+        FROM general_schema.product_variant_composition pvc
+        JOIN general_schema.product_variant child
+          ON child.tenant_id = pvc.tenant_id
+         AND child.product_variant_id = pvc.child_product_variant_id
+        WHERE pvc.tenant_id = pv.tenant_id
+          AND pvc.parent_product_variant_id = pv.product_variant_id
+      ) comp ON TRUE
+      LEFT JOIN purchase_schema.supplier s ON s.supplier_id = pv.supplier_id
+      WHERE pv.tenant_id = $1
+        AND pv.is_active = TRUE
+        AND ($2::text IS NULL OR $2 = '' OR pv.sku ILIKE '%' || $2 || '%' OR pv.variant_name ILIKE '%' || $2 || '%')
+        AND (
+          $5::uuid[] IS NULL OR cardinality($5::uuid[]) = 0 OR EXISTS (
+            SELECT 1 FROM general_schema.product_variant_group_assignment a
+            WHERE a.tenant_id = pv.tenant_id
+              AND a.product_variant_id = pv.product_variant_id
+              AND a.tenant_product_group_id IN (SELECT node FROM group_tree)
+          )
+        )
+        AND (
+          $6::uuid[] IS NULL OR cardinality($6::uuid[]) = 0 OR EXISTS (
+            SELECT 1 FROM general_schema.attribute_assignation aa
+            WHERE aa.product_variant_id = pv.product_variant_id
+              AND aa.attribute_value_id = ANY($6::uuid[])
+          )
+        )
+        AND ($7::boolean IS NULL OR NOT $7 OR pv.supplier_id IS NULL)
+      ORDER BY pv.sku
+      LIMIT $3 OFFSET $4
+      `,
+    countSearchByTenantFiltered: `
+      WITH RECURSIVE group_tree(node) AS (
+        SELECT unnest($3::uuid[])
+        UNION
+        SELECT pg.tenant_product_group_id
+        FROM general_schema.tenant_product_group pg
+        JOIN group_tree gt ON gt.node = pg.parent_group_id
+        WHERE pg.tenant_id = $1
+      )
+      SELECT COUNT(*)::int AS total
+      FROM general_schema.product_variant pv
+      WHERE pv.tenant_id = $1
+        AND pv.is_active = TRUE
+        AND ($2::text IS NULL OR $2 = '' OR pv.sku ILIKE '%' || $2 || '%' OR pv.variant_name ILIKE '%' || $2 || '%')
+        AND (
+          $3::uuid[] IS NULL OR cardinality($3::uuid[]) = 0 OR EXISTS (
+            SELECT 1 FROM general_schema.product_variant_group_assignment a
+            WHERE a.tenant_id = pv.tenant_id
+              AND a.product_variant_id = pv.product_variant_id
+              AND a.tenant_product_group_id IN (SELECT node FROM group_tree)
+          )
+        )
+        AND (
+          $4::uuid[] IS NULL OR cardinality($4::uuid[]) = 0 OR EXISTS (
+            SELECT 1 FROM general_schema.attribute_assignation aa
+            WHERE aa.product_variant_id = pv.product_variant_id
+              AND aa.attribute_value_id = ANY($4::uuid[])
+          )
+        )
+        AND ($5::boolean IS NULL OR NOT $5 OR pv.supplier_id IS NULL)
       `,
     create: `
       INSERT INTO general_schema.product_variant (tenant_id, sku, variant_name, cabys_code, unit_price, cost_price)

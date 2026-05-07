@@ -604,6 +604,36 @@ export const purchaseQueryDefs = {
       WHERE pap.purchase_account_payable_id = $1
       LIMIT 1
     `,
+
+    updatePayment: `
+      UPDATE purchase_schema.purchase_order_payment
+      SET amount_paid = $1,
+          payment_method_id = $2,
+          currency_id = $3,
+          payment_reference = $4,
+          updated_at = CURRENT_TIMESTAMP
+      WHERE purchase_order_payment_id = $5
+      RETURNING *
+    `,
+
+    getPaymentAccess: `
+      SELECT
+        pop.purchase_order_payment_id,
+        b.tenant_id,
+        pap.purchase_order_id,
+        pap.purchase_account_payable_id
+      FROM purchase_schema.purchase_order_payment pop
+      JOIN purchase_schema.purchase_account_payable pap
+        ON pap.purchase_account_payable_id = pop.purchase_account_payable_id
+      JOIN purchase_schema.purchase_order po
+        ON po.purchase_order_id = pap.purchase_order_id
+      JOIN inventory_schema.warehouse w
+        ON w.warehouse_id = po.warehouse_id
+      JOIN general_schema.branch b
+        ON b.branch_id = w.branch_id
+      WHERE pop.purchase_order_payment_id = $1
+      LIMIT 1
+    `,
   },
 
   ap: {

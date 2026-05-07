@@ -56,6 +56,12 @@ export class ReturnTransactionDto {
   return_products!: ReturnProductDto[];
 }
 
+export class FullRefundDto {
+  @IsString()
+  @IsNotEmpty()
+  description!: string;
+}
+
 // Internal types kept for backward compatibility with existing helpers
 export interface ReturnProduct {
   quantity: number;

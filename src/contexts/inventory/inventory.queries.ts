@@ -163,13 +163,19 @@ export const inventoryQueries = {
         pv.sku ILIKE '%' || $3 || '%' OR
         i.inventory_id::text ILIKE '%' || $3 || '%'
       )
+      AND ($4::uuid IS NULL OR EXISTS (
+        SELECT 1 FROM general_schema.product_variant_group_assignment pvga
+        WHERE pvga.product_variant_id = i.product_variant_id
+          AND pvga.tenant_id = i.tenant_id
+          AND pvga.tenant_product_group_id = $4::uuid
+      ))
     ORDER BY pv.variant_name`,
   listInventoryByWarehouseAggregated: `
     SELECT
       pv.product_variant_id,
-      i.tenant_id,
-      i.warehouse_id,
-      SUM(i.stock)::integer AS stock,
+      pv.tenant_id,
+      $1::uuid AS warehouse_id,
+      COALESCE(SUM(i.stock), 0)::integer AS stock,
       pv.variant_name,
       pv.sku,
       pv.product_variant_id AS product_id,
@@ -178,14 +184,17 @@ export const inventoryQueries = {
       pv.unit_price,
       MIN(i.expiration_date) AS expiration_date,
       COUNT(i.inventory_id)::integer AS lot_count
-    FROM inventory_schema.inventory i
-    INNER JOIN general_schema.product_variant pv USING(tenant_id, product_variant_id)
-    WHERE i.warehouse_id = $1 AND i.tenant_id = $2
+    FROM general_schema.product_variant pv
+    LEFT JOIN inventory_schema.inventory i
+      ON pv.product_variant_id = i.product_variant_id
+      AND i.warehouse_id = $1
+      AND i.tenant_id = pv.tenant_id
+    WHERE pv.tenant_id = $2
       AND ($3::text IS NULL OR $3 = '' OR
         pv.variant_name ILIKE '%' || $3 || '%' OR
         pv.sku ILIKE '%' || $3 || '%'
       )
-    GROUP BY pv.product_variant_id, i.tenant_id, i.warehouse_id,
+    GROUP BY pv.product_variant_id, pv.tenant_id,
              pv.variant_name, pv.sku, pv.is_composite, pv.unit_price
     ORDER BY pv.variant_name`,
   updateInventoryItem: `
@@ -358,5 +367,3 @@ export const inventoryQueries = {
       $1::uuid, $2::uuid, $3::uuid, $4::int, $5::numeric, $6::int, $7::numeric
     )`,
 };
-
-

@@ -1,4 +1,12 @@
-import { Controller, Delete, Get, Param, ParseUUIDPipe, Patch, Query } from '@nestjs/common';
+import {
+  Controller,
+  Delete,
+  Get,
+  Param,
+  ParseUUIDPipe,
+  Patch,
+  Query,
+} from '@nestjs/common';
 import { ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
 import { WarehouseService } from './warehouse.service';
 import { Warehouse } from './interfaces/warehouse.interface';
@@ -98,12 +106,14 @@ export class WarehouseController {
   listInventoryByWarehouse(
     @Param('warehouse_id') warehouse_id: string,
     @Query('search') search: string | undefined,
+    @Query('group_id') group_id: string | undefined,
     @Session() userSession: IUserSession,
   ) {
     return this.warehouseService.listInventoryByWarehouse(
       warehouse_id,
       userSession.tenant_id,
       search,
+      group_id,
     );
   }
 
@@ -279,21 +289,20 @@ export class WarehouseController {
     );
   }
 
-
   @Patch('transfer-request/:id/status')
   updateTransferRequestStatus(
     @Session() userSession: IUserSession,
     @Param('id', ParseUUIDPipe) id: string,
     @Body() body: any,
   ) {
-    // Any role can accept/reject? The prompt says "el destino puede aceptar o rechazar". 
+    // Any role can accept/reject? The prompt says "el destino puede aceptar o rechazar".
     // We'll trust the user role internally or let it pass for now.
     return this.warehouseService.updateTransferRequestStatus(
       userSession.tenant_id,
       id,
       body.status,
       body.rejection_reason || null,
-      userSession.user_id
+      userSession.user_id,
     );
   }
   @Post('disaggregate')
@@ -308,7 +317,7 @@ export class WarehouseController {
       warehouse_id,
       product_variant_id,
       amount,
-      userSession.user_id
+      userSession.user_id,
     );
   }
   @Post('transfer')
@@ -317,7 +326,11 @@ export class WarehouseController {
     @Body() body: InventoryTransferDto,
   ) {
     if (userSession.role_id === 4) {
-      return this.warehouseService.createTransferRequest(userSession.tenant_id, body, userSession.user_id);
+      return this.warehouseService.createTransferRequest(
+        userSession.tenant_id,
+        body,
+        userSession.user_id,
+      );
     }
     return this.warehouseService.moveProductToWarehouse(
       body.origin_warehouse_id,
@@ -329,7 +342,3 @@ export class WarehouseController {
     );
   }
 }
-
-
-
-
