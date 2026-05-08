@@ -500,6 +500,9 @@ export const posQueryDefs = {
     deletePromoSegments: `
       DELETE FROM pos_schema.promotion_customer_segment WHERE promotion_id = $1
     `,
+    deletePromoRules: `
+      DELETE FROM pos_schema.promotion_rule WHERE promotion_id = $1
+    `,
     deletePromo:
       'DELETE FROM pos_schema.promotion WHERE promotion_id = $1 RETURNING promotion_id',
     updatePromo: `

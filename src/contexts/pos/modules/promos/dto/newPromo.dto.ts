@@ -127,9 +127,10 @@ export class NewPromoDto {
   is_stackable?: boolean;
 
   @IsOptional()
-  @ValidateNested()
+  @IsArray()
+  @ValidateNested({ each: true })
   @Type(() => PromoRulesDto)
-  rules?: PromoRulesDto;
+  rules?: PromoRulesDto[];
 
   @IsOptional()
   @IsArray()
