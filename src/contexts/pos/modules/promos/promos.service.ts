@@ -1,11 +1,11 @@
 import {
-  BadRequestException,
   Inject,
   Injectable,
   InternalServerErrorException,
 } from '@nestjs/common';
 import { DATABASE } from '@/contexts/general/modules/db/db.provider';
 import Database from '@crane-technologies/database';
+import type { ITransaction } from '@crane-technologies/database/dist/interfaces/ITransaction';
 import { Promo, PromoRule, PromoWithRule } from './interface/promo.interface';
 import { NewPromoDto, PromoRules, PromotionTargetDto } from './dto/newPromo.dto';
 import { RuleCreationError } from '@/common/errors/create_rule.error';
@@ -73,64 +73,78 @@ export class PromosService {
 
     const effectiveIsUniversal = is_universal ?? true;
 
-    const promo = await this.db.query(promotions.insertPromo, [
-      tenant_id,
-      promotion_name,
-      promotion_code,
-      promotion_description,
-      promotion_type_id,
-      effectiveIsUniversal,
-      promotion_start_date,
-      promotion_end_date,
-      is_active,
-      is_default ?? false,
-      is_stackable ?? true,
-    ]);
+    const txn = await this.db.transaction();
+    try {
+      const promo = await txn.query(promotions.insertPromo, [
+        tenant_id,
+        promotion_name,
+        promotion_code,
+        promotion_description,
+        promotion_type_id,
+        effectiveIsUniversal,
+        promotion_start_date,
+        promotion_end_date,
+        is_active,
+        is_default ?? false,
+        is_stackable ?? true,
+      ]);
 
-    if (promo.rows.length === 0) {
-      throw new PromotionCreationError();
+      if (promo.rows.length === 0) {
+        throw new PromotionCreationError();
+      }
+
+      const promotionId = promo.rows[0].promotion_id;
+
+      for (const ruleData of (rules ?? [])) {
+        await this._insertRule(txn, { ...ruleData, promotion_id: promotionId });
+      }
+
+      if (!effectiveIsUniversal && customer_segment_ids && customer_segment_ids.length > 0) {
+        await this.replacePromoSegments(promotionId, customer_segment_ids, txn);
+      }
+
+      if (targets && targets.length > 0) {
+        await this.replaceTargets(promotionId, tenant_id, targets, txn);
+      }
+
+      await txn.commit();
+      return {
+        message: `Promotion created successfully`,
+        promotion_id: promotionId,
+      };
+    } catch (error) {
+      await txn.rollback();
+      throw error;
     }
-
-    const promotionId = promo.rows[0].promotion_id;
-    const rulesPayload: PromoRules = { ...(rules ?? {}), promotion_id: promotionId };
-    const rule = await this.insertRules(rulesPayload);
-
-    if (!effectiveIsUniversal && customer_segment_ids && customer_segment_ids.length > 0) {
-      await this.replacePromoSegments(promotionId, customer_segment_ids);
-    }
-
-    if (targets && targets.length > 0) {
-      await this.replaceTargets(promotionId, tenant_id, targets);
-    }
-
-    return {
-      message: `Promotion and rule with id: ${rule} created successfully`,
-      promotion_id: promotionId,
-    };
   }
 
-  async replacePromoSegments(promotionId: string, segmentIds: number[]) {
-    await this.db.query(promotions.deletePromoSegments, [promotionId]);
+  private async replacePromoSegments(
+    promotionId: string,
+    segmentIds: number[],
+    txn: ITransaction,
+  ): Promise<void> {
+    await txn.query(promotions.deletePromoSegments, [promotionId]);
     for (const segId of segmentIds) {
-      await this.db.query(promotions.insertPromoSegment, [promotionId, segId]);
+      await txn.query(promotions.insertPromoSegment, [promotionId, segId]);
     }
   }
 
-  async replaceTargets(
+  private async replaceTargets(
     promotionId: string,
     tenantId: string,
     targets: PromotionTargetDto[],
-  ) {
-    await this.db.query(promotionTarget.deleteForPromotion, [promotionId]);
+    txn: ITransaction,
+  ): Promise<void> {
+    await txn.query(promotionTarget.deleteForPromotion, [promotionId]);
     for (const t of targets) {
       if (t.target_type === 'VARIANT') {
-        await this.db.query(promotionTarget.insertVariantTarget, [
+        await txn.query(promotionTarget.insertVariantTarget, [
           promotionId,
           tenantId,
           t.target_id,
         ]);
       } else {
-        await this.db.query(promotionTarget.insertGroupTarget, [
+        await txn.query(promotionTarget.insertGroupTarget, [
           promotionId,
           tenantId,
           t.target_id,
@@ -159,36 +173,28 @@ export class PromosService {
     return result.rows;
   }
 
-  async insertRules(data: PromoRules) {
-    const insertKeys = Object.keys(data).filter(
-      (key) => data[key as keyof typeof data] !== undefined,
+  private async _insertRule(txn: ITransaction, data: PromoRules): Promise<string> {
+    const { promotion_rule_id: _, ...dataWithoutId } = data;
+    const insertKeys = Object.keys(dataWithoutId).filter(
+      (key) => dataWithoutId[key as keyof typeof dataWithoutId] !== undefined,
     );
 
     if (insertKeys.length === 0) {
       throw new RuleCreationError();
     }
 
-    const insertClause: string[] = [];
-    const paramsArray: any[] = [];
-    const placeholders: any[] = [];
-    let i = 1;
-
-    for (const key of insertKeys) {
-      insertClause.push(`"${key}"`);
-      paramsArray.push(data[key as keyof typeof data]);
-      placeholders.push(`$${i}`);
-      i++;
-    }
+    const insertClause = insertKeys.map((k) => `"${k}"`);
+    const paramsArray = insertKeys.map((k) => dataWithoutId[k as keyof typeof dataWithoutId]);
+    const placeholders = insertKeys.map((_, i) => `$${i + 1}`);
 
     const q = `
       INSERT INTO pos_schema.promotion_rule(${insertClause.join(', ')})
       VALUES(${placeholders.join(', ')})
-      RETURNING *
+      RETURNING promotion_rule_id
     `;
 
-    const new_rule = await this.db.query(q, paramsArray);
-
-    return new_rule.rows[0].promotion_rule_id;
+    const result = await txn.rawQuery(q, paramsArray);
+    return result.rows[0].promotion_rule_id;
   }
 
   async deletePromotion(promotionId: string) {
@@ -218,18 +224,13 @@ export class PromosService {
       is_active,
       is_default,
       is_stackable,
+      rules,
+      targets,
     } = updatePromoDto;
 
-    let updateRule: { queryString: string; paramsArray: any[] } | null = null;
-
-    if (updatePromoDto.rules) {
-      updateRule = this.buildUpdateQuery(updatePromoDto.rules);
-    }
-
+    const txn = await this.db.transaction();
     try {
-      await this.db.query('BEGIN');
-
-      const updatedPromo = await this.db.query(promotions.updatePromo, [
+      const updatedPromo = await txn.query(promotions.updatePromo, [
         promotionId,
         tenant_id,
         promotion_name,
@@ -244,87 +245,42 @@ export class PromosService {
         is_stackable,
       ]);
 
-      if (updateRule) {
-        await this.db.query(updateRule.queryString, updateRule.paramsArray);
-      }
-
-      if (customer_segment_ids !== undefined) {
-        await this.db.query(promotions.deletePromoSegments, [promotionId]);
-        const effectiveUniversal = is_universal ?? updatedPromo.rows[0]?.is_universal;
-        if (!effectiveUniversal && customer_segment_ids.length > 0) {
-          for (const segId of customer_segment_ids) {
-            await this.db.query(promotions.insertPromoSegment, [promotionId, segId]);
-          }
-        }
-      }
-
-      if (updatePromoDto.targets !== undefined) {
-        const promoTenantId = tenant_id ?? updatedPromo.rows[0]?.tenant_id;
-        if (promoTenantId) {
-          await this.replaceTargets(
-            promotionId,
-            promoTenantId,
-            updatePromoDto.targets,
-          );
-        }
-      }
-
-      await this.db.query('COMMIT');
-
       if (!updatedPromo.rows || updatedPromo.rows.length === 0) {
         throw new Error('Promotion not found or update failed.');
       }
 
+      if (rules !== undefined) {
+        await txn.query(promotions.deletePromoRules, [promotionId]);
+        for (const ruleData of rules) {
+          await this._insertRule(txn, { ...ruleData, promotion_id: promotionId });
+        }
+      }
+
+      if (customer_segment_ids !== undefined) {
+        await txn.query(promotions.deletePromoSegments, [promotionId]);
+        const effectiveUniversal = is_universal ?? updatedPromo.rows[0]?.is_universal;
+        if (!effectiveUniversal && customer_segment_ids.length > 0) {
+          for (const segId of customer_segment_ids) {
+            await txn.query(promotions.insertPromoSegment, [promotionId, segId]);
+          }
+        }
+      }
+
+      if (targets !== undefined) {
+        const promoTenantId = tenant_id ?? updatedPromo.rows[0]?.tenant_id;
+        if (promoTenantId) {
+          await this.replaceTargets(promotionId, promoTenantId, targets, txn);
+        }
+      }
+
+      await txn.commit();
       return {
         message: `Promotion with id: ${updatedPromo.rows[0].promotion_id} updated successfully`,
       };
     } catch (error) {
-      await this.db.query('ROLLBACK');
+      await txn.rollback();
       throw error;
     }
-  }
-
-  buildUpdateQuery(data: PromoRules) {
-    const {
-      promotion_rule_id: promotionRuleId,
-      ...updates
-    } = data;
-
-    const updateKeys = Object.keys(updates).filter(
-      (key) => updates[key as keyof typeof updates] !== undefined,
-    );
-
-    if (!promotionRuleId) {
-      throw new BadRequestException('promotion_rule_id is required');
-    }
-
-    if (updateKeys.length === 0) {
-      throw new BadRequestException('No valid fields to update');
-    }
-
-    const setClause: string[] = [];
-    const paramsArray: any[] = [];
-    let index = 1;
-
-    for (const key of updateKeys) {
-      const validKey = key as keyof typeof updates;
-      setClause.push(`"${key}" = $${index}`);
-      paramsArray.push(updates[validKey]);
-      index++;
-    }
-
-    paramsArray.push(promotionRuleId);
-
-    const setString = setClause.join(', ');
-
-    const queryString = `
-      UPDATE pos_schema.promotion_rule
-      SET ${setString}
-      WHERE promotion_rule_id = $${index}
-      RETURNING *
-      `;
-
-    return { queryString, paramsArray };
   }
 
   async getPromoTypes() {
