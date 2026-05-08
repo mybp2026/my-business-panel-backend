@@ -1,0 +1,1420 @@
+### ============================================================
+### MYBUSINESSPANEL — SETUP COMPLETO DE TESTS
+### Cubre todos los módulos del sistema + Sprint Backlog Marzo 2026
+### ============================================================
+### ORDEN DE EJECUCIÓN:
+###   1. Ejecutar bootstrap.sql / database_backup.sql para crear esquemas
+###   2. Ejecutar requests en orden numérico por fase
+###   3. Copiar cada ID devuelto en la variable correspondiente
+###   4. Variables con FILL_ME deben actualizarse manualmente
+### ============================================================
+### MÓDULOS CUBIERTOS:
+###   - Core (tenant, branch, users)
+###   - POS (sales, invoices, returns, cash register)
+###   - Purchase (orders, payments, three-way matching, alerts)
+###   - Inventory/Warehouse (stock, transfers, discrepancies, expiring)
+###   - HR/Payroll (employees, paysheets, CCSS)
+###   - E-Invoice (facturación electrónica Hacienda CR)
+### ============================================================
+
+@baseUrl = http://localhost:3000
+
+# ─── VARIABLES CORE ─────────────────────────────────────────
+@tenantId            = FILL_ME
+@branchId            = FILL_ME
+@branchId2           = FILL_ME
+@turnId              = FILL_ME
+@userId              = FILL_ME
+@token               = FILL_ME
+
+# ─── VARIABLES POS ──────────────────────────────────────────
+@cashRegId           = FILL_ME
+@cashRegSessId       = FILL_ME
+@customerId          = FILL_ME
+@variantId           = FILL_ME
+@variantId2          = FILL_ME
+@variantId3          = FILL_ME
+@saleId              = FILL_ME
+@saleItemId          = FILL_ME
+@invoiceId           = FILL_ME
+@returnId            = FILL_ME
+@promotionId         = FILL_ME
+@loyalProgramId      = FILL_ME
+@segmentId           = FILL_ME
+
+# ─── VARIABLES INVENTORY ────────────────────────────────────
+@warehouseId         = FILL_ME
+@warehouseId2        = FILL_ME
+@transferId          = FILL_ME
+@discrepancyId       = FILL_ME
+
+# ─── VARIABLES PURCHASE ─────────────────────────────────────
+@supplierId          = FILL_ME
+@purchaseOrderId     = FILL_ME
+@purchasePaymentId   = FILL_ME
+@accountPayableId    = FILL_ME
+@goodsReceiptId      = FILL_ME
+@threeWayMatchId     = FILL_ME
+@alertId             = FILL_ME
+
+# ─── VARIABLES HR/PAYROLL ───────────────────────────────────
+@employeeId          = FILL_ME
+@contractId          = FILL_ME
+@conceptId           = FILL_ME
+@paysheetId          = FILL_ME
+@paysheetDetailId    = FILL_ME
+@ccssRateId          = FILL_ME
+
+# ─── VARIABLES E-INVOICE ────────────────────────────────────
+@electronicInvoiceId = FILL_ME
+
+
+### ============================================================
+### ██████╗ ██╗  ██╗ █████╗ ███████╗███████╗     ██╗
+### ██╔══██╗██║  ██║██╔══██╗██╔════╝██╔════╝    ███║
+### ██████╔╝███████║███████║███████╗█████╗      ╚██║
+### ██╔═══╝ ██╔══██║██╔══██║╚════██║██╔══╝       ██║
+### ██║     ██║  ██║██║  ██║███████║███████╗     ██║
+### ╚═╝     ╚═╝  ╚═╝╚═╝  ╚═╝╚══════╝╚══════╝     ╚═╝
+### FASE 1 — CORE: TENANT + BRANCH + USER
+### ============================================================
+
+### 1.1 Crear tenant
+### → Guardar tenant_id en @tenantId
+POST {{baseUrl}}/tenant
+Content-Type: application/json
+
+{
+  "tenant_name": "Distribuidora Demo S.A.",
+  "contact_email": "demo@distribuidora.cr",
+  "region_id": 1,
+  "identification": "3101234567",
+  "economic_activity": "742101",
+  "sign": "DDS",
+  "is_subscribed": true
+}
+
+###
+
+### 1.2 Crear sucursal principal
+### → Guardar branch_id en @branchId
+POST {{baseUrl}}/branch
+Content-Type: application/json
+
+{
+  "tenant_id": "{{tenantId}}",
+  "branch_name": "Sucursal Central",
+  "branch_number": "001",
+  "address": "San José, Costa Rica",
+  "contact_email": "central@distribuidora.cr",
+  "is_main_branch": true
+}
+
+###
+
+### 1.3 Crear segunda sucursal (para transferencias)
+### → Guardar branch_id en @branchId2
+POST {{baseUrl}}/branch
+Content-Type: application/json
+
+{
+  "tenant_id": "{{tenantId}}",
+  "branch_name": "Sucursal Norte",
+  "branch_number": "002",
+  "address": "Heredia, Costa Rica",
+  "contact_email": "norte@distribuidora.cr",
+  "is_main_branch": false
+}
+
+###
+
+### 1.4 Crear turno de trabajo
+### → Guardar turn_id en @turnId
+POST {{baseUrl}}/turns
+Content-Type: application/json
+
+{
+  "branchId": "{{branchId}}",
+  "entry": "08:00",
+  "out": "17:00"
+}
+
+###
+
+### 1.5 Crear usuario administrador
+### → Guardar user_id en @userId
+### → Guardar employee_id en @employeeId
+POST {{baseUrl}}/user
+Content-Type: application/json
+
+{
+  "tenant_id": "{{tenantId}}",
+  "email": "admin@distribuidora.cr",
+  "password": "Admin1234!",
+  "role_id": 1,
+  "employeeInfo": {
+    "tenant_id": "{{tenantId}}",
+    "branch_id": "{{branchId}}",
+    "first_name": "Carlos",
+    "last_name": "Mora Solano",
+    "doc_number": "106780000",
+    "phone": "60001111",
+    "email": "admin@distribuidora.cr",
+    "payment_schedule_id": 1,
+    "contractData": {
+      "start_date": "2025-01-01",
+      "end_date": "2026-12-31",
+      "hours": 40,
+      "base_salary": 800000,
+      "duties": "Administración general",
+      "turn_type": 1,
+      "turn_id": "{{turnId}}"
+    }
+  }
+}
+
+###
+
+### 1.6 Login
+### → Sesión activa por cookie
+POST {{baseUrl}}/auth/login
+Content-Type: application/json
+
+{
+  "email": "admin@distribuidora.cr",
+  "password": "Admin1234!"
+}
+
+###
+
+
+### ============================================================
+### ██████╗ ██╗  ██╗ █████╗ ███████╗███████╗    ██████╗ 
+### ██╔══██╗██║  ██║██╔══██╗██╔════╝██╔════╝    ╚════██╗
+### ██████╔╝███████║███████║███████╗█████╗       █████╔╝
+### ██╔═══╝ ██╔══██║██╔══██║╚════██║██╔══╝      ██╔═══╝ 
+### ██║     ██║  ██║██║  ██║███████║███████╗    ███████╗
+### ╚═╝     ╚═╝  ╚═╝╚═╝  ╚═╝╚══════╝╚══════╝    ╚══════╝
+### FASE 2 — CATÁLOGOS Y CONFIGURACIÓN
+### ============================================================
+
+### 2.1 Crear segmento de cliente
+### → Guardar customer_segment_id en @segmentId
+POST {{baseUrl}}/segment
+Content-Type: application/json
+
+{
+  "segment_name": "VIP Corporativo",
+  "segment_hierarchy": 1
+}
+
+###
+
+### 2.2 Crear margen por segmento
+POST {{baseUrl}}/margin
+Content-Type: application/json
+
+{
+  "tenant_id": "{{tenantId}}",
+  "customer_segment_id": 1,
+  "customer_segment_margin_type": 1,
+  "spending_threshold": 50000,
+  "seniority_months": 6,
+  "frequency_per_month": 4
+}
+
+###
+
+### 2.3 Crear programa de lealtad
+### → Guardar loyalty_program_id en @loyalProgramId
+POST {{baseUrl}}/loyal-program
+Content-Type: application/json
+
+{
+  "tenant_id": "{{tenantId}}",
+  "points_earned_per_currency_unit": 1.00,
+  "points_redeemed_per_currency_unit": 100.00,
+  "minimum_purchase_for_points": 1000
+}
+
+###
+
+### 2.4 Crear promoción
+### → Guardar promotion_id en @promotionId
+POST {{baseUrl}}/promos
+Content-Type: application/json
+
+{
+  "tenant_id": "{{tenantId}}",
+  "promotion_name": "Descuento Verano 10%",
+  "promotion_code": "VERANO10",
+  "promotion_description": "10% de descuento en compras durante el verano",
+  "promotion_type_id": 1,
+  "customer_segment_id": 1,
+  "promotion_start_date": "2025-06-01",
+  "promotion_end_date": "2025-12-31",
+  "is_active": true,
+  "rules": [
+    {
+      "discount_percentage": 10,
+      "min_purchase_amount": 5000
+    }
+  ]
+}
+
+###
+
+
+### ============================================================
+### ██████╗ ██╗  ██╗ █████╗ ███████╗███████╗    ██████╗ 
+### ██╔══██╗██║  ██║██╔══██╗██╔════╝██╔════╝    ╚════██╗
+### ██████╔╝███████║███████║███████╗█████╗       █████╔╝
+### ██╔═══╝ ██╔══██║██╔══██║╚════██║██╔══╝       ╚═══██╗
+### ██║     ██║  ██║██║  ██║███████║███████╗    ██████╔╝
+### ╚═╝     ╚═╝  ╚═╝╚═╝  ╚═╝╚══════╝╚══════╝    ╚═════╝ 
+### FASE 3 — PRODUCTOS Y CLIENTES
+### ============================================================
+
+### 3.1 Crear productos
+### → Guardar primer product_variant_id en @variantId
+### → Guardar segundo en @variantId2
+### → Guardar tercero en @variantId3
+POST {{baseUrl}}/product
+Content-Type: application/json
+
+{
+  "products": [
+    {
+      "tenant_id": "{{tenantId}}",
+      "sku": "PROD-001",
+      "variant_name": "Cuaderno universitario 100 hojas",
+      "unit_price": 1500,
+      "cabys_code": "44121600"
+    },
+    {
+      "tenant_id": "{{tenantId}}",
+      "sku": "PROD-002",
+      "variant_name": "Lapicero azul BIC",
+      "unit_price": 350,
+      "cabys_code": "44121700"
+    },
+    {
+      "tenant_id": "{{tenantId}}",
+      "sku": "PROD-003",
+      "variant_name": "Resma papel carta 500 hojas",
+      "unit_price": 8900,
+      "cabys_code": "44121500"
+    }
+  ]
+}
+
+###
+
+### 3.2 Consultar productos del tenant
+GET {{baseUrl}}/product/{{tenantId}}
+
+###
+
+### 3.3 Crear cliente
+### → Guardar tenant_customer_id en @customerId
+POST {{baseUrl}}/customers
+Content-Type: application/json
+
+{
+  "tenant_id": "{{tenantId}}",
+  "first_name": "María",
+  "last_name": "Rodríguez Vega",
+  "document_type_id": 1,
+  "document_number": "106780001",
+  "economic_activity": "742101",
+  "email": "maria.rodriguez@gmail.com",
+  "phone": "60001234",
+  "address": "San José, Escazú, Costa Rica",
+  "is_tenant": false
+}
+
+###
+
+
+### ============================================================
+### ██████╗ ██╗  ██╗ █████╗ ███████╗███████╗    ██╗  ██╗
+### ██╔══██╗██║  ██║██╔══██╗██╔════╝██╔════╝    ██║  ██║
+### ██████╔╝███████║███████║███████╗█████╗      ███████║
+### ██╔═══╝ ██╔══██║██╔══██║╚════██║██╔══╝      ╚════██║
+### ██║     ██║  ██║██║  ██║███████║███████╗         ██║
+### ╚═╝     ╚═╝  ╚═╝╚═╝  ╚═╝╚══════╝╚══════╝         ╚═╝
+### FASE 4 — INVENTORY / WAREHOUSE
+### ============================================================
+
+### 4.1 Crear bodega principal
+### → Guardar warehouse_id en @warehouseId
+POST {{baseUrl}}/warehouse
+Content-Type: application/json
+
+{
+  "branch_id": "{{branchId}}",
+  "warehouse_name": "Bodega Central",
+  "warehouse_address": "San José, La Uruca, Costa Rica"
+}
+
+###
+
+### 4.2 Crear segunda bodega (para transferencias IN-01)
+### → Guardar warehouse_id en @warehouseId2
+POST {{baseUrl}}/warehouse
+Content-Type: application/json
+
+{
+  "branch_id": "{{branchId2}}",
+  "warehouse_name": "Bodega Norte",
+  "warehouse_address": "Heredia, Costa Rica"
+}
+
+###
+
+### 4.3 Agregar stock producto 1
+POST {{baseUrl}}/warehouse/product
+Content-Type: application/json
+
+{
+  "warehouse_id": "{{warehouseId}}",
+  "product_id": "{{variantId}}",
+  "amount": 200,
+  "expiration_date": "2026-12-31"
+}
+
+###
+
+### 4.4 Agregar stock producto 2
+POST {{baseUrl}}/warehouse/product
+Content-Type: application/json
+
+{
+  "warehouse_id": "{{warehouseId}}",
+  "product_id": "{{variantId2}}",
+  "amount": 500,
+  "expiration_date": "2025-06-30"
+}
+
+###
+
+### 4.5 Agregar stock producto 3 (con fecha próxima a vencer - para IN-04)
+POST {{baseUrl}}/warehouse/product
+Content-Type: application/json
+
+{
+  "warehouse_id": "{{warehouseId}}",
+  "product_id": "{{variantId3}}",
+  "amount": 50,
+  "expiration_date": "2026-03-20"
+}
+
+###
+
+### 4.6 Contar inventario de bodega
+POST {{baseUrl}}/warehouse/count
+Content-Type: application/json
+
+{
+  "warehouse_id": "{{warehouseId}}"
+}
+
+###
+
+### 4.7 Consultar bodegas del tenant
+GET {{baseUrl}}/warehouse/tenant/
+
+###
+
+### ─── IN-03: Consultar stock consolidado por warehouse ─────
+### Sprint Backlog: Endpoint GET /warehouse/:warehouse_id/stock
+GET {{baseUrl}}/warehouse/{{warehouseId}}/stock
+
+###
+
+### ─── IN-01: Transferir inventario entre bodegas ───────────
+### Sprint Backlog: Transacción atómica + actualización de stock
+### → Guardar transfer_id en @transferId
+POST {{baseUrl}}/warehouse/transfer
+Content-Type: application/json
+
+{
+  "origin_warehouse_id": "{{warehouseId}}",
+  "destination_warehouse_id": "{{warehouseId2}}",
+  "tenant_id": "{{tenantId}}",
+  "products": [
+    {
+      "product_id": "{{variantId}}",
+      "amount": 50
+    },
+    {
+      "product_id": "{{variantId2}}",
+      "amount": 100
+    }
+  ]
+}
+
+###
+
+### 4.8 Verificar stock después de transferencia (origen)
+GET {{baseUrl}}/warehouse/{{warehouseId}}/stock
+
+###
+
+### 4.9 Verificar stock después de transferencia (destino)
+GET {{baseUrl}}/warehouse/{{warehouseId2}}/stock
+
+###
+
+### 4.10 Crear reporte de discrepancia
+### → Guardar discrepancy_count_id en @discrepancyId
+POST {{baseUrl}}/warehouse/discrepancy-report
+Content-Type: application/json
+
+{
+  "product_id": "{{variantId}}",
+  "warehouse_id": "{{warehouseId}}",
+  "stored_quantity": 150,
+  "physical_quantity": 145,
+  "discrepancy_reason": "Producto dañado durante almacenamiento - 5 unidades"
+}
+
+###
+
+### 4.11 Ver reportes de discrepancia
+GET {{baseUrl}}/warehouse/discrepancy-report/{{warehouseId}}
+
+###
+
+### ─── IN-02: Aplicar ajuste por discrepancia ───────────────
+### Sprint Backlog: PATCH /warehouse/discrepancy-report/:id/apply
+PATCH {{baseUrl}}/warehouse/discrepancy-report/{{discrepancyId}}/apply
+Content-Type: application/json
+
+{
+  "tenant_id": "{{tenantId}}"
+}
+
+###
+
+### ─── IN-04: Consultar productos próximos a vencer ─────────
+### Sprint Backlog: GET /warehouse/expiring?days=30
+GET {{baseUrl}}/warehouse/expiring?days=30
+
+###
+
+### 4.12 Consultar log de movimientos de inventario
+GET {{baseUrl}}/warehouse/{{warehouseId}}/log
+
+###
+
+
+### ============================================================
+### ██████╗ ██╗  ██╗ █████╗ ███████╗███████╗    ███████╗
+### ██╔══██╗██║  ██║██╔══██╗██╔════╝██╔════╝    ██╔════╝
+### ██████╔╝███████║███████║███████╗█████╗      ███████╗
+### ██╔═══╝ ██╔══██║██╔══██║╚════██║██╔══╝      ╚════██║
+### ██║     ██║  ██║██║  ██║███████║███████╗    ███████║
+### ╚═╝     ╚═╝  ╚═╝╚═╝  ╚═╝╚══════╝╚══════╝    ╚══════╝
+### FASE 5 — PURCHASE (COMPRAS / PROVEEDORES)
+### ============================================================
+
+### 5.1 Crear proveedor
+### → Guardar supplier_id en @supplierId
+POST {{baseUrl}}/suppliers
+Content-Type: application/json
+
+{
+  "supplier_name": "Papelería Nacional S.A.",
+  "supplier_contact_info": "ventas@papnacional.cr | +506 2222-3333",
+  "supplier_address": "Barrio Amón, San José, Costa Rica",
+  "supplier_notes": "Proveedor preferido para artículos de oficina"
+}
+
+###
+
+### 5.2 Consultar proveedores
+GET {{baseUrl}}/suppliers
+
+###
+
+### 5.3 Crear orden de compra
+### → Guardar purchase_order_id en @purchaseOrderId
+### → Guardar purchase_account_payable_id en @accountPayableId
+POST {{baseUrl}}/purchase
+Content-Type: application/json
+
+{
+  "supplier_id": "{{supplierId}}",
+  "warehouse_id": "{{warehouseId}}",
+  "expected_delivery_date": "2026-04-15",
+  "has_invoice": true,
+  "payment_condition": "30",
+  "items": [
+    {
+      "product_variant_id": "{{variantId}}",
+      "quantity_ordered": 100,
+      "unit_price": 1200
+    },
+    {
+      "product_variant_id": "{{variantId2}}",
+      "quantity_ordered": 200,
+      "unit_price": 250
+    }
+  ]
+}
+
+###
+
+### ─── CO-01: Consultar todas las órdenes de compra ─────────
+### Sprint Backlog: GET /purchase
+GET {{baseUrl}}/purchase
+
+###
+
+### ─── CO-01: Consultar orden de compra por ID ──────────────
+### Sprint Backlog: GET /purchase/:id
+GET {{baseUrl}}/purchase/{{purchaseOrderId}}
+
+###
+
+### ─── CO-03: Transición de estado: Pending → Shipped ───────
+### Sprint Backlog: PATCH /purchase/:id/status
+PATCH {{baseUrl}}/purchase/{{purchaseOrderId}}/status
+Content-Type: application/json
+
+{
+  "status_id": 2,
+  "tenant_id": "{{tenantId}}"
+}
+
+###
+
+### ─── CO-03: Transición de estado: Shipped → Delivered ─────
+### Sprint Backlog: Activa trigger create_goods_receipt + three-way matching
+PATCH {{baseUrl}}/purchase/{{purchaseOrderId}}/status
+Content-Type: application/json
+
+{
+  "status_id": 3,
+  "tenant_id": "{{tenantId}}"
+}
+
+###
+
+### ─── CO-04: Consultar three-way matching ──────────────────
+### Sprint Backlog: GET /purchase/:id/matching
+GET {{baseUrl}}/purchase/{{purchaseOrderId}}/matching
+
+###
+
+### ─── CO-02: Registrar pago parcial de orden ───────────────
+### Sprint Backlog: POST /purchase/payment
+### → Guardar payment_id en @purchasePaymentId
+POST {{baseUrl}}/purchase/payment
+Content-Type: application/json
+
+{
+  "purchase_account_payable_id": "{{accountPayableId}}",
+  "amount_paid": 100000,
+  "payment_method_id": 2,
+  "payment_reference": "TRANSF-001-2026",
+  "payment_date": "2026-03-10"
+}
+
+###
+
+### 5.4 Consultar estado de cuenta por pagar
+GET {{baseUrl}}/purchase/{{purchaseOrderId}}/account-payable
+
+###
+
+### ─── CO-02: Registrar pago final (completa la cuenta) ─────
+POST {{baseUrl}}/purchase/payment
+Content-Type: application/json
+
+{
+  "purchase_account_payable_id": "{{accountPayableId}}",
+  "amount_paid": 70000,
+  "payment_method_id": 3,
+  "payment_reference": "TC-VISA-2026",
+  "payment_date": "2026-03-15"
+}
+
+###
+
+### ─── CO-05: Consultar alertas de pago pendientes ──────────
+### Sprint Backlog: GET /purchase/alerts
+GET {{baseUrl}}/purchase/alerts
+
+###
+
+### ─── CO-05: Consultar estadísticas de alertas ─────────────
+### Sprint Backlog: GET /purchase/alerts/stats
+GET {{baseUrl}}/purchase/alerts/stats
+
+###
+
+### ─── CO-05: Generar alertas manualmente (test) ────────────
+### Sprint Backlog: POST /purchase/alerts/generate
+POST {{baseUrl}}/purchase/alerts/generate
+Content-Type: application/json
+
+{
+  "tenant_id": "{{tenantId}}"
+}
+
+###
+
+### 5.5 Configurar alertas de pago para el tenant
+POST {{baseUrl}}/purchase/alerts/config
+Content-Type: application/json
+
+{
+  "tenant_id": "{{tenantId}}",
+  "warning_days": 7,
+  "urgent_days": 3,
+  "notification_email": "pagos@distribuidora.cr",
+  "notification_sms": "+50688881234"
+}
+
+###
+
+
+### ============================================================
+### ██████╗ ██╗  ██╗ █████╗ ███████╗███████╗     ██████╗ 
+### ██╔══██╗██║  ██║██╔══██╗██╔════╝██╔════╝    ██╔════╝ 
+### ██████╔╝███████║███████║███████╗█████╗      ███████╗ 
+### ██╔═══╝ ██╔══██║██╔══██║╚════██║██╔══╝      ██╔═══██╗
+### ██║     ██║  ██║██║  ██║███████║███████╗    ╚██████╔╝
+### ╚═╝     ╚═╝  ╚═╝╚═╝  ╚═╝╚══════╝╚══════╝     ╚═════╝ 
+### FASE 6 — POS (VENTAS)
+### ============================================================
+
+### 6.1 Crear caja registradora
+### → Guardar cash_register_id en @cashRegId
+POST {{baseUrl}}/cash-register
+Content-Type: application/json
+
+{
+  "branch_id": "{{branchId}}",
+  "register_name": "Caja Principal",
+  "is_active": true
+}
+
+###
+
+### 6.2 Abrir sesión de caja
+### → Guardar cash_register_session_id en @cashRegSessId
+POST {{baseUrl}}/cash-register/start
+Content-Type: application/json
+
+{
+  "cash_register_id": "{{cashRegId}}",
+  "opening_amount": 100000,
+  "opened_at": "2026-03-07T08:00:00.000Z"
+}
+
+###
+
+### 6.3 Crear venta completa
+### → Guardar sale_id en @saleId
+### → Guardar sale_item_id del primer item en @saleItemId
+### IVA 13%: subtotal 4500 + tax 585 = total 5085
+POST {{baseUrl}}/sale
+Content-Type: application/json
+
+{
+  "branch_id": "{{branchId}}",
+  "currency_id": 1,
+  "tenant_id": "{{tenantId}}",
+  "tenant_customer_id": "{{customerId}}",
+  "sale_condition": "01",
+  "sale_date": "2026-03-07T10:30:00.000Z",
+  "subtotal_amount": 4500.00,
+  "tax_amount": 585.00,
+  "total_amount": 5085.00,
+  "is_completed": true,
+  "has_electronic_invoice": false,
+  "items": [
+    {
+      "tenant_id": "{{tenantId}}",
+      "product_variant_id": "{{variantId}}",
+      "quantity": 2,
+      "unit_price": 1500.00,
+      "total_price": 3000.00
+    },
+    {
+      "tenant_id": "{{tenantId}}",
+      "product_variant_id": "{{variantId2}}",
+      "quantity": 3,
+      "unit_price": 500.00,
+      "total_price": 1500.00
+    }
+  ],
+  "payments": [
+    {
+      "tenant_customer_id": "{{customerId}}",
+      "payment_method_id": 1,
+      "is_points_redemption": false,
+      "points_redeemed": 0,
+      "points_to_currency_rate": 0,
+      "payment_amount": 5085.00,
+      "payment_date": "2026-03-07T10:30:00.000Z",
+      "currency_id": 1,
+      "verified": true
+    }
+  ]
+}
+
+###
+
+### 6.4 Consultar ventas de la sucursal
+GET {{baseUrl}}/sale/{{branchId}}
+
+###
+
+### 6.5 Consultar ítems de la venta
+### → Copiar sale_item_id para usar en devolución
+GET {{baseUrl}}/items/{{saleId}}
+
+###
+
+### 6.6 Consultar facturas del tenant
+### → Guardar digital_sale_invoice_id en @invoiceId
+GET {{baseUrl}}/invoice/{{tenantId}}
+
+###
+
+### 6.7 Consultar detalle de factura
+GET {{baseUrl}}/invoice/details/{{saleId}}
+
+###
+
+### 6.8 Consultar puntos de lealtad del cliente
+GET {{baseUrl}}/customers/{{customerId}}/points
+
+###
+
+
+### ============================================================
+### ██████╗ ██╗  ██╗ █████╗ ███████╗███████╗    ███████╗
+### ██╔══██╗██║  ██║██╔══██╗██╔════╝██╔════╝    ╚════██║
+### ██████╔╝███████║███████║███████╗█████╗          ██╔╝
+### ██╔═══╝ ██╔══██║██╔══██║╚════██║██╔══╝         ██╔╝ 
+### ██║     ██║  ██║██║  ██║███████║███████╗       ██║  
+### ╚═╝     ╚═╝  ╚═╝╚═╝  ╚═╝╚══════╝╚══════╝       ╚═╝  
+### FASE 7 — DEVOLUCIONES
+### ============================================================
+
+### 7.1 Crear devolución parcial
+### → Guardar return_transaction_id en @returnId
+### NOTA: Reemplazar sale_item_id con el ID real del paso 6.5
+POST {{baseUrl}}/returns
+Content-Type: application/json
+
+{
+  "invoice_id": "{{invoiceId}}",
+  "tenant_customer_id": "{{customerId}}",
+  "total_refund_amount": 1695.00,
+  "refund_method": 1,
+  "return_status_id": 1,
+  "return_date": "2026-03-08T09:00:00.000Z",
+  "return_products": [
+    {
+      "sale_item_id": "{{saleItemId}}",
+      "quantity": 1,
+      "unit_price": 1500.00,
+      "total_price": 1500.00
+    }
+  ]
+}
+
+###
+
+### 7.2 Consultar devoluciones por factura
+GET {{baseUrl}}/returns?invoice_id={{invoiceId}}
+
+###
+
+### 7.3 Consultar detalle de devolución
+GET {{baseUrl}}/returns/{{returnId}}
+
+###
+
+
+### ============================================================
+### ██████╗ ██╗  ██╗ █████╗ ███████╗███████╗     █████╗ 
+### ██╔══██╗██║  ██║██╔══██╗██╔════╝██╔════╝    ██╔══██╗
+### ██████╔╝███████║███████║███████╗█████╗      ╚█████╔╝
+### ██╔═══╝ ██╔══██║██╔══██║╚════██║██╔══╝      ██╔══██╗
+### ██║     ██║  ██║██║  ██║███████║███████╗    ╚█████╔╝
+### ╚═╝     ╚═╝  ╚═╝╚═╝  ╚═╝╚══════╝╚══════╝     ╚════╝ 
+### FASE 8 — E-INVOICE (FACTURACIÓN ELECTRÓNICA)
+### ============================================================
+
+### ─── FE-03: Emitir factura electrónica ────────────────────
+### Sprint Backlog: POST /e-invoice/submit
+### → Guardar electronic_invoice_id en @electronicInvoiceId
+POST {{baseUrl}}/e-invoice/submit
+Content-Type: application/json
+
+{
+  "sale_id": "{{saleId}}",
+  "tenant_id": "{{tenantId}}"
+}
+
+###
+
+### 8.1 Consultar estado de factura electrónica
+GET {{baseUrl}}/e-invoice/{{electronicInvoiceId}}
+
+###
+
+### 8.2 Consultar facturas electrónicas del tenant
+GET {{baseUrl}}/e-invoice/tenant/{{tenantId}}
+
+###
+
+### ─── FE-05: Emitir nota de crédito electrónica ────────────
+### Sprint Backlog: POST /e-invoice/credit-note
+POST {{baseUrl}}/e-invoice/credit-note
+Content-Type: application/json
+
+{
+  "return_id": "{{returnId}}",
+  "tenant_id": "{{tenantId}}"
+}
+
+###
+
+### ─── FE-04: Consultar facturas pendientes de envío ────────
+### Sprint Backlog: Para contingencia offline
+GET {{baseUrl}}/e-invoice/pending
+
+###
+
+### ─── FE-04: Reintentar envío de facturas pendientes ───────
+### Sprint Backlog: Retry manual
+POST {{baseUrl}}/e-invoice/retry-pending
+Content-Type: application/json
+
+{
+  "tenant_id": "{{tenantId}}"
+}
+
+###
+
+
+### ============================================================
+### ██████╗ ██╗  ██╗ █████╗ ███████╗███████╗     █████╗ 
+### ██╔══██╗██║  ██║██╔══██╗██╔════╝██╔════╝    ██╔══██╗
+### ██████╔╝███████║███████║███████╗█████╗      ╚██████║
+### ██╔═══╝ ██╔══██║██╔══██║╚════██║██╔══╝       ╚═══██║
+### ██║     ██║  ██║██║  ██║███████║███████╗     █████╔╝
+### ╚═╝     ╚═╝  ╚═╝╚═╝  ╚═╝╚══════╝╚══════╝     ╚════╝ 
+### FASE 9 — HR / PAYROLL (RRHH / NÓMINA)
+### ============================================================
+
+### 9.1 Consultar empleados del tenant
+GET {{baseUrl}}/employee/{{tenantId}}
+
+###
+
+### 9.2 Consultar detalle de empleado
+GET {{baseUrl}}/employee/detail/{{employeeId}}
+
+###
+
+### 9.3 Crear segundo empleado (para pruebas de nómina)
+POST {{baseUrl}}/user
+Content-Type: application/json
+
+{
+  "tenant_id": "{{tenantId}}",
+  "email": "vendedor@distribuidora.cr",
+  "password": "Vendedor1234!",
+  "role_id": 4,
+  "employeeInfo": {
+    "tenant_id": "{{tenantId}}",
+    "branch_id": "{{branchId}}",
+    "first_name": "Juan",
+    "last_name": "Pérez López",
+    "doc_number": "107890001",
+    "phone": "60002222",
+    "email": "vendedor@distribuidora.cr",
+    "payment_schedule_id": 1,
+    "contractData": {
+      "start_date": "2025-03-01",
+      "end_date": "2026-12-31",
+      "hours": 48,
+      "base_salary": 550000,
+      "duties": "Ventas y atención al cliente",
+      "turn_type": 1,
+      "turn_id": "{{turnId}}"
+    }
+  }
+}
+
+###
+
+### 9.4 Crear concepto de nómina (ingreso)
+### → Guardar concept_id en @conceptId
+POST {{baseUrl}}/concept
+Content-Type: application/json
+
+{
+  "tenantId": "{{tenantId}}",
+  "name": "Salario Base",
+  "type": "earning",
+  "calcMethod": "fixed",
+  "isTaxable": true,
+  "baseValue": 0,
+  "code": "SAL-BASE"
+}
+
+###
+
+### 9.5 Crear concepto de deducción CCSS
+POST {{baseUrl}}/concept
+Content-Type: application/json
+
+{
+  "tenantId": "{{tenantId}}",
+  "name": "CCSS Empleado",
+  "type": "deduction",
+  "calcMethod": "percentage",
+  "isTaxable": false,
+  "baseValue": 10.67,
+  "code": "CCSS-EMP"
+}
+
+###
+
+### 9.6 Consultar conceptos del tenant
+GET {{baseUrl}}/concept/{{tenantId}}
+
+###
+
+### 9.7 Registrar marcado de entrada
+POST {{baseUrl}}/clocking
+Content-Type: application/json
+
+{
+  "employeeId": "{{employeeId}}",
+  "branchId": "{{branchId}}"
+}
+
+###
+
+### 9.8 Registrar marcado de salida
+PATCH {{baseUrl}}/clocking
+Content-Type: application/json
+
+{
+  "employeeId": "{{employeeId}}"
+}
+
+###
+
+### 9.9 Registrar incapacidad
+POST {{baseUrl}}/incapacity
+Content-Type: application/json
+
+{
+  "employee_id": "{{employeeId}}",
+  "branch_id": "{{branchId}}",
+  "type": "CCSS",
+  "period_start": "2026-03-10",
+  "period_end": "2026-03-12",
+  "days_paying": 3,
+  "percentage_to_pay": 60
+}
+
+###
+
+### 9.10 Registrar amonestación
+POST {{baseUrl}}/foul
+Content-Type: application/json
+
+{
+  "employee_id": "{{employeeId}}",
+  "branch_id": "{{branchId}}",
+  "identificator": "FOUL-001",
+  "foul_date": "2026-03-05",
+  "foul_hour": "09:30",
+  "description": "Llegada tardía sin justificación"
+}
+
+###
+
+### ─── HR-05: Consultar tasas CCSS ──────────────────────────
+### Sprint Backlog: GET /payroll/ccss-rates
+GET {{baseUrl}}/payroll/ccss-rates
+
+###
+
+### ─── HR-05: Actualizar tasa CCSS ──────────────────────────
+### Sprint Backlog: PATCH /payroll/ccss-rates/:id
+PATCH {{baseUrl}}/payroll/ccss-rates/{{ccssRateId}}
+Content-Type: application/json
+
+{
+  "employee_rate": 10.67,
+  "employer_rate": 26.67,
+  "effective_date": "2026-01-01",
+  "is_active": true
+}
+
+###
+
+### 9.11 Crear planilla mensual
+### → Guardar paysheet_id en @paysheetId
+POST {{baseUrl}}/payroll/create
+Content-Type: application/json
+
+{
+  "tenantId": "{{tenantId}}",
+  "branchId": "{{branchId}}",
+  "periodStart": "2026-03-01",
+  "periodEnd": "2026-03-31"
+}
+
+###
+
+### ─── HR-02: Intentar crear planilla duplicada (debe fallar) ─
+### Sprint Backlog: Validación de período duplicado
+POST {{baseUrl}}/payroll/create
+Content-Type: application/json
+
+{
+  "tenantId": "{{tenantId}}",
+  "branchId": "{{branchId}}",
+  "periodStart": "2026-03-01",
+  "periodEnd": "2026-03-31"
+}
+
+###
+
+### ─── HR-03: Consultar todas las planillas ─────────────────
+### Sprint Backlog: GET /payroll
+GET {{baseUrl}}/payroll?tenant_id={{tenantId}}
+
+###
+
+### ─── HR-03: Consultar detalle de planilla ─────────────────
+### Sprint Backlog: GET /payroll/:id
+GET {{baseUrl}}/payroll/{{paysheetId}}
+
+###
+
+### ─── HR-03: Consultar movimientos de empleado en planilla ─
+### Sprint Backlog: GET /payroll/:id/employee/:employee_id/movements
+GET {{baseUrl}}/payroll/{{paysheetId}}/employee/{{employeeId}}/movements
+
+###
+
+### 9.12 Procesar cálculo de nómina
+POST {{baseUrl}}/payroll/process
+Content-Type: application/json
+
+{
+  "paysheetId": "{{paysheetId}}",
+  "tenantId": "{{tenantId}}"
+}
+
+###
+
+### 9.13 Consultar planillas de la sucursal
+GET {{baseUrl}}/paysheet/branch/{{branchId}}
+
+###
+
+### 9.14 Consultar detalle de planilla
+GET {{baseUrl}}/paysheet/{{paysheetId}}
+
+###
+
+### 9.15 Consultar movimientos de la planilla
+GET {{baseUrl}}/movements/paysheet/{{paysheetId}}
+
+###
+
+### ─── HR-06: Generar reporte CCSS mensual ──────────────────
+### Sprint Backlog: GET /payroll/ccss-report
+GET {{baseUrl}}/payroll/ccss-report?year=2026&month=3&tenant_id={{tenantId}}
+
+###
+
+### ─── HR-04: Crear planilla para cancelar ──────────────────
+POST {{baseUrl}}/payroll/create
+Content-Type: application/json
+
+{
+  "tenantId": "{{tenantId}}",
+  "branchId": "{{branchId}}",
+  "periodStart": "2026-04-01",
+  "periodEnd": "2026-04-30"
+}
+
+###
+
+### ─── HR-04: Cancelar planilla ─────────────────────────────
+### Sprint Backlog: PATCH /payroll/:id/cancel
+### NOTA: Usar el paysheet_id de la planilla de abril creada arriba
+PATCH {{baseUrl}}/payroll/{{paysheetId}}/cancel
+Content-Type: application/json
+
+{
+  "tenant_id": "{{tenantId}}"
+}
+
+###
+
+
+### ============================================================
+### ██████╗ ██╗  ██╗ █████╗ ███████╗███████╗     ██╗ ██████╗ 
+### ██╔══██╗██║  ██║██╔══██╗██╔════╝██╔════╝    ███║██╔═████╗
+### ██████╔╝███████║███████║███████╗█████╗      ╚██║██║██╔██║
+### ██╔═══╝ ██╔══██║██╔══██║╚════██║██╔══╝       ██║████╔╝██║
+### ██║     ██║  ██║██║  ██║███████║███████╗     ██║╚██████╔╝
+### ╚═╝     ╚═╝  ╚═╝╚═╝  ╚═╝╚══════╝╚══════╝     ╚═╝ ╚═════╝ 
+### FASE 10 — CIERRE DE CAJA
+### ============================================================
+
+### 10.1 Cerrar sesión de caja
+POST {{baseUrl}}/cash-register/close
+Content-Type: application/json
+
+{
+  "cash_register_session_id": "{{cashRegSessId}}",
+  "closing_amount": 105085.00,
+  "closed_at": "2026-03-07T18:00:00.000Z"
+}
+
+###
+
+
+### ============================================================
+###  ██████╗ ██████╗ ███╗   ██╗███████╗██╗   ██╗██╗  ████████╗ █████╗ ███████╗
+### ██╔════╝██╔═══██╗████╗  ██║██╔════╝██║   ██║██║  ╚══██╔══╝██╔══██╗██╔════╝
+### ██║     ██║   ██║██╔██╗ ██║███████╗██║   ██║██║     ██║   ███████║███████╗
+### ██║     ██║   ██║██║╚██╗██║╚════██║██║   ██║██║     ██║   ██╔══██║╚════██║
+### ╚██████╗╚██████╔╝██║ ╚████║███████║╚██████╔╝███████╗██║   ██║  ██║███████║
+###  ╚═════╝ ╚═════╝ ╚═╝  ╚═══╝╚══════╝ ╚═════╝ ╚══════╝╚═╝   ╚═╝  ╚═╝╚══════╝
+### CONSULTAS DE VERIFICACIÓN
+### ============================================================
+
+### V1. Ver todos los tenants
+GET {{baseUrl}}/tenant
+
+###
+
+### V2. Ver tenant por ID
+GET {{baseUrl}}/tenant/{{tenantId}}
+
+###
+
+### V3. Ver usuarios del tenant
+GET {{baseUrl}}/tenant/{{tenantId}}/users
+
+###
+
+### V4. Ver sucursales
+GET {{baseUrl}}/branch
+
+###
+
+### V5. Ver sucursal por ID
+GET {{baseUrl}}/branch/{{branchId}}
+
+###
+
+### V6. Ver cajas de la sucursal
+GET {{baseUrl}}/cash-register?branch_id={{branchId}}
+
+###
+
+### V7. Ver detalle de caja
+GET {{baseUrl}}/cash-register/{{cashRegId}}
+
+###
+
+### V8. Ver todos los clientes del tenant
+GET {{baseUrl}}/customers/tenant/{{tenantId}}
+
+###
+
+### V9. Ver cliente por ID
+GET {{baseUrl}}/customers/{{customerId}}
+
+###
+
+### V10. Ver tipos de documento
+GET {{baseUrl}}/document
+
+###
+
+### V11. Ver roles de usuario
+GET {{baseUrl}}/user/roles
+
+###
+
+### V12. Ver categorías de producto (CABYS)
+GET {{baseUrl}}/category
+
+###
+
+### V13. Ver segmentos de clientes
+GET {{baseUrl}}/segment
+
+###
+
+### V14. Ver márgenes del tenant
+GET {{baseUrl}}/margin/{{tenantId}}
+
+###
+
+### V15. Ver promociones del tenant
+GET {{baseUrl}}/promos/{{tenantId}}
+
+###
+
+### V16. Ver programa de lealtad del tenant
+GET {{baseUrl}}/loyal-program/{{tenantId}}
+
+###
+
+### V17. Ver turnos de la sucursal
+GET {{baseUrl}}/turns/branch/{{branchId}}
+
+###
+
+### V18. Ver incapacidades del empleado
+GET {{baseUrl}}/incapacity/employee/{{employeeId}}
+
+###
+
+### V19. Ver amonestaciones del empleado
+GET {{baseUrl}}/foul/employee/{{employeeId}}
+
+###
+
+### V20. Ver suspensiones del empleado
+GET {{baseUrl}}/suspention/employee/{{employeeId}}
+
+###
+
+### V21. Ver tardanzas de la sucursal
+GET {{baseUrl}}/tardiness/branch/{{branchId}}
+
+###
+
+### V22. Logout
+POST {{baseUrl}}/auth/logout
+
+###
+
+
+### ============================================================
+### ██╗   ██╗██████╗ ██████╗  █████╗ ████████╗███████╗███████╗
+### ██║   ██║██╔══██╗██╔══██╗██╔══██╗╚══██╔══╝██╔════╝██╔════╝
+### ██║   ██║██████╔╝██║  ██║███████║   ██║   █████╗  ███████╗
+### ██║   ██║██╔═══╝ ██║  ██║██╔══██║   ██║   ██╔══╝  ╚════██║
+### ╚██████╔╝██║     ██████╔╝██║  ██║   ██║   ███████╗███████║
+###  ╚═════╝ ╚═╝     ╚═════╝ ╚═╝  ╚═╝   ╚═╝   ╚══════╝╚══════╝
+### REQUESTS DE ACTUALIZACIÓN
+### ============================================================
+
+### U1. Actualizar datos del tenant
+PATCH {{baseUrl}}/tenant/{{tenantId}}
+Content-Type: application/json
+
+{
+  "tenant_name": "Distribuidora Demo S.A. (Actualizado)"
+}
+
+###
+
+### U2. Actualizar caja registradora
+PUT {{baseUrl}}/cash-register/{{cashRegId}}
+Content-Type: application/json
+
+{
+  "cash_register_id": "{{cashRegId}}",
+  "register_name": "Caja Principal 2026",
+  "is_active": true
+}
+
+###
+
+### U3. Actualizar datos de cliente
+PATCH {{baseUrl}}/customers/{{customerId}}
+Content-Type: application/json
+
+{
+  "phone": "60009999",
+  "customer_segment_id": 1
+}
+
+###
+
+### U4. Actualizar producto
+PATCH {{baseUrl}}/product/{{variantId}}
+Content-Type: application/json
+
+{
+  "unit_price": 1600,
+  "variant_name": "Cuaderno universitario 100 hojas - Edición 2026"
+}
+
+###
+
+### U5. Actualizar proveedor
+PATCH {{baseUrl}}/suppliers/{{supplierId}}
+Content-Type: application/json
+
+{
+  "supplier_notes": "Proveedor actualizado - descuento del 5% por volumen"
+}
+
+###
+
+### U6. Actualizar turno de trabajo
+PATCH {{baseUrl}}/turns/{{turnId}}
+Content-Type: application/json
+
+{
+  "entry": "07:30",
+  "out": "16:30"
+}
+
+###
+
+
+### ============================================================
+### FIN DEL ARCHIVO DE SETUP DE TESTS
+### ============================================================
+### 
+### RESUMEN DE COBERTURA DEL SPRINT BACKLOG:
+### 
+### ✅ FE-01/02/03 — Facturación Electrónica (POST /e-invoice/submit)
+### ✅ FE-04 — Contingencia offline (GET/POST /e-invoice/pending)
+### ✅ FE-05 — Nota de crédito (POST /e-invoice/credit-note)
+### ✅ CO-01 — GET órdenes de compra
+### ✅ CO-02 — Registro y verificación de pagos
+### ✅ CO-03 — Transición de estado de orden
+### ✅ CO-04 — Consulta three-way matching
+### ✅ CO-05 — Alertas de pago
+### ✅ IN-01 — Transferencia atómica de inventario
+### ✅ IN-02 — Aplicación de ajuste por discrepancia
+### ✅ IN-03 — Consulta stock consolidado por warehouse
+### ✅ IN-04 — Alertas productos por vencer
+### ✅ HR-01 — Payment method (cubierto en proceso de nómina)
+### ✅ HR-02 — Validación período duplicado
+### ✅ HR-03 — Endpoints consulta de nóminas
+### ✅ HR-04 — Cancelación de nómina
+### ✅ HR-05 — Tasas CCSS configurables
+### ✅ HR-06 — Reporte CCSS mensual
+### 
+### ============================================================

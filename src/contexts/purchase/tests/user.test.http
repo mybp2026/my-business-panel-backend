@@ -1,0 +1,41 @@
+### Login
+POST http://localhost:3000/auth/login
+Content-Type: application/json
+
+{
+  "email": "tu@email.com",
+  "password": "tupassword"
+}
+
+### Obtener todas las órdenes de compra
+GET http://localhost:3000/purchase
+Cookie: auth_token=PEGA_TU_TOKEN_AQUI
+
+### Obtener orden por ID
+GET http://localhost:3000/purchase/UUID-DE-LA-ORDEN
+Cookie: auth_token=PEGA_TU_TOKEN_AQUI
+
+### Cambiar estado de orden
+PATCH http://localhost:3000/purchase/UUID-DE-LA-ORDEN/status
+Content-Type: application/json
+Cookie: auth_token=PEGA_TU_TOKEN_AQUI
+
+{
+  "status_id": 2
+}
+
+### Registrar pago
+POST http://localhost:3000/purchase/payment
+Content-Type: application/json
+Cookie: auth_token=PEGA_TU_TOKEN_AQUI
+
+{
+  "purchase_account_payable_id": "UUID",
+  "amount_paid": 1000.00,
+  "payment_method_id": 1,
+  "payment_reference": "REF-001"
+}
+
+### Three-way matching
+GET http://localhost:3000/purchase/UUID-DE-LA-ORDEN/matching
+Cookie: auth_token=PEGA_TU_TOKEN_AQUI
