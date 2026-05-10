@@ -1205,7 +1205,7 @@ export const generalQueryDefs = {
 
   customerSegment: {
     getSegments: `
-      SELECT customer_segment_id, segment_name, segment_hierarchy FROM general_schema.customer_segment
+      SELECT customer_segment_id AS segment_id, segment_name, segment_hierarchy AS hierarchy FROM general_schema.customer_segment
     `,
     newSegments: `
       INSERT INTO general_schema.customer_segment (segment_name, segment_hierarchy)
