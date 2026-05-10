@@ -9,45 +9,156 @@ export const DATABASE = 'DATABASE';
 
 let db: Database | null = null;
 
+function stripLeadingComments(s: string): string {
+  let r = s.trimStart();
+  while (r.startsWith('--') || r.startsWith('/*')) {
+    if (r.startsWith('--')) {
+      const nl = r.indexOf('\n');
+      r = nl === -1 ? '' : r.slice(nl + 1).trimStart();
+    } else {
+      const end = r.indexOf('*/');
+      r = end === -1 ? '' : r.slice(end + 2).trimStart();
+    }
+  }
+  return r;
+}
+
+function pushStatement(buf: string, out: string[]): void {
+  const stmt = buf.trim();
+  if (!stmt) return;
+  const stripped = stripLeadingComments(stmt).toUpperCase();
+  if (!stripped || stripped === 'BEGIN' || stripped === 'COMMIT') return;
+  out.push(stmt);
+}
+
 function splitSqlStatements(sql: string): string[] {
   const statements: string[] = [];
   let current = '';
   let inDollarQuote = false;
   let dollarTag = '';
+  let inSingleQuote = false;
+  let inDoubleQuote = false;
+  let inLineComment = false;
+  let inBlockComment = false;
   let i = 0;
 
   while (i < sql.length) {
-    const tagMatch = sql[i] === '$' ? sql.slice(i).match(/^\$([A-Za-z_]*)\$/) : null;
+    const ch = sql[i];
+    const next = sql[i + 1];
 
-    if (tagMatch) {
-      const tag = tagMatch[0];
-      if (!inDollarQuote) {
-        inDollarQuote = true;
-        dollarTag = tag;
-      } else if (tag === dollarTag) {
-        inDollarQuote = false;
-        dollarTag = '';
-      }
-      current += tag;
-      i += tag.length;
+    if (inLineComment) {
+      current += ch;
+      if (ch === '\n') inLineComment = false;
+      i++;
       continue;
     }
 
-    if (!inDollarQuote && sql[i] === ';') {
-      const stmt = current.trim();
-      const upper = stmt.toUpperCase();
-      if (stmt && upper !== 'BEGIN' && upper !== 'COMMIT') {
-        statements.push(stmt);
+    if (inBlockComment) {
+      current += ch;
+      if (ch === '*' && next === '/') {
+        current += next;
+        inBlockComment = false;
+        i += 2;
+        continue;
       }
-      current = '';
-    } else {
-      current += sql[i];
+      i++;
+      continue;
     }
+
+    if (inSingleQuote) {
+      current += ch;
+      if (ch === "'") {
+        if (next === "'") {
+          current += next;
+          i += 2;
+          continue;
+        }
+        inSingleQuote = false;
+      }
+      i++;
+      continue;
+    }
+
+    if (inDoubleQuote) {
+      current += ch;
+      if (ch === '"') {
+        if (next === '"') {
+          current += next;
+          i += 2;
+          continue;
+        }
+        inDoubleQuote = false;
+      }
+      i++;
+      continue;
+    }
+
+    if (inDollarQuote) {
+      const closeMatch = ch === '$' ? sql.slice(i).match(/^\$([A-Za-z_]*)\$/) : null;
+      if (closeMatch && closeMatch[0] === dollarTag) {
+        current += closeMatch[0];
+        i += closeMatch[0].length;
+        inDollarQuote = false;
+        dollarTag = '';
+        continue;
+      }
+      current += ch;
+      i++;
+      continue;
+    }
+
+    if (ch === '-' && next === '-') {
+      inLineComment = true;
+      current += ch;
+      i++;
+      continue;
+    }
+
+    if (ch === '/' && next === '*') {
+      inBlockComment = true;
+      current += ch;
+      current += next;
+      i += 2;
+      continue;
+    }
+
+    if (ch === "'") {
+      inSingleQuote = true;
+      current += ch;
+      i++;
+      continue;
+    }
+
+    if (ch === '"') {
+      inDoubleQuote = true;
+      current += ch;
+      i++;
+      continue;
+    }
+
+    if (ch === '$') {
+      const openMatch = sql.slice(i).match(/^\$([A-Za-z_]*)\$/);
+      if (openMatch) {
+        inDollarQuote = true;
+        dollarTag = openMatch[0];
+        current += openMatch[0];
+        i += openMatch[0].length;
+        continue;
+      }
+    }
+
+    if (ch === ';') {
+      pushStatement(current, statements);
+      current = '';
+      i++;
+      continue;
+    }
+
+    current += ch;
     i++;
   }
 
-  const remaining = current.trim();
-  if (remaining) statements.push(remaining);
+  pushStatement(current, statements);
   return statements;
 }
 
