@@ -1,6 +1,6 @@
 ﻿-- ======================================================
 -- CONSOLIDATED BOOTSTRAP FILE
--- Generated: 2026-05-10 04:46:38
+-- Generated: 2026-05-10 05:49:07
 -- ======================================================
 -- This file can be executed from any SQL client
 -- ======================================================
@@ -440,7 +440,7 @@ CREATE TABLE IF NOT EXISTS product_variant (
     last_purchase_date TIMESTAMP,
     is_active BOOLEAN DEFAULT true,
     is_composite BOOLEAN NOT NULL DEFAULT false,
-    supplier_id UUID REFERENCES purchase_schema.supplier(supplier_id) ON DELETE SET NULL,
+    supplier_id UUID,
     giftable BOOLEAN DEFAULT FALSE,
     giftable_from NUMERIC(10,2) CHECK (giftable_from IS NULL OR giftable_from >= 0),
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
@@ -1647,6 +1647,15 @@ CREATE TABLE IF NOT EXISTS three_way_matching(
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
+
+
+-- =============================================
+-- CROSS-SCHEMA CONSTRAINTS
+-- Applied after all referenced schemas exist
+-- =============================================
+ALTER TABLE general_schema.product_variant
+    ADD CONSTRAINT fk_product_variant_supplier
+    FOREIGN KEY (supplier_id) REFERENCES purchase_schema.supplier(supplier_id) ON DELETE SET NULL;
 
 
 -- =============================================
