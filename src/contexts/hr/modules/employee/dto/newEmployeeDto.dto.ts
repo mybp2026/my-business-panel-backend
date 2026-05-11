@@ -24,8 +24,9 @@ export class ContractDto {
   @IsNumber()
   base_salary!: number;
 
-  @IsString()
-  duties!: string;
+  @IsOptional()
+  @IsNumber()
+  duties_type_id?: number;
 
   @IsNumber()
   turn_type!: number;
@@ -36,8 +37,9 @@ export class ContractDto {
 
 export class NewEmployeeDto {
   @ApiProperty(createEmployeeDoc.dto.user_id)
+  @IsOptional()
   @IsUUID()
-  user_id!: string;
+  user_id?: string;
 
   @ApiProperty(createEmployeeDoc.dto.tenant_id)
   @IsUUID()
@@ -116,8 +118,9 @@ export class CreateUserEmployeeInfoDto {
 }
 
 export class NewSingleEmployeeDto {
+  @IsOptional()
   @IsUUID()
-  user_id!: string;
+  user_id?: string;
 
   @IsUUID()
   tenant_id!: string;

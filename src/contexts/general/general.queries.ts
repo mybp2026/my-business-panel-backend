@@ -10,7 +10,7 @@ export const generalQueryDefs = {
         e.employee_id, e.first_name, e.last_name, e.doc_number, e.phone,
         e.email AS employee_email, e.is_active, e.payment_schedule_id, e.branch_id,
         c.contract_id, c.start_date::text AS start_date, c.end_date::text AS end_date,
-        c.hours, c.base_salary, c.duties, c.turn_type, c.turn_id
+        c.hours, c.base_salary, c.duties, c.duties_type_id, c.turn_type, c.turn_id
       FROM general_schema.users u
       LEFT JOIN hr_schema.employee e ON e.user_id = u.user_id
       LEFT JOIN hr_schema.contract c ON c.contract_id = e.contract_id
@@ -1005,7 +1005,7 @@ export const generalQueryDefs = {
   tenantProductGroup: {
     byTenant: `
       SELECT g.*, t.type_name FROM general_schema.tenant_product_group g
-      JOIN general_schema.tenant_product_group_type t
+      LEFT JOIN general_schema.tenant_product_group_type t
         ON t.tenant_id = g.tenant_id AND t.tenant_product_group_type_id = g.tenant_product_group_type_id
       WHERE g.tenant_id = $1
       ORDER BY t.type_name, g.hierarchy_level, g.group_name

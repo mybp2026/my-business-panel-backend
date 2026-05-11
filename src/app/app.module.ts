@@ -59,6 +59,7 @@ import { ClockingModule } from '@/contexts/hr/modules/clocking/clocking.module';
 import { EmployeeModule } from '@/contexts/hr/modules/employee/employee.module';
 import { ContractModule } from '@/contexts/hr/modules/contract/contract.module';
 import { ConceptModule } from '@/contexts/hr/modules/concept/concept.module';
+import { DutiesTypeModule } from '@/contexts/hr/modules/duties-type/duties-type.module';
 import { PayrollModule } from '@/contexts/hr/modules/payroll/payroll.module';
 import { FoulModule } from '@/contexts/hr/modules/foul/foul.module';
 import { ReportingModule } from '@/contexts/hr/modules/reporting/reporting.module';
@@ -113,6 +114,7 @@ import { ExpenseModule } from '@/contexts/finances/modules/expense/expense.modul
     EmployeeModule,
     ContractModule,
     ConceptModule,
+    DutiesTypeModule,
     PayrollMovementsModule,
     PayrollModule,
     PaysheetModule,
