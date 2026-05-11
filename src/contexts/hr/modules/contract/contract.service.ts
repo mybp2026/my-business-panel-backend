@@ -18,14 +18,14 @@ export class ContractService {
       throw new Error(`Contract with id ${contract_id} not found.`);
     }
 
-    const { start_date, end_date, hours, base_salary, duties, turn_type, turn_id } = data;
+    const { start_date, end_date, hours, base_salary, duties_type_id, turn_type, turn_id } = data;
 
     const updatedContract = await this.db.query(contract.update, [
       start_date,
       end_date,
       hours,
       base_salary,
-      duties,
+      duties_type_id ?? null,
       turn_type,
       turn_id,
       contract_id,

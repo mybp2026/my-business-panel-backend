@@ -27,9 +27,13 @@ export class ContractDataDto {
   @IsNumber()
   base_salary!: number;
 
-  @IsNotEmpty()
+  @IsOptional()
   @IsString()
-  duties!: string;
+  duties?: string;
+
+  @IsOptional()
+  @IsNumber()
+  duties_type_id?: number;
 
   @IsNotEmpty()
   @IsNumber()

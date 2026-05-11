@@ -12,7 +12,7 @@ export const hrQueryDefs = {
         end_date = COALESCE($2, end_date),
         hours = COALESCE($3, hours),
         base_salary = COALESCE($4, base_salary),
-        duties = COALESCE($5, duties),
+        duties_type_id = COALESCE($5, duties_type_id),
         turn_type = COALESCE($6, turn_type),
         turn_id = COALESCE($7, turn_id)
       WHERE contract_id = $8
@@ -20,6 +20,36 @@ export const hrQueryDefs = {
     `,
     getSchedule: `
     SELECT * FROM hr_schema.payment_schedule
+    `,
+  },
+
+  dutiesType: {
+    listByTenant: `
+      SELECT duties_type_id, tenant_id, name, description, is_active, created_at
+      FROM hr_schema.duties_type
+      WHERE tenant_id = $1 AND is_active = true
+      ORDER BY name ASC
+    `,
+    getById: `
+      SELECT duties_type_id, tenant_id, name, description, is_active, created_at
+      FROM hr_schema.duties_type
+      WHERE duties_type_id = $1 LIMIT 1
+    `,
+    create: `
+      INSERT INTO hr_schema.duties_type (tenant_id, name, description)
+      VALUES ($1, $2, $3)
+      RETURNING duties_type_id, tenant_id, name, description, is_active, created_at
+    `,
+    update: `
+      UPDATE hr_schema.duties_type
+      SET
+        name = COALESCE($1, name),
+        description = COALESCE($2, description)
+      WHERE duties_type_id = $3
+      RETURNING duties_type_id, name, description
+    `,
+    softDelete: `
+      UPDATE hr_schema.duties_type SET is_active = false WHERE duties_type_id = $1 RETURNING duties_type_id
     `,
   },
 
@@ -59,11 +89,15 @@ export const hrQueryDefs = {
         c.hours,
         c.base_salary,
         c.duties,
+        c.duties_type_id,
+        dt.name AS duties_type_name,
+        dt.description AS duties_type_description,
         c.turn_type,
         c.turn_id
       FROM hr_schema.employee e
       INNER JOIN hr_schema.contract c USING(contract_id)
       INNER JOIN general_schema.branch b ON b.branch_id = e.branch_id
+      LEFT JOIN hr_schema.duties_type dt ON dt.duties_type_id = c.duties_type_id
       WHERE e.tenant_id = $1
       ORDER BY e.created_at DESC
     `,
@@ -114,7 +148,8 @@ export const hrQueryDefs = {
       $14::varchar,
       $15::integer,
       $16::uuid,
-      $17::integer
+      $17::integer,
+      $18::integer
     ) AS employee_id
   `,
   },
