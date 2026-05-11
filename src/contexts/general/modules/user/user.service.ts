@@ -51,7 +51,7 @@ export class UserService {
     const {
       employee_id, first_name, last_name, doc_number, phone, employee_email,
       is_active, payment_schedule_id, branch_id, contract_id, start_date,
-      end_date, hours, base_salary, duties, turn_type, turn_id,
+      end_date, hours, base_salary, duties, duties_type_id, turn_type, turn_id,
       ...userFields
     } = fetchedData.rows[0];
 
@@ -60,7 +60,7 @@ export class UserService {
       employee: employee_id ? {
         employee_id, first_name, last_name, doc_number, phone, employee_email,
         is_active, payment_schedule_id, branch_id, contract_id, start_date,
-        end_date, hours, base_salary, duties, turn_type, turn_id,
+        end_date, hours, base_salary, duties, duties_type_id, turn_type, turn_id,
       } : null,
     };
   }
@@ -136,6 +136,7 @@ export class UserService {
           start_date,
           end_date,
           duties,
+          duties_type_id,
           turn_type,
           turn_id,
         } = employeeInfo.contractData;
@@ -145,7 +146,7 @@ export class UserService {
           end_date,
           hours,
           base_salary,
-          duties,
+          duties ?? null,
           turn_type,
           turn_id,
           userId,
@@ -158,6 +159,7 @@ export class UserService {
           employeeInfo.payment_schedule_id,
           employeeInfo.branch_id,
           employeeInfo.identification_type_id ?? 1,
+          duties_type_id ?? null,
         ]);
 
         if (newEmployee.rows.length === 0) {
@@ -207,6 +209,7 @@ export class UserService {
           hours,
           base_salary,
           duties,
+          duties_type_id,
           turn_type,
           turn_id,
         } = dto.employeeInfo.contractData;
@@ -216,7 +219,8 @@ export class UserService {
           end_date,
           hours,
           base_salary,
-          duties,
+          duties ?? null,
+          duties_type_id ?? null,
           turn_type,
           turn_id,
         ];
@@ -231,6 +235,7 @@ export class UserService {
           'hours',
           'base_salary',
           'duties',
+          'duties_type_id',
           'turn_type',
           'turn_id',
         ],

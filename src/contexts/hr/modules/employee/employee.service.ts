@@ -112,10 +112,10 @@ export class EmployeeService {
       contractData.end_date,
       contractData.hours,
       contractData.base_salary,
-      contractData.duties,
+      null,
       contractData.turn_type,
       contractData.turn_id,
-      user_id,
+      user_id ?? null,
       tenant_id,
       first_name,
       last_name,
@@ -125,6 +125,7 @@ export class EmployeeService {
       payment_schedule_id,
       branch_id,
       identification_type_id ?? 1,
+      contractData.duties_type_id ?? null,
     ]);
 
     if (newEmp.rowCount === 0) return new CreateFullEmployeeError();
