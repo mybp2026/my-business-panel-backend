@@ -1005,7 +1005,7 @@ export const generalQueryDefs = {
   tenantProductGroup: {
     byTenant: `
       SELECT g.*, t.type_name FROM general_schema.tenant_product_group g
-      JOIN general_schema.tenant_product_group_type t
+      LEFT JOIN general_schema.tenant_product_group_type t
         ON t.tenant_id = g.tenant_id AND t.tenant_product_group_type_id = g.tenant_product_group_type_id
       WHERE g.tenant_id = $1
       ORDER BY t.type_name, g.hierarchy_level, g.group_name
