@@ -89,6 +89,8 @@ export class PurchaseService {
       payment_condition ?? 'CREDIT',
     ]);
 
+    this.logger.log(result);
+
     const orderId = result.rows[0]?.purchase_order_id;
     if (!orderId) {
       throw new BadRequestException('No se pudo crear la orden de compra');
@@ -98,7 +100,10 @@ export class PurchaseService {
   }
 
   async threeWayMatching(
-    createPurchaseDto: { purchase_order_id?: string; goods_receipt_id?: string },
+    createPurchaseDto: {
+      purchase_order_id?: string;
+      goods_receipt_id?: string;
+    },
     session: IUserSession,
   ) {
     const { purchase_order_id, goods_receipt_id } = createPurchaseDto || {};
@@ -171,9 +176,10 @@ export class PurchaseService {
       ]);
 
       try {
-        const paymentInfo = await txn.query(payments.getPaymentAmountForJournal, [
-          paymentId,
-        ]);
+        const paymentInfo = await txn.query(
+          payments.getPaymentAmountForJournal,
+          [paymentId],
+        );
         if (paymentInfo.rows.length > 0) {
           const { tenant_id, purchase_order_id } = paymentInfo.rows[0];
           await this.journalService.generatePaymentMadeJournal(
@@ -380,9 +386,10 @@ export class PurchaseService {
         await txn.query(purchase.updateOrderStatus, [statusId, orderId]);
 
         try {
-          const amountsResult = await txn.query(purchase.getOrderAmountsForJournal, [
-            orderId,
-          ]);
+          const amountsResult = await txn.query(
+            purchase.getOrderAmountsForJournal,
+            [orderId],
+          );
           if (amountsResult.rows.length > 0) {
             const row = amountsResult.rows[0];
             await this.journalService.generatePurchaseJournal(
@@ -447,7 +454,9 @@ export class PurchaseService {
     };
   }
 
-  private async getOrderAccessOrThrow(orderId: string): Promise<OrderAccessRow> {
+  private async getOrderAccessOrThrow(
+    orderId: string,
+  ): Promise<OrderAccessRow> {
     const result = await this.db.query(purchase.getAccessById, [orderId]);
     const access = result.rows[0] as OrderAccessRow | undefined;
 
@@ -471,6 +480,8 @@ export class PurchaseService {
   }
 
   private isSuperuser(roleId: number) {
-    return this.stateService.getRole(roleId).role_hierarchy === SUPERUSER_HIERARCHY;
+    return (
+      this.stateService.getRole(roleId).role_hierarchy === SUPERUSER_HIERARCHY
+    );
   }
 }
