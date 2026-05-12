@@ -42,7 +42,12 @@ export class BranchService {
     tenantId: string,
     page = 1,
     limit = 100,
-  ): Promise<{ branches: Branch[]; total: number; page: number; limit: number }> {
+  ): Promise<{
+    branches: Branch[];
+    total: number;
+    page: number;
+    limit: number;
+  }> {
     const offset = (page - 1) * limit;
     const [dataResult, countResult] = await Promise.all([
       this.db.query(branch.byTenantPaginated, [tenantId, limit, offset]),
@@ -59,7 +64,12 @@ export class BranchService {
   async findAllGlobal(
     page = 1,
     limit = 100,
-  ): Promise<{ branches: Branch[]; total: number; page: number; limit: number }> {
+  ): Promise<{
+    branches: Branch[];
+    total: number;
+    page: number;
+    limit: number;
+  }> {
     const offset = (page - 1) * limit;
     const [dataResult, countResult] = await Promise.all([
       this.db.query(branch.allPaginated, [limit, offset]),
@@ -172,38 +182,72 @@ export class BranchService {
       otras_senas,
     } = updateBranchDto;
 
-    await this.validateBranch(branch_id);
+    const currentBranch = await this.validateBranch(branch_id);
 
-    const { rows } = await this.db.query(branch.update, [
-      branch_id,
-      branch_name,
-      branch_number,
-      branch_address || null,
-      contact_email || null,
-      is_main_branch,
-    ]);
+    const txn = await this.db.transaction();
+    let committed = false;
 
-    const location = territorio_code
-      ? parseTerritoryCode(territorio_code)
-      : null;
+    try {
+      // If marking this branch as main, first deactivate all other main branches for this tenant
+      if (is_main_branch === true) {
+        await txn.rawQuery(
+          `UPDATE general_schema.branch
+           SET is_main_branch = false, updated_at = NOW()
+           WHERE tenant_id = $1 AND branch_id != $2 AND is_main_branch = true`,
+          [currentBranch.tenant_id, branch_id],
+        );
+      }
 
-    if (location) {
-      await this.db.query(branchLocation.upsert, [
+      // Update the branch
+      const { rows } = await txn.query(branch.update, [
         branch_id,
-        location.provincia,
-        location.canton,
-        location.distrito,
-        otras_senas ?? '',
+        branch_name,
+        branch_number,
+        branch_address || null,
+        contact_email || null,
+        is_main_branch,
       ]);
-    }
 
-    return rows[0];
+      const updatedBranch: Branch = rows[0];
+
+      // Update location if provided
+      const location = territorio_code
+        ? parseTerritoryCode(territorio_code)
+        : null;
+
+      if (location) {
+        await txn.query(branchLocation.upsert, [
+          branch_id,
+          location.provincia,
+          location.canton,
+          location.distrito,
+          otras_senas ?? '',
+        ]);
+      }
+
+      await txn.commit();
+      committed = true;
+      return updatedBranch;
+    } catch (error) {
+      if (!committed) {
+        try {
+          await txn.rollback();
+        } catch (rollbackError) {
+          console.error(
+            '[BranchService.updateBranch] Rollback failed:',
+            rollbackError,
+          );
+        }
+      }
+      throw error;
+    }
   }
 
-  async validateBranch(branchId: string, tenantId?: string): Promise<void> {
+  async validateBranch(branchId: string, tenantId?: string): Promise<Branch> {
     const branch = await this.findById(branchId);
     if (!branch) throw new InvalidBranchError();
     if (tenantId && branch.tenant_id !== tenantId)
       throw new InvalidTenantError(tenantId);
+    return branch;
   }
 }
