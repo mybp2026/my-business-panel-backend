@@ -735,25 +735,48 @@ export const posQueryDefs = {
         SET next_seq = branch_einvoice_seq.next_seq + 1
       RETURNING next_seq
     `,
+    // $5 = short delay in minutes before the first cron check
     create: `
       INSERT INTO pos_schema.electronic_sale_invoice
-      (sale_id, key_number, consecutive_number, xml_signed, status_id, created_at)
-      VALUES ($1, $2, $3, $4, 1, NOW())
+      (sale_id, key_number, consecutive_number, xml_signed, status_id, created_at,
+       check_attempts, next_check_at)
+      VALUES ($1, $2, $3, $4, 1, NOW(), 0, NOW() + ($5 || ' minutes')::interval)
       RETURNING electronic_sale_invoice_id
     `,
-    // Batch dispatcher: facturas pendientes dentro del TTL
-    // $1 = TTL interval (e.g. '3 hours')
-    getPendingInvoicesForBatch: `
+    // Cron query: pending invoices whose next_check_at has elapsed.
+    // No parameters: filtering by status_id=1 + next_check_at <= NOW() is enough.
+    getDueInvoices: `
       SELECT e.electronic_sale_invoice_id, e.key_number, e.created_at,
-             b.tenant_id
+             e.check_attempts, b.tenant_id
       FROM pos_schema.electronic_sale_invoice e
       INNER JOIN pos_schema.sale s USING(sale_id)
       INNER JOIN general_schema.branch b USING(branch_id)
       INNER JOIN general_schema.tenant t ON t.tenant_id = b.tenant_id
       WHERE e.status_id = 1
         AND t.tax_regime = 'traditional'
-        AND e.created_at > NOW() - $1::interval
-      ORDER BY e.created_at
+        AND e.next_check_at IS NOT NULL
+        AND e.next_check_at <= NOW()
+      ORDER BY e.next_check_at
+    `,
+    // Records a failed Hacienda probe: increments attempts and schedules the
+    // next check. $1 = electronic_sale_invoice_id, $2 = next delay interval
+    // string (e.g. '2 hours').
+    markAttempt: `
+      UPDATE pos_schema.electronic_sale_invoice
+         SET check_attempts = check_attempts + 1,
+             next_check_at  = NOW() + $2::interval,
+             updated_at     = NOW()
+       WHERE electronic_sale_invoice_id = $1
+    `,
+    // Marks an invoice as timed-out after exhausting attempts. status_id = 4.
+    // $1 = electronic_sale_invoice_id
+    markFailed: `
+      UPDATE pos_schema.electronic_sale_invoice
+         SET status_id      = 4,
+             check_attempts = check_attempts + 1,
+             next_check_at  = NULL,
+             updated_at     = NOW()
+       WHERE electronic_sale_invoice_id = $1
     `,
     // #5: persiste los ítems en electronic_sale_invoice_items
     insertItem: `
@@ -774,11 +797,14 @@ export const posQueryDefs = {
     `,
     // $1 = electronic_sale_invoice_id, $2 = hacienda_response_xml (TEXT), $3 = status_id
     // status_id: 1=pendiente, 2=aceptada, 3=rechazada
+    // Sets terminal status (2=aceptada, 3=rechazada) and clears next_check_at
+    // so the cron will not pick the invoice again.
     updateHaciendaResponse: `
       UPDATE pos_schema.electronic_sale_invoice
       SET hacienda_response_xml  = $2,
           hacienda_response_date = NOW(),
           status_id              = $3,
+          next_check_at          = NULL,
           updated_at             = NOW()
       WHERE electronic_sale_invoice_id = $1
     `,

@@ -11,11 +11,11 @@ import { XmlGeneratorEngine } from './engine/xml_generator.engine';
 import { HaciendaService } from './hacienda/hacienda.service';
 import { HaciendaPayload } from './interface';
 import { TenantHaciendaConfigService } from '@/contexts/general/modules/tenant_hacienda_config/tenant-hacienda-config.service';
-import { QueueFacade } from '@/contexts/general/modules/queue/facade/queue.facade';
-import { EINVOICE_STATUS_QUEUE } from './queues/einvoice-status.queue';
 import { encrypt, decrypt } from '@/common/crypto/aes-256-gcm';
 
 const { eInvoice } = posQueries;
+
+const SHORT_DELAY_MIN = Number(process.env.EINVOICE_SHORT_DELAY_MIN) || 15;
 
 @Injectable()
 export class EInvoiceService {
@@ -26,7 +26,6 @@ export class EInvoiceService {
     private readonly xmlgen: XmlGeneratorEngine,
     private readonly hacienda: HaciendaService,
     private readonly tenantHaciendaConfig: TenantHaciendaConfigService,
-    private readonly queueFacade: QueueFacade,
   ) {}
 
   async getEInvoiceByBranch(branchId: string, tenantId: string) {
@@ -173,10 +172,10 @@ export class EInvoiceService {
     // 1. Persistir en BD ANTES de enviar a Hacienda.
     //    Si el server se cae después del envío pero antes del INSERT,
     //    la factura queda fantasma en Hacienda sin registro local.
-    //    Insertando primero, la reconciliación la encuentra y chequea estado.
+    //    Insertando primero, el cron la encuentra y chequea estado.
     const { rows: invoiceRows } = await (dbClient || this.db).query(
       eInvoice.create,
-      [saleId, key, consecutive, encrypt(xmlSignedB64)],
+      [saleId, key, consecutive, encrypt(xmlSignedB64), SHORT_DELAY_MIN],
     );
     const electronicInvoiceId = invoiceRows[0].electronic_sale_invoice_id;
 
@@ -194,9 +193,10 @@ export class EInvoiceService {
     await (dbClient || this.db).query(eInvoice.markSaleAsEInvoiced, [saleId]);
 
     // 2. Enviar a Hacienda. Si falla, el registro ya existe en BD
-    //    con status=1 (pendiente). El worker lo chequeará igualmente.
-    //    Si Hacienda nunca lo recibió, eventualmente hará timeout (status=4).
-    //    Si Hacienda responde 422 (duplicado), se trata como éxito.
+    //    con status=1 (pendiente) y next_check_at programado. El cron
+    //    lo chequeará igualmente. Si Hacienda nunca lo recibió,
+    //    eventualmente hará timeout (status=4). Si Hacienda responde 422
+    //    (duplicado), se trata como éxito.
     try {
       await this.hacienda.sendInvoice(
         sale.tenant_id,
@@ -207,23 +207,8 @@ export class EInvoiceService {
       this.logger.error(
         `Error enviando a Hacienda (registro ya en BD): ${sendError}`,
       );
-      // No relanzamos: el registro existe, el worker chequeará si Hacienda lo recibió
+      // No relanzamos: el registro existe, el cron chequeará si Hacienda lo recibió
     }
-
-    // 3. Enqueue job para chequear estado
-    const initialDelay =
-      Number(process.env.EINVOICE_INITIAL_CHECK_DELAY_MS) || 5 * 60 * 1000;
-    await this.queueFacade.enqueue(
-      EINVOICE_STATUS_QUEUE,
-      'check-status',
-      {
-        electronicInvoiceId,
-        keyNumber: key,
-        tenantId: sale.tenant_id,
-        createdAt: new Date().toISOString(),
-      },
-      { delay: initialDelay },
-    );
 
     return {
       electronicInvoiceId,
