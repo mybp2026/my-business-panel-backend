@@ -23,7 +23,7 @@ export class CustomerPaymentService {
     return payments.rows;
   }
 
-  async bulkInsert(payments: Payment[], saleId: string) {
+  async bulkInsert(payments: Payment[], saleId: string): Promise<any> {
     if (!Array.isArray(payments) || payments.length === 0) return [];
 
     const val: any[] = [];
@@ -59,7 +59,9 @@ export class CustomerPaymentService {
     return res;
   }
 
-  async createCustomerPayment(paymentData: NewCustomerPaymentDto) {
+  async createCustomerPayment(
+    paymentData: NewCustomerPaymentDto,
+  ): Promise<{ message: string; newPayment: any }> {
     const {
       tenant_customer_id,
       sale_id,
@@ -70,15 +72,18 @@ export class CustomerPaymentService {
       verified,
     } = paymentData;
 
-    const newPayment = await this.db.query(customerPayment.createNewPayment, [
-      tenant_customer_id,
-      sale_id,
-      payment_method_id,
-      payment_amount,
-      payment_date,
-      currency_id,
-      verified,
-    ]);
+    const newPayment: any = await this.db.query(
+      customerPayment.createNewPayment,
+      [
+        tenant_customer_id,
+        sale_id,
+        payment_method_id,
+        payment_amount,
+        payment_date,
+        currency_id,
+        verified,
+      ],
+    );
 
     return { message: 'Payment created', newPayment };
   }
