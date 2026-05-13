@@ -20,6 +20,22 @@ export class CloseCashRegisterSessionDto {
   closing_amount!: number;
 
   @IsOptional()
+  @IsNumber()
+  cash_sales_amount?: number;
+
+  @IsOptional()
+  @IsNumber()
+  debit_sales_amount?: number;
+
+  @IsOptional()
+  @IsNumber()
+  credit_sales_amount?: number;
+
+  @IsOptional()
+  @IsNumber()
+  transfer_sales_amount?: number;
+
+  @IsOptional()
   @IsDateString()
   closed_at?: string = new Date().toISOString();
 

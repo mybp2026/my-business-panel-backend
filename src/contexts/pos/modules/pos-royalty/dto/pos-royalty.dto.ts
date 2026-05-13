@@ -13,6 +13,10 @@ export class CreateRoyaltyRuleDto {
   @IsNotEmpty()
   tenant_id!: string;
 
+  @IsUUID()
+  @IsOptional()
+  tenant_product_group_type_id?: string;
+
   @IsNumber()
   @Min(0.01)
   min_amount!: number;

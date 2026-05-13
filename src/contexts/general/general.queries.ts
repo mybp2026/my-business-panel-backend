@@ -1145,7 +1145,7 @@ export const generalQueryDefs = {
     byTenantPaginated: `
       SELECT * FROM general_schema.branch
       WHERE tenant_id = $1
-      ORDER BY branch_name
+      ORDER BY is_main_branch DESC, created_at DESC
       LIMIT $2 OFFSET $3
     `,
     countByTenant:

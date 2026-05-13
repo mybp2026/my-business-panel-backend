@@ -399,6 +399,10 @@ export const posQueryDefs = {
         crs.credit_sales_amount,
         crs.transfer_sales_amount,
         crs.points_sales_amount,
+        crs.user_cash_amount,
+        crs.user_debit_amount,
+        crs.user_credit_amount,
+        crs.user_transfer_amount,
         crs.total_sales_amount,
         crs.mismatch,
         crs.mismatch_amount,
@@ -419,13 +423,27 @@ export const posQueryDefs = {
       ORDER BY crs.opened_at DESC
     `,
     closeSession: `
-      SELECT * FROM pos_schema.close_cash_register_session($1::uuid, $2::numeric)
+      SELECT * FROM pos_schema.close_cash_register_session(
+        $1::uuid, 
+        $2::numeric,
+        $3::numeric,
+        $4::numeric,
+        $5::numeric,
+        $6::numeric
+      )
     `,
     getSessionGroupSales: `
       SELECT tenant_product_group_id, group_name, total_amount
       FROM pos_schema.session_group_sales
       WHERE cash_register_session_id = $1
       ORDER BY total_amount DESC
+    `,
+    getSessionPaymentMethodSales: `
+      SELECT spms.payment_method_id, pm.name AS payment_method_name, spms.total_amount
+      FROM pos_schema.session_payment_method_sales spms
+      INNER JOIN general_schema.payment_method pm ON pm.payment_method_id = spms.payment_method_id
+      WHERE spms.cash_register_session_id = $1
+      ORDER BY spms.total_amount DESC
     `,
     registerTransaction: `
     INSERT INTO cash_register_sale_transaction (cash_register_session_id, amount, transaction_time, created_at, updated_at) VALUES ($1, $2, $3, NOW(), NOW()) RETURNING *

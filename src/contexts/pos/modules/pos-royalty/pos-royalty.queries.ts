@@ -3,6 +3,7 @@ export const posRoyaltyQueries = {
     SELECT
       r.royalty_rule_id,
       r.tenant_id,
+      r.tenant_product_group_type_id,
       r.min_amount,
       r.created_at,
       r.updated_at,
@@ -36,7 +37,8 @@ export const posRoyaltyQueries = {
     LEFT JOIN pos_schema.royalty_option o ON o.royalty_rule_id = r.royalty_rule_id
     LEFT JOIN general_schema.tenant_product_group g ON g.tenant_product_group_id = o.tenant_product_group_id
     WHERE r.tenant_id = $1
-    GROUP BY r.royalty_rule_id
+      AND ($2::uuid IS NULL OR r.tenant_product_group_type_id = $2)
+    GROUP BY r.royalty_rule_id, r.tenant_product_group_type_id
     ORDER BY r.min_amount ASC
   `,
 
@@ -81,9 +83,9 @@ export const posRoyaltyQueries = {
   `,
 
   createRule: `
-    INSERT INTO pos_schema.royalty_rule (tenant_id, min_amount)
-    VALUES ($1, $2)
-    RETURNING royalty_rule_id, tenant_id, min_amount, created_at, updated_at
+    INSERT INTO pos_schema.royalty_rule (tenant_id, tenant_product_group_type_id, min_amount)
+    VALUES ($1, $2, $3)
+    RETURNING royalty_rule_id, tenant_id, tenant_product_group_type_id, min_amount, created_at, updated_at
   `,
 
   updateRule: `
