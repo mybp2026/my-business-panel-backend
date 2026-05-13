@@ -47,11 +47,23 @@ export const posQueryDefs = {
 
   saleItems: {
     getItems: `
-      SELECT pv.variant_name AS product_name, pv.sku, si.sale_item_id, si.quantity, si.unit_price, si.total_price FROM pos_schema.sale_item si
+      SELECT
+        pv.variant_name AS product_name,
+        pv.sku,
+        si.sale_item_id,
+        si.quantity,
+        si.unit_price,
+        si.total_price,
+        si.sale_price_type,
+        si.original_price,
+        si.discount_applied,
+        p.promotion_name
+      FROM pos_schema.sale_item si
       INNER JOIN general_schema.product_variant pv
         ON pv.tenant_id = si.tenant_id AND pv.product_variant_id = si.product_variant_id
+      LEFT JOIN pos_schema.promotion p ON p.promotion_id = si.promotion_id
       WHERE si.sale_id = $1
-    `, // ? add pagination
+    `,
     getItemById: 'SELECT * FROM pos_schema.sale_item WHERE sale_item_id = $1',
     delete:
       'DELETE FROM pos_schema.sale_item WHERE sale_item_id = $1 RETURNING sale_item_id',
@@ -96,6 +108,11 @@ export const posQueryDefs = {
         i.amount_paid,
         i.change_amount,
         i.points_accumulated,
+        COALESCE((
+          SELECT SUM(cp.points_redeemed)
+          FROM pos_schema.customer_payment cp
+          WHERE cp.sale_id = i.sale_id AND cp.is_points_redemption = TRUE
+        ), 0) AS points_redeemed,
         i.ad_message,
         i.due_date,
         i.invoiced_at,

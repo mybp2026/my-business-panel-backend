@@ -5,6 +5,7 @@ import {
   Inject,
   Param,
   Post,
+  Query,
   Req,
   UseGuards,
 } from '@nestjs/common';
@@ -54,6 +55,19 @@ export class SaleController {
   @Post()
   async createFullSale(@Body() req: FullSaleDto) {
     return this.saleService.createFullSale(req);
+  }
+
+  @Get('tenant/all')
+  async getAllSalesByTenant(
+    @Req() req: any,
+    @Query('limit') limit = '100',
+    @Query('offset') offset = '0',
+  ) {
+    return this.saleService.getAllSalesByTenant(
+      req.user.tenant_id,
+      parseInt(limit, 10),
+      parseInt(offset, 10),
+    );
   }
 
   @ApiOperation(getAllSalesByBranchDoc.operation)

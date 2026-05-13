@@ -172,6 +172,32 @@ export const posRoyaltyQueries = {
     ORDER BY r.min_amount ASC
   `,
 
+  getOptionWithRule: `
+    SELECT
+      o.royalty_option_id,
+      o.tenant_id,
+      o.tenant_product_group_id,
+      o.scope,
+      r.royalty_rule_id,
+      r.min_amount
+    FROM pos_schema.royalty_option o
+    INNER JOIN pos_schema.royalty_rule r ON r.royalty_rule_id = o.royalty_rule_id
+    WHERE o.royalty_option_id = $1
+  `,
+
+  propagateToLowerRules: `
+    INSERT INTO pos_schema.royalty_option_product (royalty_option_id, product_variant_id)
+    SELECT o.royalty_option_id, v.product_variant_id
+    FROM pos_schema.royalty_option o
+    INNER JOIN pos_schema.royalty_rule r ON r.royalty_rule_id = o.royalty_rule_id
+    CROSS JOIN unnest($4::uuid[]) AS v(product_variant_id)
+    WHERE r.tenant_id = $1
+      AND o.tenant_product_group_id = $2
+      AND r.min_amount < $3
+      AND o.scope = 'specific'
+    ON CONFLICT (royalty_option_id, product_variant_id) DO NOTHING
+  `,
+
   getGiftableProductsByGroup: `
     SELECT
       pv.product_variant_id,

@@ -75,6 +75,13 @@ export class PosRoyaltyService {
   }
 
   async setOptionProducts(royaltyOptionId: string, dto: SetOptionProductsDto) {
+    const { rows: optRows } = await this.db.query(q.getOptionWithRule, [royaltyOptionId]);
+    const option = optRows[0] as {
+      tenant_id: string;
+      tenant_product_group_id: string;
+      min_amount: number;
+    } | undefined;
+
     await this.db.query(q.clearOptionProducts, [royaltyOptionId]);
     const inserted: unknown[] = [];
     for (const variantId of dto.product_variant_ids) {
@@ -84,6 +91,18 @@ export class PosRoyaltyService {
       ]);
       if (rows.length) inserted.push(rows[0]);
     }
+
+    // Propagate products to all lower-tier rules sharing the same group.
+    // Only targets 'specific' scope options; 'any' scope already covers all giftable products.
+    if (option && dto.product_variant_ids.length > 0) {
+      await this.db.query(q.propagateToLowerRules, [
+        option.tenant_id,
+        option.tenant_product_group_id,
+        option.min_amount,
+        dto.product_variant_ids,
+      ]);
+    }
+
     return inserted;
   }
 
