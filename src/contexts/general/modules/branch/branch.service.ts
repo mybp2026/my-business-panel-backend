@@ -1,5 +1,5 @@
 import Database from '@crane-technologies/database';
-import { Inject, Injectable } from '@nestjs/common';
+import { BadRequestException, Inject, Injectable } from '@nestjs/common';
 import { DATABASE } from '@/contexts/general/modules/db/db.provider';
 import { Branch } from '@/contexts/general/modules/branch/interfaces/branch.interface';
 import { CreateBranchDto } from '@/contexts/general/modules/branch/dto/create_branch.dto';
@@ -164,6 +164,13 @@ export class BranchService {
   }
 
   async deleteBranch(branchId: string): Promise<Branch> {
+    const existing = await this.findById(branchId);
+    if (!existing) throw new InvalidBranchError();
+    if (existing.is_main_branch) {
+      throw new BadRequestException(
+        'No se puede eliminar la sucursal principal. Desmárcala primero.',
+      );
+    }
     const { rows } = await this.db.query(branch.delete, [branchId]);
     return rows[0];
   }
