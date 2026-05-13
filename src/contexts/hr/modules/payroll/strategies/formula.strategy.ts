@@ -16,8 +16,6 @@ export class OvertimeStrategy implements IPayrollStrategy {
       : input.context?.standardHours || new Decimal(0);
     const hoursWorked = new Decimal(hours);
 
-    console.log('Horas Trabajadas', hoursWorked);
-
     const turnType = new Decimal(input.context?.turnType || 8);
 
     const dailyRate = base_salary.dividedBy(new Decimal(30));
@@ -28,15 +26,6 @@ export class OvertimeStrategy implements IPayrollStrategy {
     }
 
     const pay = hoursWorked.mul(hourlyRate).mul(multiplier);
-    console.log('Overtime calculation details:', {
-      base_salary: base_salary.toFixed(2),
-      hoursWorked: hoursWorked.toFixed(2),
-      turnType: turnType.toFixed(2),
-      dailyRate: dailyRate.toFixed(2),
-      hourlyRate: hourlyRate.toFixed(2),
-      multiplier: multiplier.toFixed(2),
-      pay: pay.toFixed(2),
-    });
 
     return pay.toDecimalPlaces(2, Decimal.ROUND_HALF_UP);
   }
@@ -53,12 +42,6 @@ export class VacationsStrategy implements IPayrollStrategy {
 
     const vacationsPay = earnings50week.dividedBy(constantDivisive);
 
-    console.log('Vacations calculation details:', {
-      earnings50week: earnings50week.toFixed(2),
-      constantDivisive: constantDivisive.toFixed(2),
-      vacationsPay: vacationsPay.toFixed(2),
-    });
-
     return vacationsPay.toDecimalPlaces(2, Decimal.ROUND_HALF_UP);
   }
 }
@@ -74,17 +57,12 @@ export class HolidayStrategy implements IPayrollStrategy {
 
     const holidayPay = totalYear.dividedBy(factor);
 
-    console.log('Holiday calculation details:', {
-      holidayPay: holidayPay.toDecimalPlaces(2, Decimal.ROUND_HALF_UP),
-    });
-
     return holidayPay.toDecimalPlaces(2, Decimal.ROUND_HALF_UP);
   }
 }
 
 export class ISRDeduction implements IPayrollStrategy {
   calculate(input: CalculatorInput): Decimal {
-    console.log(input.context?.gross);
     const currentGross = input.context?.gross || new Decimal(0);
     let val: Decimal;
 
@@ -93,7 +71,7 @@ export class ISRDeduction implements IPayrollStrategy {
       val = currentGross.minus(gross);
     } else {
       val = currentGross;
-    } 
+    }
 
     const brackets = [
       { upTo: new Decimal(929000), taxApply: new Decimal(0) },
@@ -122,7 +100,6 @@ export class ISRDeduction implements IPayrollStrategy {
       }
     }
 
-    console.log('Tax total: ', totalTax);
     return totalTax.toDecimalPlaces(2, Decimal.ROUND_HALF_UP);
   }
 }
@@ -140,14 +117,6 @@ export class IncapacityStrategy implements IPayrollStrategy {
       .mul(percentage.dividedBy(new Decimal(100)))
       .mul(days);
 
-    console.log('Incapacity calculation details:', {
-      base: base.toFixed(2),
-      dailyRate: dailyRate.toFixed(2),
-      days: days.toFixed(2),
-      percentage: percentage.toFixed(2),
-      incapacityPayment: incapacityPayment.toFixed(2),
-    });
-
     return incapacityPayment.toDecimalPlaces(2, Decimal.ROUND_HALF_UP);
   }
 }
@@ -161,13 +130,6 @@ export class IncapacityDeductionStrategy implements IPayrollStrategy {
     if (!days || days.isZero()) return new Decimal(0);
 
     const incapacityDeduction = dailyRate.mul(days);
-
-    console.log('Incapacity Deduction calculation details:', {
-      base: base.toFixed(2),
-      dailyRate: dailyRate.toFixed(2),
-      days: days.toFixed(2),
-      incapacityDeduction: incapacityDeduction.toFixed(2),
-    });
 
     return incapacityDeduction
       .mul(new Decimal(-1))

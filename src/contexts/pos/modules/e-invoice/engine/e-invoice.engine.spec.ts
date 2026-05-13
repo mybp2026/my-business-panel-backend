@@ -30,9 +30,6 @@ describe('EInvoiceEngine - Generation test', () => {
 
     const issuerId = '3101234567';
     const { key, qr } = engine.generateClave(issuerId, consecutive, '1');
-    console.log('NumeroConsecutivo, ', consecutive);
-    console.log('Clave, ', key);
-    console.log(qr);
 
     expect(key).toHaveLength(50);
     expect(key.includes(consecutive)).toBeTruthy();
@@ -120,7 +117,6 @@ describe('EInvoiceEngine - Generation test', () => {
     expect(xmlString.startsWith('<?xml')).toBeTruthy();
 
     const end = performance.now();
-    console.log(`XML generation took ${(end - start).toFixed(2)} ms`);
 
     // const filePath = path.join(
     //   process.cwd(),
@@ -135,8 +131,6 @@ describe('EInvoiceEngine - Generation test', () => {
 
     expect(xmlString).toContain(`<Clave>${key}</Clave>`);
     expect(xmlString).toContain('<CodigoCABYS>2399900009900</CodigoCABYS>');
-
-    // console.log('XML generated successfully at:', filePath);
   });
 });
 
@@ -199,14 +193,14 @@ describe('signXML - XAdES-BES signature test', () => {
     );
     // El resultado es XML plano, no base64
     expect(signed.startsWith('<?xml')).toBeTruthy();
-
-    console.log('Signed XML (first 500 chars):', signed.substring(0, 500));
   });
 
   it('should throw when the .p12 password is wrong', () => {
     const sampleXml =
       '<?xml version="1.0"?><FacturaElectronica xmlns:ds="http://www.w3.org/2000/09/xmldsig#"></FacturaElectronica>';
 
-    expect(() => engine.signXML(sampleXml, p12Buffer, 'wrong-password')).toThrow();
+    expect(() =>
+      engine.signXML(sampleXml, p12Buffer, 'wrong-password'),
+    ).toThrow();
   });
 });

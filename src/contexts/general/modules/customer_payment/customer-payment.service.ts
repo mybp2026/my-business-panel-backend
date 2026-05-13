@@ -24,7 +24,6 @@ export class CustomerPaymentService {
   }
 
   async bulkInsert(payments: Payment[], saleId: string) {
-    console.log('Bulk inserting payments for sale:', saleId);
     if (!Array.isArray(payments) || payments.length === 0) return [];
 
     const val: any[] = [];
@@ -51,7 +50,6 @@ export class CustomerPaymentService {
       });
     });
 
-    console.log(placeholders, val);
     const q = `
         INSERT INTO pos_schema.customer_payment (tenant_customer_id, sale_id, payment_method_id, payment_amount, payment_date, currency_id, verified)
         VALUES ${placeholders.join(',')}

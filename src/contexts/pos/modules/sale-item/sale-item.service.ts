@@ -26,7 +26,6 @@ export class SaleItemService {
   }
 
   async bulkInsert(items: Item[], saleId: string) {
-    console.log('Bulk inserting items for sale:', saleId);
     if (!Array.isArray(items) || items.length === 0) return [];
 
     const val: any[] = [];
@@ -53,7 +52,6 @@ export class SaleItemService {
       });
     });
 
-    console.log(placeholders, val);
     const q = `
       INSERT INTO pos_schema.sale_item (sale_id, tenant_id, product_id, quantity, unit_price, total_price)
       VALUES ${placeholders.join(',')}
