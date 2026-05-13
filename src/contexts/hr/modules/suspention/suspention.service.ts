@@ -115,8 +115,6 @@ export class SuspentionService {
 
   @Cron(CronExpression.EVERY_DAY_AT_MIDNIGHT)
   async checkAndCloseExpiredSuspentions() {
-    const res = await this.db.query(suspention.cronJobSuspention);
-
-    console.log(res.rows[0].close_suspention, 'suspentions closed.');
+    await this.db.query(suspention.cronJobSuspention);
   }
 }

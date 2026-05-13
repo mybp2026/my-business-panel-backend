@@ -8,7 +8,6 @@ import { hrQueries } from '@hr/hr.queries';
 import { CreatePaysheetDto } from '../dto/create-paysheet.dto';
 import {
   EmployeePayrollData,
-  HoursWorked,
   Incapacities,
   PayrollConceptRow,
 } from '../interface/payroll-db.interface';
@@ -34,8 +33,6 @@ export class PayrollService {
     periodStart: string,
     periodEnd: string,
   ) {
-    console.log('Starting payroll processing for paysheet:', paysheetId);
-
     const concepts = await this.repo.getConceptsPerTenant(tenantId);
     const incomes = concepts.filter((c) => c.type === 'earning');
     const deductions = concepts.filter((c) => c.type === 'deduction');
@@ -50,8 +47,6 @@ export class PayrollService {
       periodStart,
       periodEnd,
     );
-
-    console.log('suspention: ', suspentions);
 
     const suspentionMap = new Map<
       string,
@@ -80,8 +75,6 @@ export class PayrollService {
     );
 
     const yearly = await this.repo.getYearlySalary(branchId);
-
-    console.log('Yearly: ', yearly);
 
     const historicalEarnings = await this.repo.getHistoricalEarnings(branchId);
 
@@ -150,13 +143,12 @@ export class PayrollService {
     const incapacityInfo = incapacities.find(
       (i) => i.employee_id === emp.employee_id,
     );
-    const time = this.getOvertimeHolidays(hours, dates, emp.turn_type, []);
+    const time = this.getOvertimeHolidays(hours, dates, emp.turn_type);
 
     const salaryWithDiscount = new Decimal(emp.base_salary).minus(
       new Decimal(discount),
     );
 
-    console.log('calculating income for base salary: ', salaryWithDiscount);
     const incomeResult = this.engine.execute(
       salaryWithDiscount.toString(),
       incomeConcepts,
@@ -174,10 +166,6 @@ export class PayrollService {
       },
     );
 
-    console.log(
-      'taxable gross after income calculation:',
-      incomeResult.totals.taxableBase,
-    );
     const currentGrossSalary = incomeResult.totals.taxableBase;
 
     const deductionResult = this.engine.execute(
@@ -202,11 +190,6 @@ export class PayrollService {
       deductions: deductionResult.totals.deductions,
       netSalary: netSalary.plus(emp.base_salary),
     };
-    console.log(
-      'Payroll calculation result for employee:',
-      emp.employee_id,
-      allTotals,
-    );
 
     const txn = await this.db.transaction();
     try {
@@ -244,19 +227,6 @@ export class PayrollService {
   }
 
   async createPaysheetHeader(data: CreatePaysheetDto) {
-    // const exist = await this.db.query(payroll.checkExistingPeriod, [
-    //   data.branchId,
-    //   data.tenantId,
-    //   data.periodStart,
-    //   data.periodEnd,
-    // ]);
-
-    // if (exist.rows.length > 0) {
-    //   throw new Error(
-    //     'Paysheet for the specified period already exists for this branch and tenant.',
-    //   );
-    // }
-
     const newPaysheet = await this.db.query(payroll.insertPaysheet, [
       data.tenantId,
       data.branchId,
@@ -286,11 +256,6 @@ export class PayrollService {
     }
 
     const totals = result.rows[0];
-
-    console.log(
-      `Payroll closed for paysheet ${paysheetId} with totals:`,
-      totals,
-    );
 
     // Generate payroll journal entry (non-blocking — log errors but don't fail)
     try {
@@ -325,7 +290,6 @@ export class PayrollService {
     clockingDates: { total: number; work_date: string }[],
     holidays: string[],
     turn: number,
-    incapacities: string[],
   ) {
     let holidaysHours = new Decimal(0);
     let ordinaryHours = new Decimal(0);
@@ -358,10 +322,6 @@ export class PayrollService {
       }
     });
 
-    console.log('Overtime and holiday hours calculated:', {
-      holidaysHours: holidaysHours.toFixed(2),
-      ordinaryHours: ordinaryHours.toFixed(2),
-    });
     return {
       holidaysHours,
       ordinaryHours,
@@ -393,15 +353,7 @@ export class PayrollService {
     const dailySalary = base_salary.dividedBy(30);
 
     discount = dailySalary.times(dayDiff).toNumber();
-    console.log('Suspention discount calculation: ', {
-      start,
-      end,
-      effectiveStart: effectiveStart.toISOString().split('T')[0],
-      effectiveEnd: effectiveEnd.toISOString().split('T')[0],
-      dayDiff,
-      dailySalary: dailySalary.toFixed(2),
-      discount: discount.toFixed(2),
-    });
+
     return discount;
   }
 }

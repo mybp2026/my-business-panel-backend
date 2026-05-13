@@ -19,8 +19,11 @@ export class PosRoyaltyController {
   // ── Rules ──────────────────────────────────────────────────────────────────
 
   @Get('rules/:tenantId')
-  listRules(@Param('tenantId') tenantId: string) {
-    return this.service.listRules(tenantId);
+  listRules(
+    @Param('tenantId') tenantId: string,
+    @Query('type_id') typeId?: string,
+  ) {
+    return this.service.listRules(tenantId, typeId);
   }
 
   @Get('rules/detail/:royaltyRuleId')

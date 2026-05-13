@@ -162,7 +162,9 @@ export class SubscriptionService {
     } catch (error) {
       if (stripeSubscriptionIdToCompensate) {
         try {
-          await this.stripe.subscriptions.cancel(stripeSubscriptionIdToCompensate);
+          await this.stripe.subscriptions.cancel(
+            stripeSubscriptionIdToCompensate,
+          );
         } catch (compensationError) {
           console.error(
             '[SubscriptionService.createSubscription] Stripe compensation failed:',
@@ -184,11 +186,18 @@ export class SubscriptionService {
         this.webhookSecret,
       );
     } catch (error) {
+      if (error instanceof Error) {
+        console.error(
+          'Error verifying Stripe webhook signature:',
+          error.message,
+        );
+      } else {
+        console.error('Unknown error verifying Stripe webhook signature');
+      }
       throw new SignatureVerificationError('Invalid signature');
     }
 
     if (event.type === 'invoice.payment_succeeded') {
-      console.log('Invoice payment succeeded webhook received');
       const invoice = event.data.object as Stripe.Invoice & {
         subscription?: string;
       };
@@ -199,19 +208,26 @@ export class SubscriptionService {
 
       const tenantPaymentId = subscription.metadata.tenantPaymentId;
 
-      console.log('Payment: ', tenantPaymentId);
       try {
         await this.db.query('CALL verify_tenant_payment($1)', [
           tenantPaymentId,
         ]);
-        console.log(`Tenant payment ${tenantPaymentId} verified successfully.`);
       } catch (error) {
+        if (error instanceof Error) {
+          console.error(
+            `Error verifying tenant payment ${tenantPaymentId}:`,
+            error.message,
+          );
+        } else {
+          console.error(
+            `Unknown error verifying tenant payment ${tenantPaymentId}`,
+          );
+        }
         throw new VerifyPaymentException(tenantPaymentId);
       }
     }
 
     if (event.type === 'customer.subscription.created') {
-      console.log('Subscription created webhook received');
       const subscription = event.data.object as Stripe.Subscription;
       const tenantId = subscription.metadata.tenantId;
 
@@ -220,12 +236,9 @@ export class SubscriptionService {
           'Tenant ID not found in subscription metadata',
         );
       }
-
-      console.log(`New subscription created for tenant ID: ${tenantId}`);
     }
 
     if (event.type === 'customer.subscription.updated') {
-      console.log('Subscription updated webhook received');
       const subscription = event.data.object as Stripe.Subscription;
       const tenantId = subscription.metadata.tenantId;
 
@@ -239,28 +252,12 @@ export class SubscriptionService {
         subscription.cancel_at_period_end === true &&
         subscription.status === 'active'
       ) {
-        console.log(
-          `Subscription set to cancel at period end for tenant ID: ${tenantId}`,
-        );
         await this.db.query(subscriptions.cancelSubscription, [tenantId]);
         return { received: true };
       }
-
-      if (subscription.items.data.length > 0) {
-        const priceId = subscription.items.data[0].price.id;
-        console.log(
-          `Subscription price updated for tenant ID: ${tenantId} to price ID: ${priceId}`,
-        );
-        // await this.db.query(subscription.updateSubscriptionPlan, [priceId, tenantId])
-      }
-
-      console.log(
-        `Subscirption with minor updates for tenant ID: ${tenantId}. Status: ${subscription.status}`,
-      );
     }
 
     if (event.type === 'customer.subscription.deleted') {
-      console.log('Subscription canceled webhook received');
       const subscription = event.data.object as Stripe.Subscription;
       const tenantId = subscription.metadata.tenantId;
 

@@ -39,7 +39,11 @@ export class FoulService {
         foulId: res.rows[0].foul_id,
       };
     } catch (error) {
-      console.log(`Error registering foul: ${error}`);
+      if (error instanceof Error) {
+        console.error('Error registering foul:', error.message);
+      } else {
+        console.error('Unknown error registering foul');
+      }
       throw new CreateFoulError();
     }
   }
@@ -54,7 +58,11 @@ export class FoulService {
         fouls: fouls.rows,
       };
     } catch (error) {
-      console.log(`Error fetching fouls for employee ${employeeId}: ${error}`);
+      if (error instanceof Error) {
+        console.error('Error fetching fouls for employee:', error.message);
+      } else {
+        console.error('Unknown error fetching fouls for employee');
+      }
       throw new Error('Failed to fetch fouls for employee');
     }
   }
@@ -69,7 +77,11 @@ export class FoulService {
         fouls: fouls.rows,
       };
     } catch (error) {
-      console.log(`Error fetching fouls for branch ${branchId}: ${error}`);
+      if (error instanceof Error) {
+        console.error('Error fetching fouls for branch:', error.message);
+      } else {
+        console.error('Unknown error fetching fouls for branch');
+      }
       throw new Error('Failed to fetch fouls for branch');
     }
   }
@@ -80,36 +92,33 @@ export class FoulService {
 
       return fouls.rows;
     } catch (error) {
-      console.log(
-        `Error fetching fouls for period ${startDate} to ${endDate}: ${error}`,
-      );
-      throw new Error('Failed to fetch fouls for specified period');
+      if (error instanceof Error) {
+        console.error('Error fetching fouls by period:', error.message);
+      } else {
+        console.error('Unknown error fetching fouls by period');
+      }
+      throw new Error('Failed to fetch fouls for the specified period');
     }
   }
 
   @Cron(CronExpression.EVERY_1ST_DAY_OF_MONTH_AT_MIDNIGHT)
   async cleanFoulsByBranch() {
     try {
-      console.log(
-        'Starting scheduled task: Cleaning old fouls for all branches',
-      );
       const config = await this.db.query(foul.getConfigforBranch);
-      console.log(`Fetched configuration for ${config.rows.length} branches`);
 
       for (const c of config.rows) {
-        const res = await this.db.query(foul.cleanOldFouls, [
+        await this.db.query(foul.cleanOldFouls, [
           c.branch_id,
           c.foul_expiration_months,
         ]);
-        if (res.rowCount && res.rowCount > 0) {
-          console.log(
-            `Cleaned ${res.rowCount} fouls for branch ${c.branch_id} older than ${c.foul_expiration_months} months.`,
-          );
-        }
       }
     } catch (error) {
-      console.log(`Error cleaning old fouls: ${error}`);
-      throw new Error('Failed to clean old fouls');
+      if (error instanceof Error) {
+        console.error('Error during scheduled foul cleanup:', error.message);
+      } else {
+        console.error('Unknown error during scheduled foul cleanup');
+      }
+      throw new Error('Failed to cleanup old fouls');
     }
   }
 }

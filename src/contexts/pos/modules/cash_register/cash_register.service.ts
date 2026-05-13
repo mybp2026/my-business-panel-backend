@@ -184,15 +184,34 @@ export class CashRegisterService {
     const { rows } = await this.db.query(cashRegister.closeSession, [
       cash_register_session_id,
       closing_amount,
+      closeSession.cash_sales_amount ?? 0,
+      closeSession.debit_sales_amount ?? 0,
+      closeSession.credit_sales_amount ?? 0,
+      closeSession.transfer_sales_amount ?? 0,
     ]);
-    return { closed: rows[0] };
+
+    const closed = rows[0];
+    if (closed) {
+      closed.payment_method_sales = await this.getSessionPaymentMethodSales(
+        cash_register_session_id,
+      );
+    }
+
+    return { closed };
+  }
+
+  async getSessionPaymentMethodSales(cash_register_session_id: string) {
+    const { rows } = await this.db.query(
+      cashRegister.getSessionPaymentMethodSales,
+      [cash_register_session_id],
+    );
+    return rows;
   }
 
   async getSessionGroupSales(cash_register_session_id: string) {
-    const { rows } = await this.db.query(
-      cashRegister.getSessionGroupSales,
-      [cash_register_session_id],
-    );
+    const { rows } = await this.db.query(cashRegister.getSessionGroupSales, [
+      cash_register_session_id,
+    ]);
     return rows;
   }
 
@@ -263,8 +282,12 @@ export class CashRegisterService {
       cashRegister.getSessionById,
       [session_id],
     );
-    if (rowCount === 0)
-      throw new InvalidCashRegisterError('Cash register session not found');
-    return rows[0];
+    if (rowCount === 0) throw new InvalidCashRegisterSessionError();
+
+    const session = rows[0] as CashRegisterSession;
+    session.payment_method_sales =
+      await this.getSessionPaymentMethodSales(session_id);
+
+    return session;
   }
 }

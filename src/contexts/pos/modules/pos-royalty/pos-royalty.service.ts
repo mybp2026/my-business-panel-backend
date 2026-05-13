@@ -16,8 +16,8 @@ const q = posRoyaltyQueries;
 export class PosRoyaltyService {
   constructor(@Inject(DATABASE) private readonly db: Database) {}
 
-  async listRules(tenantId: string) {
-    const { rows } = await this.db.query(q.listRulesByTenant, [tenantId]);
+  async listRules(tenantId: string, typeId?: string) {
+    const { rows } = await this.db.query(q.listRulesByTenant, [tenantId, typeId ?? null]);
     return rows;
   }
 
@@ -30,6 +30,7 @@ export class PosRoyaltyService {
   async createRule(dto: CreateRoyaltyRuleDto) {
     const { rows } = await this.db.query(q.createRule, [
       dto.tenant_id,
+      dto.tenant_product_group_type_id ?? null,
       dto.min_amount,
     ]);
     return rows[0];
