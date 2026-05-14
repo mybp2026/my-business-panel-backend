@@ -67,8 +67,9 @@ export class EInvoiceStatusCron {
     const credentials = await this.tenantHaciendaConfig.getCredentials(tenantId);
     if (!credentials) {
       this.logger.warn(
-        `No Hacienda credentials for tenant ${tenantId}, skipping invoice ${keyNumber}`,
+        `No Hacienda credentials for tenant ${tenantId}, rescheduling invoice ${keyNumber}`,
       );
+      await this.scheduleRetryOrFail(invoiceId, attempts);
       return;
     }
 

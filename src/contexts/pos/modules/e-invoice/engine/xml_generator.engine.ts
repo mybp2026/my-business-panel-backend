@@ -486,10 +486,11 @@ export class XmlGeneratorEngine {
     consecutive: string,
     situation: '1' | '2' | '3' = '1',
   ) {
-    const now = new Date();
-    const day = now.getDate().toString().padStart(2, '0');
-    const month = (now.getMonth() + 1).toString().padStart(2, '0');
-    const year = now.getFullYear().toString().substring(2);
+    // Use CR local time (UTC-6) so the embedded date matches FechaEmisión.
+    const crNow = new Date(Date.now() + -6 * 60 * 60 * 1000);
+    const day = crNow.getUTCDate().toString().padStart(2, '0');
+    const month = (crNow.getUTCMonth() + 1).toString().padStart(2, '0');
+    const year = crNow.getUTCFullYear().toString().substring(2);
 
     const id = issuerId.replace(/-/g, '').padStart(12, '0');
     // #10: crypto.randomInt es CSPRNG; Math.random() no lo es
