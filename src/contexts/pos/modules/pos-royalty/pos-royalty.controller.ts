@@ -4,7 +4,7 @@ import { PosRoyaltyService } from './pos-royalty.service';
 import {
   CreateRoyaltyOptionDto,
   CreateRoyaltyRuleDto,
-  SetOptionProductsDto,
+  SetRuleDimensionsDto,
   UpdateRoyaltyOptionDto,
   UpdateRoyaltyRuleDto,
 } from './dto/pos-royalty.dto';
@@ -19,11 +19,8 @@ export class PosRoyaltyController {
   // ── Rules ──────────────────────────────────────────────────────────────────
 
   @Get('rules/:tenantId')
-  listRules(
-    @Param('tenantId') tenantId: string,
-    @Query('type_id') typeId?: string,
-  ) {
-    return this.service.listRules(tenantId, typeId);
+  listRules(@Param('tenantId') tenantId: string) {
+    return this.service.listRules(tenantId);
   }
 
   @Get('rules/detail/:royaltyRuleId')
@@ -49,6 +46,14 @@ export class PosRoyaltyController {
     return this.service.deleteRule(royaltyRuleId);
   }
 
+  @Put('rules/:royaltyRuleId/dimensions')
+  setRuleDimensions(
+    @Param('royaltyRuleId') royaltyRuleId: string,
+    @Body() dto: SetRuleDimensionsDto,
+  ) {
+    return this.service.setRuleDimensions(royaltyRuleId, dto);
+  }
+
   // ── Options ────────────────────────────────────────────────────────────────
 
   @Post('options')
@@ -67,16 +72,6 @@ export class PosRoyaltyController {
   @Delete('options/:royaltyOptionId')
   deleteOption(@Param('royaltyOptionId') royaltyOptionId: string) {
     return this.service.deleteOption(royaltyOptionId);
-  }
-
-  // ── Option products ────────────────────────────────────────────────────────
-
-  @Put('options/:royaltyOptionId/products')
-  setOptionProducts(
-    @Param('royaltyOptionId') royaltyOptionId: string,
-    @Body() dto: SetOptionProductsDto,
-  ) {
-    return this.service.setOptionProducts(royaltyOptionId, dto);
   }
 
   // ── POS integration ────────────────────────────────────────────────────────
