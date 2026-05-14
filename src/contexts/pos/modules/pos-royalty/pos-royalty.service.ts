@@ -1,4 +1,9 @@
-import { Inject, Injectable, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  Inject,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import { DATABASE } from '@/contexts/general/modules/db/db.provider';
 import Database from '@crane-technologies/database/dist/components/Database';
 import { posRoyaltyQueries } from './pos-royalty.queries';
@@ -7,7 +12,7 @@ import type {
   UpdateRoyaltyRuleDto,
   CreateRoyaltyOptionDto,
   UpdateRoyaltyOptionDto,
-  SetOptionProductsDto,
+  SetRuleDimensionsDto,
 } from './dto/pos-royalty.dto';
 
 const q = posRoyaltyQueries;
@@ -16,8 +21,8 @@ const q = posRoyaltyQueries;
 export class PosRoyaltyService {
   constructor(@Inject(DATABASE) private readonly db: Database) {}
 
-  async listRules(tenantId: string, typeId?: string) {
-    const { rows } = await this.db.query(q.listRulesByTenant, [tenantId, typeId ?? null]);
+  async listRules(tenantId: string) {
+    const { rows } = await this.db.query(q.listRulesByTenant, [tenantId]);
     return rows;
   }
 
@@ -30,7 +35,6 @@ export class PosRoyaltyService {
   async createRule(dto: CreateRoyaltyRuleDto) {
     const { rows } = await this.db.query(q.createRule, [
       dto.tenant_id,
-      dto.tenant_product_group_type_id ?? null,
       dto.min_amount,
     ]);
     return rows[0];
@@ -50,12 +54,47 @@ export class PosRoyaltyService {
     return { deleted: true };
   }
 
+  // Replace the rule's dimension set in a single txn. Options whose group
+  // belongs to a removed dimension are deleted to keep state consistent.
+  async setRuleDimensions(royaltyRuleId: string, dto: SetRuleDimensionsDto) {
+    const { rows: tenantRows } = await this.db.query(q.getRuleTenantId, [
+      royaltyRuleId,
+    ]);
+    if (!tenantRows.length) {
+      throw new NotFoundException('Royalty rule not found');
+    }
+    const tenantId = tenantRows[0].tenant_id as string;
+    const typeIds = Array.from(new Set(dto.tenant_product_group_type_ids ?? []));
+
+    await this.db.query(q.deleteOptionsByRuleExcludingTypes, [
+      royaltyRuleId,
+      typeIds,
+    ]);
+    await this.db.query(q.clearRuleDimensions, [royaltyRuleId]);
+    for (const typeId of typeIds) {
+      await this.db.query(q.insertRuleDimension, [
+        royaltyRuleId,
+        tenantId,
+        typeId,
+      ]);
+    }
+    return this.getRule(royaltyRuleId);
+  }
+
   async createOption(dto: CreateRoyaltyOptionDto) {
+    const { rows: allowedRows } = await this.db.query(
+      q.isGroupInRuleDimensions,
+      [dto.royalty_rule_id, dto.tenant_product_group_id],
+    );
+    if (!allowedRows.length) {
+      throw new BadRequestException(
+        'Group dimension is not enabled for this rule',
+      );
+    }
     const { rows } = await this.db.query(q.createOption, [
       dto.royalty_rule_id,
       dto.tenant_product_group_id,
       dto.quantity,
-      dto.scope,
     ]);
     return rows[0];
   }
@@ -64,7 +103,6 @@ export class PosRoyaltyService {
     const { rows } = await this.db.query(q.updateOption, [
       royaltyOptionId,
       dto.quantity,
-      dto.scope,
     ]);
     if (!rows.length) throw new NotFoundException('Royalty option not found');
     return rows[0];
@@ -73,38 +111,6 @@ export class PosRoyaltyService {
   async deleteOption(royaltyOptionId: string) {
     await this.db.query(q.deleteOption, [royaltyOptionId]);
     return { deleted: true };
-  }
-
-  async setOptionProducts(royaltyOptionId: string, dto: SetOptionProductsDto) {
-    const { rows: optRows } = await this.db.query(q.getOptionWithRule, [royaltyOptionId]);
-    const option = optRows[0] as {
-      tenant_id: string;
-      tenant_product_group_id: string;
-      min_amount: number;
-    } | undefined;
-
-    await this.db.query(q.clearOptionProducts, [royaltyOptionId]);
-    const inserted: unknown[] = [];
-    for (const variantId of dto.product_variant_ids) {
-      const { rows } = await this.db.query(q.addOptionProduct, [
-        royaltyOptionId,
-        variantId,
-      ]);
-      if (rows.length) inserted.push(rows[0]);
-    }
-
-    // Propagate products to all lower-tier rules sharing the same group.
-    // Only targets 'specific' scope options; 'any' scope already covers all giftable products.
-    if (option && dto.product_variant_ids.length > 0) {
-      await this.db.query(q.propagateToLowerRules, [
-        option.tenant_id,
-        option.tenant_product_group_id,
-        option.min_amount,
-        dto.product_variant_ids,
-      ]);
-    }
-
-    return inserted;
   }
 
   async getApplicableRules(tenantId: string, amount: number) {
