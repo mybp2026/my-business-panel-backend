@@ -9,13 +9,19 @@ import Database from '@crane-technologies/database';
 import { posQueries } from '@pos/pos.queries';
 import { XmlGeneratorEngine } from './engine/xml_generator.engine';
 import { HaciendaService } from './hacienda/hacienda.service';
-import { HaciendaPayload } from './interface';
+import { HaciendaPayload, HaciendaStatusResponse } from './interface';
 import { TenantHaciendaConfigService } from '@/contexts/general/modules/tenant_hacienda_config/tenant-hacienda-config.service';
-import { QueueFacade } from '@/contexts/general/modules/queue/facade/queue.facade';
-import { EINVOICE_STATUS_QUEUE } from './queues/einvoice-status.queue';
 import { encrypt, decrypt } from '@/common/crypto/aes-256-gcm';
 
 const { eInvoice } = posQueries;
+
+const SHORT_DELAY_MIN = Number(process.env.EINVOICE_SHORT_DELAY_MIN) || 15;
+const POST_SEND_POLL_ATTEMPTS =
+  Number(process.env.EINVOICE_POST_SEND_POLL_ATTEMPTS) || 2;
+const POST_SEND_POLL_GAP_MS =
+  Number(process.env.EINVOICE_POST_SEND_POLL_GAP_MS) || 2500;
+
+const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
 @Injectable()
 export class EInvoiceService {
@@ -26,7 +32,6 @@ export class EInvoiceService {
     private readonly xmlgen: XmlGeneratorEngine,
     private readonly hacienda: HaciendaService,
     private readonly tenantHaciendaConfig: TenantHaciendaConfigService,
-    private readonly queueFacade: QueueFacade,
   ) {}
 
   async getEInvoiceByBranch(branchId: string, tenantId: string) {
@@ -173,10 +178,10 @@ export class EInvoiceService {
     // 1. Persistir en BD ANTES de enviar a Hacienda.
     //    Si el server se cae después del envío pero antes del INSERT,
     //    la factura queda fantasma en Hacienda sin registro local.
-    //    Insertando primero, la reconciliación la encuentra y chequea estado.
+    //    Insertando primero, el cron la encuentra y chequea estado.
     const { rows: invoiceRows } = await (dbClient || this.db).query(
       eInvoice.create,
-      [saleId, key, consecutive, encrypt(xmlSignedB64)],
+      [saleId, key, consecutive, encrypt(xmlSignedB64), SHORT_DELAY_MIN],
     );
     const electronicInvoiceId = invoiceRows[0].electronic_sale_invoice_id;
 
@@ -193,10 +198,9 @@ export class EInvoiceService {
 
     await (dbClient || this.db).query(eInvoice.markSaleAsEInvoiced, [saleId]);
 
-    // 2. Enviar a Hacienda. Si falla, el registro ya existe en BD
-    //    con status=1 (pendiente). El worker lo chequeará igualmente.
-    //    Si Hacienda nunca lo recibió, eventualmente hará timeout (status=4).
-    //    Si Hacienda responde 422 (duplicado), se trata como éxito.
+    // 2. Enviar a Hacienda. Si falla, lanzamos error al frontend:
+    //    el registro queda en BD con status=1 y next_check_at programado;
+    //    el cron seguirá intentando en background.
     try {
       await this.hacienda.sendInvoice(
         sale.tenant_id,
@@ -207,29 +211,91 @@ export class EInvoiceService {
       this.logger.error(
         `Error enviando a Hacienda (registro ya en BD): ${sendError}`,
       );
-      // No relanzamos: el registro existe, el worker chequeará si Hacienda lo recibió
+      throw new BadRequestException(
+        'No se pudo enviar la factura a Hacienda. Quedó pendiente para reintento automático.',
+      );
     }
 
-    // 3. Enqueue job para chequear estado
-    const initialDelay =
-      Number(process.env.EINVOICE_INITIAL_CHECK_DELAY_MS) || 5 * 60 * 1000;
-    await this.queueFacade.enqueue(
-      EINVOICE_STATUS_QUEUE,
-      'check-status',
-      {
-        electronicInvoiceId,
-        keyNumber: key,
-        tenantId: sale.tenant_id,
-        createdAt: new Date().toISOString(),
-      },
-      { delay: initialDelay },
+    // 3. Polling corto en línea: la mayoría de comprobantes resuelven en
+    //    segundos. Si Hacienda devuelve estado terminal dentro de la
+    //    ventana, actualizamos status aquí mismo y devolvemos respuesta
+    //    inmediata al frontend. Si no, el cron lo levanta más tarde.
+    const earlyResult = await this.pollHaciendaShort(
+      sale.tenant_id,
+      credentials,
+      key,
     );
 
-    return {
-      electronicInvoiceId,
-      key,
-      qr,
-      haciendaEstado: 'procesando',
-    };
+    if (earlyResult?.indEstado === 'aceptado') {
+      const enc = earlyResult.respuestaXml
+        ? encrypt(earlyResult.respuestaXml)
+        : null;
+      await (dbClient || this.db).query(eInvoice.updateHaciendaResponse, [
+        electronicInvoiceId,
+        enc,
+        2,
+      ]);
+      return {
+        electronicInvoiceId,
+        key,
+        qr,
+        haciendaEstado: 'aceptado',
+      };
+    }
+
+    if (earlyResult?.indEstado === 'rechazado') {
+      const enc = earlyResult.respuestaXml
+        ? encrypt(earlyResult.respuestaXml)
+        : null;
+      await (dbClient || this.db).query(eInvoice.updateHaciendaResponse, [
+        electronicInvoiceId,
+        enc,
+        3,
+      ]);
+      throw new BadRequestException(
+        'Hacienda rechazó la factura electrónica. Revise el detalle del comprobante.',
+      );
+    }
+
+    throw new BadRequestException(
+      'Hacienda no respondió en el tiempo esperado. La factura quedó pendiente y se reintentará automáticamente.',
+    );
+  }
+
+  /**
+   * Polling síncrono corto contra Hacienda tras un envío. Devuelve el
+   * primer estado terminal (`aceptado` / `rechazado`) que reciba, o
+   * `null` si tras todos los intentos sigue procesando o si todos los
+   * intentos fallan.
+   */
+  private async pollHaciendaShort(
+    tenantId: string,
+    credentials: any,
+    clave: string,
+  ): Promise<HaciendaStatusResponse | null> {
+    for (let attempt = 1; attempt <= POST_SEND_POLL_ATTEMPTS; attempt++) {
+      await sleep(POST_SEND_POLL_GAP_MS);
+      try {
+        const status = await this.hacienda.checkInvoiceStatus(
+          tenantId,
+          credentials,
+          clave,
+        );
+        if (
+          status.indEstado === 'aceptado' ||
+          status.indEstado === 'rechazado'
+        ) {
+          return status;
+        }
+        this.logger.debug(
+          `Poll ${attempt}/${POST_SEND_POLL_ATTEMPTS}: estado=${status.indEstado}`,
+        );
+      } catch (err) {
+        this.logger.debug(
+          `Poll ${attempt}/${POST_SEND_POLL_ATTEMPTS} falló: ${err}`,
+        );
+      }
+    }
+    return null;
   }
 }

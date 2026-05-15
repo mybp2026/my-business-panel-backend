@@ -94,7 +94,8 @@ function splitSqlStatements(sql: string): string[] {
     }
 
     if (inDollarQuote) {
-      const closeMatch = ch === '$' ? sql.slice(i).match(/^\$([A-Za-z_]*)\$/) : null;
+      const closeMatch =
+        ch === '$' ? sql.slice(i).match(/^\$([A-Za-z_]*)\$/) : null;
       if (closeMatch && closeMatch[0] === dollarTag) {
         current += closeMatch[0];
         i += closeMatch[0].length;
@@ -171,11 +172,9 @@ async function bootstrapIfNeeded(database: Database): Promise<void> {
   `);
 
   if (result.rows[0]?.exists) {
-    console.log('Database already initialized. Skipping bootstrap.');
     return;
   }
 
-  console.log('Database not initialized. Running bootstrap...');
   const sql = readFileSync(join(__dirname, 'database_backup.sql'), 'utf8');
   const statements = splitSqlStatements(sql);
 
@@ -185,10 +184,11 @@ async function bootstrapIfNeeded(database: Database): Promise<void> {
       await txn.rawQuery(stmt);
     }
     await txn.commit();
-    console.log(`Bootstrap completed: ${statements.length} statements executed.`);
   } catch (err) {
     await txn.rollback();
-    throw new Error(`Bootstrap failed: ${err instanceof Error ? err.message : String(err)}`);
+    throw new Error(
+      `Bootstrap failed: ${err instanceof Error ? err.message : String(err)}`,
+    );
   }
 }
 
@@ -202,7 +202,6 @@ export const dbProvider = {
     };
 
     db = Database.getInstance(config, queries);
-    console.log('Database connection established');
 
     await bootstrapIfNeeded(db);
     await seedCabysIfNeeded(db);

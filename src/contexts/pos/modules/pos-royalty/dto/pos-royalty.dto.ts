@@ -1,9 +1,9 @@
 import {
-  IsEnum,
+  ArrayUnique,
+  IsArray,
   IsInt,
   IsNotEmpty,
   IsNumber,
-  IsOptional,
   IsUUID,
   Min,
 } from 'class-validator';
@@ -24,6 +24,13 @@ export class UpdateRoyaltyRuleDto {
   min_amount!: number;
 }
 
+export class SetRuleDimensionsDto {
+  @IsArray()
+  @ArrayUnique()
+  @IsUUID('4', { each: true })
+  tenant_product_group_type_ids!: string[];
+}
+
 export class CreateRoyaltyOptionDto {
   @IsUUID()
   @IsNotEmpty()
@@ -36,29 +43,12 @@ export class CreateRoyaltyOptionDto {
   @IsInt()
   @Min(1)
   quantity!: number;
-
-  @IsEnum(['any', 'specific'])
-  scope!: 'any' | 'specific';
 }
 
 export class UpdateRoyaltyOptionDto {
   @IsInt()
   @Min(1)
   quantity!: number;
-
-  @IsEnum(['any', 'specific'])
-  scope!: 'any' | 'specific';
-}
-
-export class AddOptionProductDto {
-  @IsUUID()
-  @IsNotEmpty()
-  product_variant_id!: string;
-}
-
-export class SetOptionProductsDto {
-  @IsUUID("4", { each: true })
-  product_variant_ids!: string[];
 }
 
 export class GetApplicableRulesDto {
@@ -69,11 +59,4 @@ export class GetApplicableRulesDto {
   @IsNumber()
   @Min(0)
   amount!: number;
-}
-
-export class GetGiftableProductsDto {
-  @IsUUID()
-  @IsNotEmpty()
-  @IsOptional()
-  tenant_product_group_id?: string;
 }

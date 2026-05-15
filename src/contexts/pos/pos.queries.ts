@@ -47,11 +47,23 @@ export const posQueryDefs = {
 
   saleItems: {
     getItems: `
-      SELECT pv.variant_name AS product_name, pv.sku, si.sale_item_id, si.quantity, si.unit_price, si.total_price FROM pos_schema.sale_item si
+      SELECT
+        pv.variant_name AS product_name,
+        pv.sku,
+        si.sale_item_id,
+        si.quantity,
+        si.unit_price,
+        si.total_price,
+        si.sale_price_type,
+        si.original_price,
+        si.discount_applied,
+        p.promotion_name
+      FROM pos_schema.sale_item si
       INNER JOIN general_schema.product_variant pv
         ON pv.tenant_id = si.tenant_id AND pv.product_variant_id = si.product_variant_id
+      LEFT JOIN pos_schema.promotion p ON p.promotion_id = si.promotion_id
       WHERE si.sale_id = $1
-    `, // ? add pagination
+    `,
     getItemById: 'SELECT * FROM pos_schema.sale_item WHERE sale_item_id = $1',
     delete:
       'DELETE FROM pos_schema.sale_item WHERE sale_item_id = $1 RETURNING sale_item_id',
@@ -96,6 +108,11 @@ export const posQueryDefs = {
         i.amount_paid,
         i.change_amount,
         i.points_accumulated,
+        COALESCE((
+          SELECT SUM(cp.points_redeemed)
+          FROM pos_schema.customer_payment cp
+          WHERE cp.sale_id = i.sale_id AND cp.is_points_redemption = TRUE
+        ), 0) AS points_redeemed,
         i.ad_message,
         i.due_date,
         i.invoiced_at,
@@ -382,6 +399,10 @@ export const posQueryDefs = {
         crs.credit_sales_amount,
         crs.transfer_sales_amount,
         crs.points_sales_amount,
+        crs.user_cash_amount,
+        crs.user_debit_amount,
+        crs.user_credit_amount,
+        crs.user_transfer_amount,
         crs.total_sales_amount,
         crs.mismatch,
         crs.mismatch_amount,
@@ -402,13 +423,27 @@ export const posQueryDefs = {
       ORDER BY crs.opened_at DESC
     `,
     closeSession: `
-      SELECT * FROM pos_schema.close_cash_register_session($1::uuid, $2::numeric)
+      SELECT * FROM pos_schema.close_cash_register_session(
+        $1::uuid, 
+        $2::numeric,
+        $3::numeric,
+        $4::numeric,
+        $5::numeric,
+        $6::numeric
+      )
     `,
     getSessionGroupSales: `
       SELECT tenant_product_group_id, group_name, total_amount
       FROM pos_schema.session_group_sales
       WHERE cash_register_session_id = $1
       ORDER BY total_amount DESC
+    `,
+    getSessionPaymentMethodSales: `
+      SELECT spms.payment_method_id, pm.name AS payment_method_name, spms.total_amount
+      FROM pos_schema.session_payment_method_sales spms
+      INNER JOIN general_schema.payment_method pm ON pm.payment_method_id = spms.payment_method_id
+      WHERE spms.cash_register_session_id = $1
+      ORDER BY spms.total_amount DESC
     `,
     registerTransaction: `
     INSERT INTO cash_register_sale_transaction (cash_register_session_id, amount, transaction_time, created_at, updated_at) VALUES ($1, $2, $3, NOW(), NOW()) RETURNING *
@@ -718,25 +753,48 @@ export const posQueryDefs = {
         SET next_seq = branch_einvoice_seq.next_seq + 1
       RETURNING next_seq
     `,
+    // $5 = short delay in minutes before the first cron check
     create: `
       INSERT INTO pos_schema.electronic_sale_invoice
-      (sale_id, key_number, consecutive_number, xml_signed, status_id, created_at)
-      VALUES ($1, $2, $3, $4, 1, NOW())
+      (sale_id, key_number, consecutive_number, xml_signed, status_id, created_at,
+       check_attempts, next_check_at)
+      VALUES ($1, $2, $3, $4, 1, NOW(), 0, NOW() + ($5 || ' minutes')::interval)
       RETURNING electronic_sale_invoice_id
     `,
-    // Batch dispatcher: facturas pendientes dentro del TTL
-    // $1 = TTL interval (e.g. '3 hours')
-    getPendingInvoicesForBatch: `
+    // Cron query: pending invoices whose next_check_at has elapsed.
+    // No parameters: filtering by status_id=1 + next_check_at <= NOW() is enough.
+    getDueInvoices: `
       SELECT e.electronic_sale_invoice_id, e.key_number, e.created_at,
-             b.tenant_id
+             e.check_attempts, b.tenant_id
       FROM pos_schema.electronic_sale_invoice e
       INNER JOIN pos_schema.sale s USING(sale_id)
       INNER JOIN general_schema.branch b USING(branch_id)
       INNER JOIN general_schema.tenant t ON t.tenant_id = b.tenant_id
       WHERE e.status_id = 1
         AND t.tax_regime = 'traditional'
-        AND e.created_at > NOW() - $1::interval
-      ORDER BY e.created_at
+        AND e.next_check_at IS NOT NULL
+        AND e.next_check_at <= NOW()
+      ORDER BY e.next_check_at
+    `,
+    // Records a failed Hacienda probe: increments attempts and schedules the
+    // next check. $1 = electronic_sale_invoice_id, $2 = next delay interval
+    // string (e.g. '2 hours').
+    markAttempt: `
+      UPDATE pos_schema.electronic_sale_invoice
+         SET check_attempts = check_attempts + 1,
+             next_check_at  = NOW() + $2::interval,
+             updated_at     = NOW()
+       WHERE electronic_sale_invoice_id = $1
+    `,
+    // Marks an invoice as timed-out after exhausting attempts. status_id = 4.
+    // $1 = electronic_sale_invoice_id
+    markFailed: `
+      UPDATE pos_schema.electronic_sale_invoice
+         SET status_id      = 4,
+             check_attempts = check_attempts + 1,
+             next_check_at  = NULL,
+             updated_at     = NOW()
+       WHERE electronic_sale_invoice_id = $1
     `,
     // #5: persiste los ítems en electronic_sale_invoice_items
     insertItem: `
@@ -757,11 +815,14 @@ export const posQueryDefs = {
     `,
     // $1 = electronic_sale_invoice_id, $2 = hacienda_response_xml (TEXT), $3 = status_id
     // status_id: 1=pendiente, 2=aceptada, 3=rechazada
+    // Sets terminal status (2=aceptada, 3=rechazada) and clears next_check_at
+    // so the cron will not pick the invoice again.
     updateHaciendaResponse: `
       UPDATE pos_schema.electronic_sale_invoice
       SET hacienda_response_xml  = $2,
           hacienda_response_date = NOW(),
           status_id              = $3,
+          next_check_at          = NULL,
           updated_at             = NOW()
       WHERE electronic_sale_invoice_id = $1
     `,

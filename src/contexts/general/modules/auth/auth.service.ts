@@ -36,9 +36,7 @@ export class AuthService {
       storedUser.password_hash,
       password,
     );
-    console.log(
-      `Password ${password} for user ${email} is ${validPassword ? 'valid' : 'invalid'}`,
-    );
+
     if (!validPassword) throw new InvalidCredentialsError();
 
     const userSession: IUserSession = {

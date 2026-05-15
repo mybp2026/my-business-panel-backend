@@ -21,10 +21,11 @@ async function bootstrap() {
         .map((origin) => origin.trim().replace(/\/$/, ''))
     : ['http://localhost:5173', 'http://localhost:3000'];
 
-  console.log('🚀 Allowed Origins for CORS:', allowedOrigins);
-
   app.enableCors({
-    origin: (origin: string | undefined, callback: (err: Error | null, allow?: boolean) => void) => {
+    origin: (
+      origin: string | undefined,
+      callback: (err: Error | null, allow?: boolean) => void,
+    ) => {
       if (!origin || allowedOrigins.includes(origin.replace(/\/$/, ''))) {
         callback(null, true);
       } else {
@@ -63,11 +64,5 @@ async function bootstrap() {
 
   const port = configService.get<number>('PORT') || 3000;
   await app.listen(port);
-  console.log('Current config: ', configService.get('NODE_ENV'));
-  console.log(`Application is running on: http://localhost:${port}/api/v1`);
-  console.log(
-    'Initializing AppModule with Stripe API Key length:',
-    configService.get('STRIPE_API_KEY').length,
-  );
 }
 void bootstrap();

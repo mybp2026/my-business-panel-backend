@@ -133,6 +133,12 @@ export class CashRegisterController {
     return this.cashRegisterService.getSessionGroupSales(sessionId);
   }
 
+  @RequiredLevel(1)
+  @Get('sessions/:sessionId/payment-methods')
+  getPaymentMethods(@Param('sessionId') sessionId: string) {
+    return this.cashRegisterService.getSessionPaymentMethodSales(sessionId);
+  }
+
   @ApiOperation(findOneCashRegisterDoc.operation)
   @ApiResponse(findOneCashRegisterDoc.responses[200])
   @ApiResponse(findOneCashRegisterDoc.responses[401])

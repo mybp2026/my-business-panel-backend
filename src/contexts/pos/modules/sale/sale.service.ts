@@ -12,6 +12,7 @@ import { posQueries } from '@pos/pos.queries';
 import { CustomerPaymentService } from '../../../general/modules/customer_payment/customer-payment.service';
 import { Condition, SaleFromDb } from './interface/sale.interface';
 import { SaleCreationError } from '@/common/errors/sale_creation.error';
+import { paginate } from '@/common/utilities/paginator';
 import { EInvoiceService } from '../e-invoice/e-invoice.service';
 import { DInvoiceService } from '../d-invoice/d-invoice.service';
 import { AccountingJournalService } from '../../../finances/modules/accounting/accounting-journal.service';
@@ -116,6 +117,8 @@ export class SaleService {
             'total_price',
             'sale_price_type',
             'promotion_id',
+            'royalty_option_id',
+            'royalty_rule_id',
             'original_price',
             'discount_applied',
           ],
@@ -128,6 +131,8 @@ export class SaleService {
             item.total_price,
             item.sale_price_type ?? 'NORMAL',
             item.promotion_id ?? null,
+            item.royalty_option_id ?? null,
+            item.royalty_rule_id ?? null,
             item.original_price ?? item.unit_price,
             item.discount_applied ?? 0,
           ]),
@@ -346,6 +351,37 @@ export class SaleService {
   async getAllSalesByBranch(branch_id: string): Promise<SaleFromDb[]> {
     const result = await this.db.query(sales.getSalesByBranch, [branch_id]);
     return result.rows;
+  }
+
+  async getAllSalesByTenant(tenantId: string, limit = 100, offset = 0) {
+    return paginate({
+      dbClient: this.db,
+      table: `
+        (SELECT s.sale_id, s.sale_date, s.total_amount, s.subtotal_amount, s.tax_amount,
+          s.is_completed, s.has_electronic_invoice, s.is_refunded, s.tenant_customer_id,
+          s.created_at, b.branch_id, b.branch_name, c.currency_code, c.symbol, b.tenant_id,
+          (SELECT rt.return_transaction_id FROM pos_schema.return_transaction rt
+            LEFT JOIN pos_schema.digital_sale_invoice dsi
+              ON dsi.digital_sale_invoice_id = rt.digital_sale_invoice_id
+            LEFT JOIN pos_schema.electronic_sale_invoice esi
+              ON esi.electronic_sale_invoice_id = rt.electronic_sale_invoice_id
+            WHERE dsi.sale_id = s.sale_id OR esi.sale_id = s.sale_id LIMIT 1
+          ) AS return_transaction_id
+        FROM pos_schema.sale s
+        INNER JOIN general_schema.branch b USING(branch_id)
+        INNER JOIN general_schema.currency c USING(currency_id)
+        ) AS paginated_sales
+      `,
+      selectColumns: [
+        'sale_id', 'sale_date', 'total_amount', 'subtotal_amount', 'tax_amount',
+        'is_completed', 'has_electronic_invoice', 'is_refunded', 'branch_id',
+        'branch_name', 'currency_code', 'symbol', 'tenant_customer_id',
+        'created_at', 'return_transaction_id',
+      ],
+      pkFields: ['sale_id'],
+      where: { tenant_id: tenantId },
+      options: { limit, offset, sortBy: 'created_at', order: 'DESC' },
+    });
   }
 
   async getAllConditions(): Promise<Condition[]> {

@@ -154,7 +154,8 @@ export const inventoryQueries = {
       pv.product_variant_id AS product_id,
       pv.variant_name AS product_name,
       pv.is_composite,
-      pv.unit_price
+      pv.unit_price,
+      pv.giftable
     FROM inventory_schema.inventory i
     INNER JOIN general_schema.product_variant pv USING(tenant_id, product_variant_id)
     WHERE i.warehouse_id = $1 AND i.tenant_id = $2
@@ -182,6 +183,7 @@ export const inventoryQueries = {
       pv.variant_name AS product_name,
       pv.is_composite,
       pv.unit_price,
+      pv.giftable,
       MIN(i.expiration_date) AS expiration_date,
       COUNT(i.inventory_id)::integer AS lot_count
     FROM general_schema.product_variant pv
@@ -195,7 +197,7 @@ export const inventoryQueries = {
         pv.sku ILIKE '%' || $3 || '%'
       )
     GROUP BY pv.product_variant_id, pv.tenant_id,
-             pv.variant_name, pv.sku, pv.is_composite, pv.unit_price
+             pv.variant_name, pv.sku, pv.is_composite, pv.unit_price, pv.giftable
     ORDER BY pv.variant_name`,
   updateInventoryItem: `
     UPDATE inventory_schema.inventory

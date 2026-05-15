@@ -41,7 +41,6 @@ export class SubscriptionController {
   ) {
     try {
       if (!req.body) {
-        console.log('No raw body found in the request', req.body);
         return res.status(400).send();
       }
       await this.subscriptionService.handleSubscriptionWebhook(

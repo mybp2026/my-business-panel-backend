@@ -4,8 +4,10 @@ export interface Item {
   quantity: number;
   unit_price: number;
   total_price: number;
-  sale_price_type?: 'NORMAL' | 'PROMO' | 'SEGMENT' | 'MANUAL';
+  sale_price_type?: 'NORMAL' | 'PROMO' | 'SEGMENT' | 'MANUAL' | 'ROYALTY';
   promotion_id?: string;
+  royalty_option_id?: string | null;
+  royalty_rule_id?: string | null;
   original_price?: number;
   discount_applied?: number;
 }

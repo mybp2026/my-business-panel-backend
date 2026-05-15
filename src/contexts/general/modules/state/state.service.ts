@@ -36,7 +36,6 @@ export class StateService implements OnModuleInit {
     const value = this.constants.get(key);
     if (!value) {
       console.error('Error finding constant:', key);
-      console.log('Available constants:', Array.from(this.constants.keys()));
       throw new ConstantNotFoundError(key);
     }
     return value;
