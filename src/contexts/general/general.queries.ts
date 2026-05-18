@@ -515,7 +515,7 @@ export const generalQueryDefs = {
                WHEN pv.is_composite THEN COALESCE(comp.computed_unit_price, pv.unit_price)
                ELSE pv.unit_price
              END AS unit_price,
-             pv.is_active, pv.is_composite
+             pv.is_active, pv.is_composite, pv.includes_iva
       FROM general_schema.product_variant pv
       LEFT JOIN LATERAL (
         SELECT SUM(child.unit_price * pvc.quantity)::numeric(10,2) AS computed_unit_price
@@ -1343,6 +1343,7 @@ export const bulkProducts = [
   'supplier_id',
   'giftable',
   'giftable_from',
+  'includes_iva',
 ];
 
 export const bulkAttributeAssignations = [
