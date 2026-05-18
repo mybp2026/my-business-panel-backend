@@ -1173,6 +1173,26 @@ export class WarehouseService {
     return request;
   }
 
+  async getTransferDetail(transferId: string, tenantId: string) {
+    const { rows } = await this.db.query(
+      inventoryQueries.getInventoryTransferDetail,
+      [transferId, tenantId],
+    );
+    if (!rows[0])
+      throw new NotFoundException(`Transfer ${transferId} not found`);
+    return rows[0];
+  }
+
+  async getTransferRequestDetail(requestId: string, tenantId: string) {
+    const { rows } = await this.db.query(
+      inventoryQueries.getTransferRequestById,
+      [requestId, tenantId],
+    );
+    if (!rows[0])
+      throw new NotFoundException(`Transfer request ${requestId} not found`);
+    return rows[0];
+  }
+
   async getTransferRequests(tenant_id: string) {
     const { rows } = await this.db.query(
       inventoryQueries.getTransferRequestsByTenant,

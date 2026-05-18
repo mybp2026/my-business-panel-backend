@@ -13,6 +13,7 @@ export interface Product {
   supplier_name?: string;
   giftable: boolean;
   giftable_from?: number;
+  includes_iva: boolean;
   created_at?: string;
   updated_at?: string;
 }

@@ -54,6 +54,10 @@ export class NewProductDto {
   giftable_from?: number;
 
   @IsOptional()
+  @IsBoolean()
+  includes_iva?: boolean;
+
+  @IsOptional()
   @IsArray()
   @IsUUID('4', { each: true })
   attribute_value_ids?: string[];
@@ -74,6 +78,7 @@ export interface ProductInsert {
   supplier_id?: string;
   giftable?: boolean;
   giftable_from?: number;
+  includes_iva?: boolean;
   attribute_value_ids?: string[];
   group_ids?: string[];
 }
