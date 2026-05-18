@@ -321,6 +321,48 @@ export const inventoryQueries = {
   getInventoryTransferById: `
     SELECT * FROM inventory_schema.inventory_transfer
     WHERE inventory_transfer_id = $1`,
+  getInventoryTransferDetail: `
+    SELECT
+      it.inventory_transfer_id,
+      it.from_warehouse_id,
+      it.to_warehouse_id,
+      it.transfer_date,
+      it.inventory_transfer_departure_date,
+      it.inventory_transfer_arrival_date,
+      it.created_at,
+      it.updated_at,
+      wf.warehouse_name AS from_warehouse_name,
+      wt.warehouse_name AS to_warehouse_name,
+      COALESCE(
+        json_agg(
+          json_build_object(
+            'product_variant_id', itp.product_variant_id,
+            'variant_name', pv.variant_name,
+            'sku', pv.sku,
+            'quantity', itp.quantity
+          )
+        ) FILTER (WHERE itp.inventory_transfer_product_id IS NOT NULL),
+        '[]'
+      ) AS products,
+      out_type.inventory_log_type_name AS log_type_out_name,
+      in_type.inventory_log_type_name AS log_type_in_name
+    FROM inventory_schema.inventory_transfer it
+      INNER JOIN inventory_schema.warehouse wf ON wf.warehouse_id = it.from_warehouse_id
+      INNER JOIN inventory_schema.warehouse wt ON wt.warehouse_id = it.to_warehouse_id
+      LEFT JOIN inventory_schema.inventory_transfer_product itp
+        ON itp.inventory_transfer_id = it.inventory_transfer_id
+        AND itp.tenant_id = $2
+      LEFT JOIN general_schema.product_variant pv
+        ON pv.product_variant_id = itp.product_variant_id
+        AND pv.tenant_id = itp.tenant_id
+      LEFT JOIN inventory_schema.inventory_log_type out_type ON out_type.inventory_log_type_id = 2
+      LEFT JOIN inventory_schema.inventory_log_type in_type ON in_type.inventory_log_type_id = 1
+    WHERE it.inventory_transfer_id = $1
+    GROUP BY
+      it.inventory_transfer_id, it.from_warehouse_id, it.to_warehouse_id,
+      it.transfer_date, it.inventory_transfer_departure_date, it.inventory_transfer_arrival_date,
+      it.created_at, it.updated_at, wf.warehouse_name, wt.warehouse_name,
+      out_type.inventory_log_type_name, in_type.inventory_log_type_name`,
   getInventoryTransferProducts: `
     SELECT
       itp.inventory_transfer_product_id,

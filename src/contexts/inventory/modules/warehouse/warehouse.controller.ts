@@ -168,6 +168,25 @@ export class WarehouseController {
     return this.warehouseService.listTransfersByTenant(userSession.tenant_id);
   }
 
+  @Get('transfer/:id')
+  getTransferDetail(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Session() userSession: IUserSession,
+  ) {
+    return this.warehouseService.getTransferDetail(id, userSession.tenant_id);
+  }
+
+  @Get('transfer-request/:id')
+  getTransferRequestDetail(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Session() userSession: IUserSession,
+  ) {
+    return this.warehouseService.getTransferRequestDetail(
+      id,
+      userSession.tenant_id,
+    );
+  }
+
   @ApiOperation(addProductToWarehouseDoc.operation)
   @ApiResponse(addProductToWarehouseDoc.responses[201])
   @ApiResponse(addProductToWarehouseDoc.responses[401])
