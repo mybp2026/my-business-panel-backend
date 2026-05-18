@@ -120,11 +120,93 @@ export const posQueryDefs = {
         tc.last_name,
         tc.document_number,
         tc.email,
-        t.tenant_name
+        tc.econ_activity AS customer_econ_activity,
+        tc.phone AS customer_phone,
+        tc.birthdate AS customer_birthdate,
+        tc.address AS customer_address,
+        cust_it.type_name AS customer_identification_type_name,
+        cust_it.ident_code AS customer_identification_type_code,
+        t.tenant_name,
+        t.identification AS tenant_identification,
+        t.econ_activity AS tenant_econ_activity,
+        t.sign AS tenant_sign,
+        t.contact_email AS tenant_contact_email,
+        t.contact_phone AS tenant_contact_phone,
+        tnt_it.type_name AS tenant_identification_type_name,
+        tnt_it.ident_code AS tenant_identification_type_code,
+        b.branch_name,
+        b.branch_address,
+        s.sale_condition,
+        sc.condition_desc AS sale_condition_desc,
+        s.sale_date,
+        s.has_electronic_invoice,
+        s.seller_user_id,
+        seller.email AS seller_email,
+        c.currency_code,
+        c.symbol AS currency_symbol,
+        COALESCE((
+          SELECT SUM(si.discount_applied)
+          FROM pos_schema.sale_item si
+          WHERE si.sale_id = s.sale_id
+        ), 0) AS total_discount,
+        COALESCE((
+          SELECT json_agg(item ORDER BY item_created_at)
+          FROM (
+            SELECT
+              json_build_object(
+                'digital_sale_invoice_item_id', dii.digital_sale_invoice_item_id,
+                'description', dii.description,
+                'sku', pv.sku,
+                'variant_name', pv.variant_name,
+                'cabys_code', dii.cabys_code,
+                'quantity', dii.quantity,
+                'unit_price', dii.unit_price,
+                'subtotal', dii.subtotal,
+                'tax_rate_percentage', dii.tax_rate_percentage,
+                'tax_amount', dii.tax_amount,
+                'total_price', dii.total_price
+              ) AS item,
+              dii.created_at AS item_created_at
+            FROM pos_schema.digital_sale_invoice_item dii
+            LEFT JOIN general_schema.product_variant pv
+              ON pv.tenant_id = dii.tenant_id
+             AND pv.product_variant_id = dii.product_variant_id
+            WHERE dii.digital_sale_invoice_id = i.digital_sale_invoice_id
+          ) sub
+        ), '[]'::json) AS items,
+        COALESCE((
+          SELECT json_agg(payment ORDER BY payment_date)
+          FROM (
+            SELECT
+              json_build_object(
+                'customer_payment_id', cp.customer_payment_id,
+                'payment_method_id', cp.payment_method_id,
+                'payment_method_name', pm.name,
+                'is_points_redemption', cp.is_points_redemption,
+                'points_redeemed', cp.points_redeemed,
+                'payment_amount', cp.payment_amount,
+                'currency_id', cp.currency_id,
+                'currency_code', pcur.currency_code,
+                'currency_symbol', pcur.symbol,
+                'payment_date', cp.payment_date
+              ) AS payment,
+              cp.payment_date
+            FROM pos_schema.customer_payment cp
+            LEFT JOIN general_schema.payment_method pm ON pm.payment_method_id = cp.payment_method_id
+            LEFT JOIN general_schema.currency pcur ON pcur.currency_id = cp.currency_id
+            WHERE cp.sale_id = s.sale_id
+          ) sub
+        ), '[]'::json) AS payments
       FROM pos_schema.digital_sale_invoice i
+      INNER JOIN pos_schema.sale s ON s.sale_id = i.sale_id
+      LEFT JOIN pos_schema.sale_condition sc ON sc.condition_code = s.sale_condition
+      LEFT JOIN general_schema.branch b ON b.branch_id = s.branch_id
+      LEFT JOIN general_schema.tenant t ON t.tenant_id = b.tenant_id
+      LEFT JOIN general_schema.identification_type tnt_it ON tnt_it.identification_type_id = t.identification_type_id
       LEFT JOIN general_schema.tenant_customer tc ON tc.tenant_customer_id = i.tenant_customer_id
-      LEFT JOIN general_schema.tenant t ON t.tenant_id = tc.tenant_id
+      LEFT JOIN general_schema.identification_type cust_it ON cust_it.identification_type_id = tc.identification_type_id
       LEFT JOIN general_schema.currency c ON c.currency_id = i.currency_id
+      LEFT JOIN general_schema.users seller ON seller.user_id = s.seller_user_id
       WHERE i.sale_id = $1
       LIMIT 1
     `,
