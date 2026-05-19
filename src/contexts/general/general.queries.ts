@@ -444,7 +444,7 @@ export const generalQueryDefs = {
            END AS unit_price,
            pv.cost_price, pv.is_active, pv.is_composite,
            pv.supplier_id, s.supplier_name,
-           pv.giftable, pv.giftable_from,
+           pv.giftable, pv.giftable_from, pv.includes_iva,
            pv.created_at, pv.updated_at
     FROM general_schema.product_variant pv
     LEFT JOIN LATERAL (
@@ -467,7 +467,7 @@ export const generalQueryDefs = {
              END AS unit_price,
              pv.cost_price, pv.is_active, pv.is_composite, pv.tenant_id,
              pv.supplier_id, s.supplier_name,
-             pv.giftable, pv.giftable_from,
+             pv.giftable, pv.giftable_from, pv.includes_iva,
              pv.created_at, pv.updated_at
       FROM general_schema.product_variant pv
       LEFT JOIN LATERAL (
@@ -678,7 +678,7 @@ export const generalQueryDefs = {
              END AS unit_price,
              pv.cost_price, pv.is_active, pv.is_composite, pv.tenant_id,
              pv.supplier_id, s.supplier_name,
-             pv.giftable, pv.giftable_from,
+             pv.giftable, pv.giftable_from, pv.includes_iva,
              pv.created_at, pv.updated_at
       FROM general_schema.product_variant pv
       LEFT JOIN LATERAL (

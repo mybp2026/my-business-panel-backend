@@ -1,4 +1,4 @@
-import { Inject, Injectable } from '@nestjs/common';
+import { BadRequestException, Inject, Injectable } from '@nestjs/common';
 import { DATABASE } from '@/contexts/general/modules/db/db.provider';
 import Database from '@crane-technologies/database';
 import { generalQueries } from '@general/general.queries';
@@ -54,10 +54,19 @@ export class TenantProductGroupTypeService {
   }
 
   async delete(id: string, tenantId: string) {
-    const result = await this.db.query(tenantProductGroupType.delete, [
-      id,
-      tenantId,
-    ]);
-    return { deleted: result.rows[0]?.tenant_product_group_type_id ?? null };
+    try {
+      const result = await this.db.query(tenantProductGroupType.delete, [
+        id,
+        tenantId,
+      ]);
+      return { deleted: result.rows[0]?.tenant_product_group_type_id ?? null };
+    } catch (err: any) {
+      if (err?.code === '23503' && err?.constraint?.includes('royalty_option')) {
+        throw new BadRequestException(
+          'No se puede eliminar esta dimensión porque tiene reglas de regalía asociadas. Elimine las reglas de regalía vinculadas a esta dimensión antes de continuar.',
+        );
+      }
+      throw err;
+    }
   }
 }
