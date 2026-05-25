@@ -45,6 +45,8 @@ import { CashRegisterModule } from '@/contexts/pos/modules/cash_register/cash_re
 import { LoyalProgramModule } from '@/contexts/pos/modules/loyal-program/loyalty-program.module';
 import { PosExpenseModule } from '@/contexts/pos/modules/pos-expense/pos-expense.module';
 import { PosRoyaltyModule } from '@/contexts/pos/modules/pos-royalty/pos-royalty.module';
+import { AccountsReceivableModule } from '@/contexts/pos/modules/accounts_receivable/accounts-receivable.module';
+import { CollectionAlertsModule } from '@/contexts/pos/modules/collection_alerts/collection-alerts.module';
 
 // PURCHASE Modules
 import { PurchaseModule } from '@/contexts/purchase/modules/purchase/purchase.module';
@@ -109,6 +111,8 @@ import { ExpenseModule } from '@/contexts/finances/modules/expense/expense.modul
     LoyalProgramModule,
     PosExpenseModule,
     PosRoyaltyModule,
+    AccountsReceivableModule,
+    CollectionAlertsModule,
     SubscriptionModule,
     ClockingModule,
     EmployeeModule,

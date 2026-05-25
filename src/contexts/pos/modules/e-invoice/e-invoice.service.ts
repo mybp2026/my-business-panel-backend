@@ -81,7 +81,12 @@ export class EInvoiceService {
 
     const sale = saleRows[0];
 
-    if (!sale.is_completed)
+    // Credit (02) and apartado (04) sales remain is_completed=false until
+    // their receivable is fully paid, but the e-invoice still must be issued
+    // at sale time.
+    const allowsPendingCompletion =
+      sale.sale_condition === '02' || sale.sale_condition === '04';
+    if (!sale.is_completed && !allowsPendingCompletion)
       throw new BadRequestException('La venta no está completada');
     if (sale.already_invoiced)
       throw new BadRequestException('Esta venta ya tiene factura electrónica');
