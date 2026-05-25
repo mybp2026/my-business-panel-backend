@@ -76,6 +76,27 @@ export class SaleService {
       );
     }
 
+    if (data.sale_condition === '02' && !data.due_date) {
+      throw new BadRequestException(
+        'due_date es requerido para ventas a crédito (condición 02).',
+      );
+    }
+
+    if (data.sale_condition === '04' && !data.due_date) {
+      throw new BadRequestException(
+        'due_date es requerido para ventas en apartado (condición 04).',
+      );
+    }
+
+    const totalSale = data.subtotal_amount + data.tax_amount;
+    const upfront = data.amount_paid ?? 0;
+    const arBalance = totalSale - upfront;
+    const isCredit = data.sale_condition === '02';
+    const isApartado = data.sale_condition === '04';
+    // Credit sale with outstanding balance is not "completed" until fully paid.
+    const effectiveIsCompleted =
+      data.is_completed && !(isCredit && arBalance > 0.01);
+
     const txn = await this.db.transaction();
     try {
 
@@ -90,13 +111,13 @@ export class SaleService {
           data.subtotal_amount,
           data.tax_amount,
           data.total_amount,
-          data.is_completed,
+          effectiveIsCompleted,
           data.has_electronic_invoice,
           data.seller_user_id ?? null,
         ]);
         saleId = rows[0].sale_id;
 
-        if (data.is_completed) {
+        if (data.is_completed || isApartado) {
           await this.linkSaleToActiveSession(
             txn,
             data.branch_id,
@@ -139,27 +160,29 @@ export class SaleService {
         );
 
         // Decrement stock from the branch's "sales floor" warehouse.
-        // Composite items are exploded to their leaf components by
-        // WarehouseService.consumeStockForSale.
-        const wh = await txn.query(
-          `SELECT warehouse_id FROM inventory_schema.warehouse
-           WHERE branch_id = $1 AND is_branch = true LIMIT 1`,
-          [data.branch_id],
-        );
-        if (!wh.rows[0]) {
-          throw new BadRequestException(
-            'Branch sin warehouse de piso de venta (is_branch=true)',
+        // Apartado sales skip this — stock is reserved but not consumed until
+        // the balance is fully paid (handled by AccountsReceivableService).
+        if (!isApartado) {
+          const wh = await txn.query(
+            `SELECT warehouse_id FROM inventory_schema.warehouse
+             WHERE branch_id = $1 AND is_branch = true LIMIT 1`,
+            [data.branch_id],
+          );
+          if (!wh.rows[0]) {
+            throw new BadRequestException(
+              'Branch sin warehouse de piso de venta (is_branch=true)',
+            );
+          }
+          await this.warehouseService.consumeStockForSale(
+            data.tenant_id,
+            wh.rows[0].warehouse_id,
+            items.map((it) => ({
+              product_variant_id: it.product_variant_id,
+              quantity: Number(it.quantity),
+            })),
+            txn,
           );
         }
-        await this.warehouseService.consumeStockForSale(
-          data.tenant_id,
-          wh.rows[0].warehouse_id,
-          items.map((it) => ({
-            product_variant_id: it.product_variant_id,
-            quantity: Number(it.quantity),
-          })),
-          txn,
-        );
 
         await txn.bulkInsert(
           'pos_schema.customer_payment',
@@ -189,7 +212,12 @@ export class SaleService {
           ]),
         );
 
-        // Compute points_accumulated from the active loyalty program inside the txn
+        // Points credited at sale time are proportional to the upfront paid
+        // amount. Remaining points accrue as collections are registered.
+        const loyaltyBaseAmount =
+          isCredit || isApartado
+            ? Math.min(upfront, data.total_amount)
+            : data.total_amount;
         let pointsAccumulated = 0;
         if (data.tenant_customer_id) {
           const { rows: lpRows } = await txn.query(
@@ -199,7 +227,7 @@ export class SaleService {
           const lp = lpRows[0];
           if (lp && data.total_amount >= Number(lp.minimum_purchase_for_points)) {
             pointsAccumulated = Math.floor(
-              data.total_amount * Number(lp.points_earned_per_currency_unit),
+              loyaltyBaseAmount * Number(lp.points_earned_per_currency_unit),
             );
           }
         }
@@ -224,59 +252,145 @@ export class SaleService {
           txn,
         );
 
-        try {
-          await this.journalService.generateSaleJournal(
-            {
-              tenantId: data.tenant_id,
-              saleId,
-              saleCondition: data.sale_condition,
-              subtotalAmount: data.subtotal_amount,
-              taxAmount: data.tax_amount,
-              totalAmount: data.total_amount,
-              entryDate: new Date(data.sale_date),
-            },
-            txn,
+        const needsAr = (isCredit && arBalance > 0) || isApartado;
+
+        if (needsAr) {
+          const arTypesRes = await txn.query(
+            `SELECT account_receivable_type_id, type_name
+             FROM general_schema.account_receivable_type
+             WHERE type_name IN ('venta_credito', 'venta_apartado')`,
+          );
+          const arTypeMap = new Map<string, string>(
+            arTypesRes.rows.map((r: { type_name: string; account_receivable_type_id: string }) => [
+              r.type_name,
+              r.account_receivable_type_id,
+            ]),
           );
 
-          let totalCost = 0;
-          for (const item of items) {
-            const res = await txn.query(
-              `SELECT COALESCE(weighted_avg_cost, cost_price, 0) AS item_cost
-               FROM general_schema.product_variant
-               WHERE tenant_id = $1 AND product_variant_id = $2 LIMIT 1`,
-              [data.tenant_id, item.product_variant_id],
-            );
-            if (res.rows.length > 0) {
-              const itemCost = Number(res.rows[0].item_cost);
-              // Snapshot cost_price_at_sale on the sale_item row
-              await txn.query(
-                `UPDATE pos_schema.sale_item
-                 SET cost_price_at_sale = $1
-                 WHERE sale_id = $2 AND product_variant_id = $3 AND tenant_id = $4`,
-                [itemCost, saleId, item.product_variant_id, item.tenant_id],
-              );
-              if (itemCost > 0) {
-                totalCost += itemCost * item.quantity;
-              }
-            }
-          }
+          const arTypeName =
+            data.sale_condition === '04' ? 'venta_apartado' : 'venta_credito';
+          const arTypeId = arTypeMap.get(arTypeName) ?? null;
 
-          if (totalCost > 0) {
-            await this.journalService.generateSaleCogsJournal(
+          const arRes = await txn.query(
+            `INSERT INTO general_schema.account_receivable(
+               account_receivable_type_id, account_status, tenant_id, tenant_customer_id,
+               has_invoice, has_tax, subtotal, amount_paid, is_paid, due_date
+             ) VALUES (
+               $1,
+               (SELECT status_id FROM general_schema.account_receivable_status WHERE status_name = 'Pending' LIMIT 1),
+               $2, $3, TRUE, $4, $5, $6, FALSE, $7
+             )
+             RETURNING account_receivable_id`,
+            [
+              arTypeId,
+              data.tenant_id,
+              data.tenant_customer_id ?? null,
+              data.tax_amount > 0,
+              data.subtotal_amount,
+              upfront,
+              new Date(data.due_date!),
+            ],
+          );
+          const accountReceivableId: string = arRes.rows[0].account_receivable_id;
+
+          const sarRes = await txn.query(
+            `INSERT INTO pos_schema.sale_account_receivable(
+               account_receivable_id, sale_id, tax_amount, account_receivable_status
+             ) VALUES (
+               $1, $2, $3,
+               (SELECT status_id FROM general_schema.account_receivable_status WHERE status_name = $4 LIMIT 1)
+             )
+             RETURNING sale_account_receivable_id`,
+            [
+              accountReceivableId,
+              saleId,
+              data.tax_amount,
+              upfront > 0 ? 'Partial Paid' : 'Pending',
+            ],
+          );
+          const saleAccountReceivableId: string =
+            sarRes.rows[0].sale_account_receivable_id;
+
+          // Record upfront payment as a sale_collection row so subsequent
+          // recalcs (SUM of collections) reflect the initial amount.
+          if (upfront > 0) {
+            const initialPayment = (payments ?? []).find(
+              (p) => Number(p.payment_amount ?? 0) > 0,
+            );
+            await txn.query(
+              `INSERT INTO pos_schema.sale_collection
+                 (sale_account_receivable_id, amount_paid, payment_method_id, currency_id,
+                  original_amount, exchange_rate, payment_reference, payment_date, notes)
+               VALUES ($1, $2, $3, COALESCE($4, 1), $5, $6, $7, $8, $9)`,
+              [
+                saleAccountReceivableId,
+                upfront,
+                initialPayment?.payment_method_id ?? 1,
+                data.currency_id ?? null,
+                upfront,
+                1,
+                null,
+                new Date(data.sale_date),
+                'Abono inicial registrado al crear la venta',
+              ],
+            );
+          }
+        }
+
+        if (!isApartado) {
+          try {
+            await this.journalService.generateSaleJournal(
               {
                 tenantId: data.tenant_id,
                 saleId,
-                totalCost,
+                saleCondition: data.sale_condition,
+                subtotalAmount: data.subtotal_amount,
+                taxAmount: data.tax_amount,
+                totalAmount: data.total_amount,
                 entryDate: new Date(data.sale_date),
               },
               txn,
             );
+
+            let totalCost = 0;
+            for (const item of items) {
+              const res = await txn.query(
+                `SELECT COALESCE(weighted_avg_cost, cost_price, 0) AS item_cost
+                 FROM general_schema.product_variant
+                 WHERE tenant_id = $1 AND product_variant_id = $2 LIMIT 1`,
+                [data.tenant_id, item.product_variant_id],
+              );
+              if (res.rows.length > 0) {
+                const itemCost = Number(res.rows[0].item_cost);
+                await txn.query(
+                  `UPDATE pos_schema.sale_item
+                   SET cost_price_at_sale = $1
+                   WHERE sale_id = $2 AND product_variant_id = $3 AND tenant_id = $4`,
+                  [itemCost, saleId, item.product_variant_id, item.tenant_id],
+                );
+                if (itemCost > 0) {
+                  totalCost += itemCost * item.quantity;
+                }
+              }
+            }
+
+            if (totalCost > 0) {
+              await this.journalService.generateSaleCogsJournal(
+                {
+                  tenantId: data.tenant_id,
+                  saleId,
+                  totalCost,
+                  entryDate: new Date(data.sale_date),
+                },
+                txn,
+              );
+            }
+          } catch (accountingError) {
+            // Log but don't fail the sale — accounting is secondary
+            this.logger.error(
+              `Error generating journal entries for sale ${saleId}: ${(accountingError as Error).message}`,
+            );
           }
-        } catch (accountingError) {
-          // Log but don't fail the sale — accounting is secondary
-          this.logger.error(
-            `Error generating journal entries for sale ${saleId}: ${(accountingError as Error).message}`,
-          );
         }
 
         await txn.commit();
@@ -294,8 +408,12 @@ export class SaleService {
           );
           const program = programRows[0];
           if (program && data.total_amount >= Number(program.minimum_purchase_for_points)) {
+            const earnBase =
+              isCredit || isApartado
+                ? Math.min(upfront, data.total_amount)
+                : data.total_amount;
             const pointsEarned = Math.floor(
-              data.total_amount * Number(program.points_earned_per_currency_unit),
+              earnBase * Number(program.points_earned_per_currency_unit),
             );
             if (pointsEarned > 0) {
               await this.db.query(loyaltyScore.upsertEarned, [
