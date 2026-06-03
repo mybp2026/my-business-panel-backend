@@ -74,6 +74,7 @@ import { TardinessModule } from '@/contexts/hr/modules/tardiness/tardiness.modul
 
 import { AccountingModule } from '@/contexts/finances/modules/accounting/accounting.module';
 import { ExpenseModule } from '@/contexts/finances/modules/expense/expense.module';
+import { AccountsModule } from '@/contexts/finances/modules/accounts/accounts.module';
 
 @Module({
   imports: [
@@ -139,6 +140,7 @@ import { ExpenseModule } from '@/contexts/finances/modules/expense/expense.modul
     ExchangeRateModule,
     AccountingModule,
     ExpenseModule,
+    AccountsModule,
     ReportingModule,
   ],
   controllers: [AppController],
