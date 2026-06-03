@@ -15,7 +15,10 @@ export class AuthController {
   @ApiResponse(loginDoc.responses[200])
   @ApiResponse(loginDoc.responses[401])
   @Post('/login')
-  async login(@Body() loginDto: LoginDto, @Res({ passthrough: true }) response: Response) {
+  async login(
+    @Body() loginDto: LoginDto,
+    @Res({ passthrough: true }) response: Response,
+  ) {
     const { user, token } = await this.authService.login(loginDto);
     const isCrossSite = ['production', 'staging'].includes(
       process.env.NODE_ENV ?? '',

@@ -6,7 +6,8 @@ export const loginDoc = {
       example: 'juan.perez@empresa.com',
     },
     password: {
-      description: 'Password in plain text. Will be compared against the stored hash.',
+      description:
+        'Password in plain text. Will be compared against the stored hash.',
       example: 'MyPassword123!',
     },
   },
@@ -28,9 +29,15 @@ export const loginDoc = {
           user: {
             type: 'object',
             properties: {
-              user_id: { type: 'string', example: '123e4567-e89b-12d3-a456-426614174000' },
+              user_id: {
+                type: 'string',
+                example: '123e4567-e89b-12d3-a456-426614174000',
+              },
               email: { type: 'string', example: 'juan.perez@empresa.com' },
-              tenant_id: { type: 'string', example: '123e4567-e89b-12d3-a456-426614174000' },
+              tenant_id: {
+                type: 'string',
+                example: '123e4567-e89b-12d3-a456-426614174000',
+              },
               role_id: { type: 'number', example: 2 },
             },
           },
