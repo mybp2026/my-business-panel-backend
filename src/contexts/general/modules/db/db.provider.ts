@@ -195,10 +195,11 @@ async function bootstrapIfNeeded(database: Database): Promise<void> {
 export const dbProvider = {
   provide: DATABASE,
   useFactory: async (configService: ConfigService) => {
+    const isLocal = configService.get<string>('NODE_ENV') !== 'production';
     const config: DatabaseConfig = {
       connectionString: configService.get<string>('DB_CONNECTION'),
       max: Number(configService.get<number>('MAX_POOL_SIZE')) || 10,
-      ssl: { rejectUnauthorized: false },
+      ssl: isLocal ? false : { rejectUnauthorized: false },
     };
 
     db = Database.getInstance(config, queries);
