@@ -201,4 +201,170 @@ export const expenseQueries = {
     WHERE period_id = $1 AND tenant_id = $2 AND is_closed = FALSE
     RETURNING period_id
   `,
+
+  // -------------------------------------------------------
+  // ANALYTICS
+  // -------------------------------------------------------
+
+  getFixedVsVariableSummary: `
+    WITH accounting_totals AS (
+      SELECT
+        ec.is_fixed,
+        COALESCE(SUM(e.total_amount), 0) AS subtotal
+      FROM accounting_schema.expense_category ec
+      LEFT JOIN accounting_schema.expense e
+        ON  e.category_id = ec.category_id
+        AND e.tenant_id   = $1
+        AND e.expense_date >= $2::date
+        AND e.expense_date <= $3::date
+      WHERE ec.tenant_id = $1
+        AND ec.is_active  = TRUE
+      GROUP BY ec.is_fixed
+    ),
+    pos_totals AS (
+      SELECT
+        FALSE                               AS is_fixed,
+        COALESCE(SUM(pe.expense_amount), 0) AS subtotal
+      FROM pos_schema.expense pe
+      INNER JOIN general_schema.branch b ON b.branch_id = pe.branch_id
+      WHERE b.tenant_id       = $1
+        AND pe.status         = 'approved'
+        AND pe.created_at::date >= $2::date
+        AND pe.created_at::date <= $3::date
+    )
+    SELECT
+      is_fixed,
+      CASE WHEN is_fixed THEN 'Fijo' ELSE 'Variable' END AS expense_type,
+      SUM(subtotal)::text AS total_amount
+    FROM (
+      SELECT * FROM accounting_totals
+      UNION ALL
+      SELECT * FROM pos_totals
+    ) combined
+    GROUP BY is_fixed
+    ORDER BY is_fixed DESC
+  `,
+
+  getFixedCategoryBreakdown: `
+    SELECT
+      ec.category_id::text,
+      ec.name           AS category_name,
+      ec.account_code,
+      COALESCE(SUM(e.total_amount), 0)::text AS total_amount
+    FROM accounting_schema.expense_category ec
+    LEFT JOIN accounting_schema.expense e
+      ON  e.category_id = ec.category_id
+      AND e.tenant_id   = $1
+      AND e.expense_date >= $2::date
+      AND e.expense_date <= $3::date
+    WHERE ec.tenant_id = $1
+      AND ec.is_active  = TRUE
+      AND ec.is_fixed   = TRUE
+    GROUP BY ec.category_id, ec.name, ec.account_code
+    ORDER BY SUM(e.total_amount) DESC NULLS LAST
+  `,
+
+  getVariableCategoryBreakdown: `
+    WITH accounting_var AS (
+      SELECT
+        ec.category_id::text AS category_id,
+        ec.name              AS category_name,
+        ec.account_code,
+        COALESCE(SUM(e.total_amount), 0) AS subtotal
+      FROM accounting_schema.expense_category ec
+      LEFT JOIN accounting_schema.expense e
+        ON  e.category_id = ec.category_id
+        AND e.tenant_id   = $1
+        AND e.expense_date >= $2::date
+        AND e.expense_date <= $3::date
+      WHERE ec.tenant_id = $1
+        AND ec.is_active  = TRUE
+        AND ec.is_fixed   = FALSE
+      GROUP BY ec.category_id, ec.name, ec.account_code
+    ),
+    pos_var AS (
+      SELECT
+        et.expense_type_id::text  AS category_id,
+        et.expense_type_name      AS category_name,
+        'POS'                     AS account_code,
+        COALESCE(SUM(pe.expense_amount), 0) AS subtotal
+      FROM pos_schema.expense pe
+      INNER JOIN pos_schema.expense_type et ON et.expense_type_id = pe.expense_type_id
+      INNER JOIN general_schema.branch   b  ON b.branch_id        = pe.branch_id
+      WHERE b.tenant_id       = $1
+        AND pe.status         = 'approved'
+        AND pe.created_at::date >= $2::date
+        AND pe.created_at::date <= $3::date
+      GROUP BY et.expense_type_id, et.expense_type_name
+    )
+    SELECT
+      category_id,
+      category_name,
+      account_code,
+      SUM(subtotal)::text AS total_amount
+    FROM (
+      SELECT * FROM accounting_var
+      UNION ALL
+      SELECT * FROM pos_var
+    ) combined
+    GROUP BY category_id, category_name, account_code
+    ORDER BY SUM(subtotal) DESC NULLS LAST
+  `,
+
+  getSalesVsExpenses: `
+    WITH latest_rates AS (
+      SELECT DISTINCT ON (er.from_currency_id)
+        er.from_currency_id,
+        er.rate
+      FROM general_schema.exchange_rate er
+      INNER JOIN general_schema.currency crc
+        ON  crc.currency_id = er.to_currency_id
+        AND crc.currency_code = 'CRC'
+      ORDER BY er.from_currency_id, er.effective_date DESC
+    ),
+    crc_currency AS (
+      SELECT currency_id FROM general_schema.currency WHERE currency_code = 'CRC' LIMIT 1
+    ),
+    sales_agg AS (
+      SELECT
+        DATE_TRUNC('{{GRANULARITY}}', s.sale_date)::text AS period,
+        COALESCE(SUM(
+          CASE
+            WHEN s.currency_id = (SELECT currency_id FROM crc_currency)
+              THEN s.total_amount
+            ELSE s.total_amount * COALESCE(
+              (SELECT lr.rate FROM latest_rates lr WHERE lr.from_currency_id = s.currency_id),
+              1
+            )
+          END
+        ), 0) AS total_sales
+      FROM pos_schema.sale s
+      INNER JOIN general_schema.branch b ON b.branch_id = s.branch_id
+      WHERE b.tenant_id       = $1
+        AND s.is_completed    = TRUE
+        AND s.is_refunded     = FALSE
+        AND s.sale_date::date >= $2::date
+        AND s.sale_date::date <= $3::date
+        AND ($4::uuid IS NULL OR s.branch_id = $4::uuid)
+      GROUP BY DATE_TRUNC('{{GRANULARITY}}', s.sale_date)
+    ),
+    expense_agg AS (
+      SELECT
+        DATE_TRUNC('{{GRANULARITY}}', e.expense_date::timestamptz)::text AS period,
+        COALESCE(SUM(e.total_amount), 0) AS total_expenses
+      FROM accounting_schema.expense e
+      WHERE e.tenant_id      = $1
+        AND e.expense_date  >= $2::date
+        AND e.expense_date  <= $3::date
+        AND ($4::uuid IS NULL OR e.branch_id = $4::uuid)
+      GROUP BY DATE_TRUNC('{{GRANULARITY}}', e.expense_date::timestamptz)
+    )
+    SELECT
+      COALESCE(s.period, ea.period)        AS period,
+      COALESCE(s.total_sales,    0)::text  AS total_sales,
+      COALESCE(ea.total_expenses, 0)::text AS total_expenses
+    FROM sales_agg s
+    FULL OUTER JOIN expense_agg ea ON ea.period = s.period
+    ORDER BY period
+  `,
 };

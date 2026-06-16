@@ -239,6 +239,7 @@ export class TenantService {
         paymentScheduleId,
         branchId,
         tenantInfo.identification_type_id ?? 1, // identification_type_id del admin
+        null, // duties_type_id — sin tipo de funciones al crear el admin
       ]);
       if (employeeRows.length === 0) throw new CreateFullEmployeeError();
 
