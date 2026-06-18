@@ -41,3 +41,22 @@ export interface FiscalPeriodFromDb {
   closed_at: string | null;
   created_at: string;
 }
+
+export interface FixedVsVariableAnalytic {
+  is_fixed: boolean;
+  expense_type: string;
+  total_amount: string;
+}
+
+export interface CategoryAnalytic {
+  category_id: string;
+  category_name: string;
+  account_code: string;
+  total_amount: string;
+}
+
+export interface SalesVsExpensesPoint {
+  period: string;
+  total_sales: string;
+  total_expenses: string;
+}

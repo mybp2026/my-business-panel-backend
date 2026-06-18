@@ -43,7 +43,13 @@ export class ExpenseController {
   @ApiOperation(getCategoriesByTenantDoc.operation)
   @ApiResponse(getCategoriesByTenantDoc.responses[200])
   @Get('categories/:tenantId')
-  getCategoriesByTenant(@Param('tenantId') tenantId: string) {
+  getCategoriesByTenant(
+    @Param('tenantId') tenantId: string,
+    @Query('search') search?: string,
+  ) {
+    if (search !== undefined && search.trim() !== '') {
+      return this.expenseService.searchCategories(tenantId, search.trim());
+    }
     return this.expenseService.getCategoriesByTenant(tenantId);
   }
 
@@ -82,6 +88,47 @@ export class ExpenseController {
   @Post('categories/provision/:tenantId')
   provisionCategories(@Param('tenantId') tenantId: string) {
     return this.expenseService.provisionCategories(tenantId);
+  }
+
+  // -------------------------------------------------------
+  // ANALYTICS
+  // -------------------------------------------------------
+
+  @Get('analytics/fixed-vs-variable/:tenantId')
+  getAnalyticsFixedVsVariable(
+    @Param('tenantId') tenantId: string,
+    @Query('start') start: string,
+    @Query('end') end: string,
+  ) {
+    return this.expenseService.getAnalyticsFixedVsVariable(tenantId, start, end);
+  }
+
+  @Get('analytics/fixed-breakdown/:tenantId')
+  getAnalyticsFixedBreakdown(
+    @Param('tenantId') tenantId: string,
+    @Query('start') start: string,
+    @Query('end') end: string,
+  ) {
+    return this.expenseService.getAnalyticsFixedBreakdown(tenantId, start, end);
+  }
+
+  @Get('analytics/variable-breakdown/:tenantId')
+  getAnalyticsVariableBreakdown(
+    @Param('tenantId') tenantId: string,
+    @Query('start') start: string,
+    @Query('end') end: string,
+  ) {
+    return this.expenseService.getAnalyticsVariableBreakdown(tenantId, start, end);
+  }
+
+  @Get('analytics/sales-vs-expenses/:tenantId')
+  getAnalyticsSalesVsExpenses(
+    @Param('tenantId') tenantId: string,
+    @Query('start') start: string,
+    @Query('end') end: string,
+    @Query('branchId') branchId?: string,
+  ) {
+    return this.expenseService.getAnalyticsSalesVsExpenses(tenantId, start, end, branchId);
   }
 
   // -------------------------------------------------------
