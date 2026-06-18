@@ -1,0 +1,29 @@
+import { Controller, Get, Query, UseGuards } from '@nestjs/common';
+import { ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
+import { ProfitabilityService } from './profitability.service';
+import { GetProfitabilityDto } from './dto/profitability.dto';
+import { AuthenticationGuard } from '@/common/guards/authentication.guard';
+import { Session } from '@/common/decorators/session.decorator';
+import { IUserSession } from '@/common/interfaces/user_session.interface';
+
+@ApiTags('Finances - Profitability')
+@UseGuards(AuthenticationGuard)
+@Controller('finances/profitability')
+export class ProfitabilityController {
+  constructor(private readonly profitabilityService: ProfitabilityService) {}
+
+  @ApiOperation({
+    summary:
+      'Componentes crudos de rentabilidad por sucursal y bucket de tiempo',
+  })
+  @ApiResponse({ status: 200, description: 'Datos crudos obtenidos' })
+  @ApiResponse({ status: 400, description: 'Intervalo invalido' })
+  @ApiResponse({ status: 401, description: 'No autenticado' })
+  @Get()
+  getProfitability(
+    @Query() dto: GetProfitabilityDto,
+    @Session() session: IUserSession,
+  ) {
+    return this.profitabilityService.getProfitability(dto.interval, session);
+  }
+}
