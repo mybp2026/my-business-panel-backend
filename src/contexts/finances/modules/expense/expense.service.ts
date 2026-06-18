@@ -15,9 +15,12 @@ import {
   UpdateExpenseCategoryDto,
 } from './dto/expense.dto';
 import {
+  CategoryAnalytic,
   ExpenseCategoryFromDb,
   ExpenseFromDb,
+  FixedVsVariableAnalytic,
   FiscalPeriodFromDb,
+  SalesVsExpensesPoint,
 } from './interface/expense.interface';
 import { AccountingJournalService } from '../accounting/accounting-journal.service';
 
@@ -43,6 +46,17 @@ export class ExpenseService {
     return rows;
   }
 
+  async searchCategories(
+    tenantId: string,
+    search: string,
+  ): Promise<ExpenseCategoryFromDb[]> {
+    const { rows } = await this.db.query(expenseQueries.searchCategoriesByTenant, [
+      tenantId,
+      search || null,
+    ]);
+    return rows;
+  }
+
   async getCategoryById(
     categoryId: string,
     tenantId: string,
@@ -59,7 +73,7 @@ export class ExpenseService {
     const { rows } = await this.db.query(expenseQueries.createCategory, [
       data.tenant_id,
       data.name,
-      data.account_code,
+      data.account_code ?? null,
       data.parent_category_id ?? null,
       data.is_fixed ?? true,
     ]);
@@ -194,6 +208,59 @@ export class ExpenseService {
       this.logger.error('Error creating expense:', error);
       throw new BadRequestException('Error al registrar el gasto');
     }
+  }
+
+  // -------------------------------------------------------
+  // ANALYTICS
+  // -------------------------------------------------------
+
+  async getAnalyticsFixedVsVariable(
+    tenantId: string,
+    start: string,
+    end: string,
+  ): Promise<FixedVsVariableAnalytic[]> {
+    const { rows } = await this.db.query(
+      expenseQueries.analyticsFixedVsVariable,
+      [tenantId, start, end],
+    );
+    return rows;
+  }
+
+  async getAnalyticsFixedBreakdown(
+    tenantId: string,
+    start: string,
+    end: string,
+  ): Promise<CategoryAnalytic[]> {
+    const { rows } = await this.db.query(
+      expenseQueries.analyticsFixedBreakdown,
+      [tenantId, start, end],
+    );
+    return rows;
+  }
+
+  async getAnalyticsVariableBreakdown(
+    tenantId: string,
+    start: string,
+    end: string,
+  ): Promise<CategoryAnalytic[]> {
+    const { rows } = await this.db.query(
+      expenseQueries.analyticsVariableBreakdown,
+      [tenantId, start, end],
+    );
+    return rows;
+  }
+
+  async getAnalyticsSalesVsExpenses(
+    tenantId: string,
+    start: string,
+    end: string,
+    branchId?: string | null,
+  ): Promise<SalesVsExpensesPoint[]> {
+    const { rows } = await this.db.query(
+      expenseQueries.analyticsSalesVsExpenses,
+      [tenantId, start, end, branchId ?? null],
+    );
+    return rows;
   }
 
   // -------------------------------------------------------

@@ -18,9 +18,9 @@ export class CreateExpenseCategoryDto {
   @IsString()
   name!: string;
 
-  @IsNotEmpty()
+  @IsOptional()
   @IsString()
-  account_code!: string;
+  account_code?: string;
 
   @IsOptional()
   @IsUUID()
