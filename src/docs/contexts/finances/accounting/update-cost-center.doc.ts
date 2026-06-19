@@ -11,7 +11,10 @@ export const updateCostCenterDoc = {
       schema: {
         type: 'object',
         properties: {
-          message: { type: 'string', example: 'Cost center updated successfully' },
+          message: {
+            type: 'string',
+            example: 'Cost center updated successfully',
+          },
         },
       },
     },

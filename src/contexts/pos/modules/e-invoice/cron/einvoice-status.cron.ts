@@ -64,7 +64,8 @@ export class EInvoiceStatusCron {
       check_attempts: attempts,
     } = invoice;
 
-    const credentials = await this.tenantHaciendaConfig.getCredentials(tenantId);
+    const credentials =
+      await this.tenantHaciendaConfig.getCredentials(tenantId);
     if (!credentials) {
       this.logger.warn(
         `No Hacienda credentials for tenant ${tenantId}, rescheduling invoice ${keyNumber}`,
@@ -82,14 +83,22 @@ export class EInvoiceStatusCron {
 
       if (status.indEstado === 'aceptado') {
         const enc = status.respuestaXml ? encrypt(status.respuestaXml) : null;
-        await this.db.query(eInvoice.updateHaciendaResponse, [invoiceId, enc, 2]);
+        await this.db.query(eInvoice.updateHaciendaResponse, [
+          invoiceId,
+          enc,
+          2,
+        ]);
         this.logger.log(`Invoice ${keyNumber} aceptado`);
         return;
       }
 
       if (status.indEstado === 'rechazado') {
         const enc = status.respuestaXml ? encrypt(status.respuestaXml) : null;
-        await this.db.query(eInvoice.updateHaciendaResponse, [invoiceId, enc, 3]);
+        await this.db.query(eInvoice.updateHaciendaResponse, [
+          invoiceId,
+          enc,
+          3,
+        ]);
         this.logger.log(`Invoice ${keyNumber} rechazado`);
         return;
       }

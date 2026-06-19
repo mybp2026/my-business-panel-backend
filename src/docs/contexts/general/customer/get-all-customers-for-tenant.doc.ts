@@ -14,8 +14,14 @@ export const getAllCustomersForTenantDoc = {
         items: {
           type: 'object',
           properties: {
-            tenant_customer_id: { type: 'string', example: '123e4567-e89b-12d3-a456-426614174000' },
-            tenant_id: { type: 'string', example: '123e4567-e89b-12d3-a456-426614174000' },
+            tenant_customer_id: {
+              type: 'string',
+              example: '123e4567-e89b-12d3-a456-426614174000',
+            },
+            tenant_id: {
+              type: 'string',
+              example: '123e4567-e89b-12d3-a456-426614174000',
+            },
             first_name: { type: 'string', example: 'María' },
             last_name: { type: 'string', example: 'López' },
             document_type_id: { type: 'number', example: 1 },

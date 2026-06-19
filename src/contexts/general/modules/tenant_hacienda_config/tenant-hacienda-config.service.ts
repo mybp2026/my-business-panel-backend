@@ -21,8 +21,12 @@ export class TenantHaciendaConfigService {
 
   constructor(@Inject(DATABASE) private readonly db: Database) {}
 
-  async getCredentials(tenantId: string): Promise<ITenantHaciendaCredentials | null> {
-    const { rows } = await this.db.query(tenantHaciendaConfig.getByTenantId, [tenantId]);
+  async getCredentials(
+    tenantId: string,
+  ): Promise<ITenantHaciendaCredentials | null> {
+    const { rows } = await this.db.query(tenantHaciendaConfig.getByTenantId, [
+      tenantId,
+    ]);
 
     if (!rows.length) return null;
 
@@ -41,7 +45,9 @@ export class TenantHaciendaConfigService {
     tenantId: string,
     input: ITenantHaciendaCredentialsInput,
   ): Promise<string> {
-    const existing = await this.db.query(tenantHaciendaConfig.getByTenantId, [tenantId]);
+    const existing = await this.db.query(tenantHaciendaConfig.getByTenantId, [
+      tenantId,
+    ]);
 
     if (existing.rows.length) {
       // Partial update: solo se sobreescriben los campos provistos.
@@ -57,7 +63,10 @@ export class TenantHaciendaConfigService {
       ];
       let idx = params.length + 1;
 
-      if (input.haciendaPassword !== undefined && input.haciendaPassword !== '') {
+      if (
+        input.haciendaPassword !== undefined &&
+        input.haciendaPassword !== ''
+      ) {
         setClauses.push(`hacienda_password = $${idx++}`);
         params.push(encrypt(input.haciendaPassword));
       }
@@ -90,11 +99,7 @@ export class TenantHaciendaConfigService {
     }
 
     // Create requires all fields.
-    if (
-      !input.haciendaPassword ||
-      !input.p12Base64 ||
-      !input.p12Password
-    ) {
+    if (!input.haciendaPassword || !input.p12Base64 || !input.p12Password) {
       throw new BadRequestException(
         'Para crear configuración nueva, contraseña ATV, P12 y contraseña P12 son requeridos',
       );

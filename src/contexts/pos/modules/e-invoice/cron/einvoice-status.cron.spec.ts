@@ -11,8 +11,7 @@ jest.mock('@/common/crypto/aes-256-gcm', () => ({
 // @crane-technologies/database returns a fresh object (with fresh toString/
 // valueOf function refs) on every property access, defeating Jest deep
 // equality.
-const queryKey = (key: string) =>
-  expect.objectContaining({ __queryKey: key });
+const queryKey = (key: string) => expect.objectContaining({ __queryKey: key });
 
 type DbMock = { query: jest.Mock };
 
@@ -147,7 +146,9 @@ describe('EInvoiceStatusCron', () => {
       await cron.checkPendingInvoices();
 
       expect(db.query).toHaveBeenCalledTimes(1);
-      expect(db.query).toHaveBeenCalledWith(queryKey('eInvoice.getDueInvoices'));
+      expect(db.query).toHaveBeenCalledWith(
+        queryKey('eInvoice.getDueInvoices'),
+      );
       expect(hacienda.checkInvoiceStatus).not.toHaveBeenCalled();
     });
 

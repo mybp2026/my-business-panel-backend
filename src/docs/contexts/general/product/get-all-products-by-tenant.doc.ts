@@ -2,7 +2,8 @@
 export const getAllProductsByTenantDoc = {
   operation: {
     summary: 'Get all products by tenant',
-    description: 'Returns all product variants belonging to a specific tenant. The tenantId must be a valid UUID.',
+    description:
+      'Returns all product variants belonging to a specific tenant. The tenantId must be a valid UUID.',
   },
 
   responses: {
@@ -14,8 +15,14 @@ export const getAllProductsByTenantDoc = {
         items: {
           type: 'object',
           properties: {
-            product_variant_id: { type: 'string', example: '123e4567-e89b-12d3-a456-426614174000' },
-            tenant_id: { type: 'string', example: '123e4567-e89b-12d3-a456-426614174000' },
+            product_variant_id: {
+              type: 'string',
+              example: '123e4567-e89b-12d3-a456-426614174000',
+            },
+            tenant_id: {
+              type: 'string',
+              example: '123e4567-e89b-12d3-a456-426614174000',
+            },
             sku: { type: 'string', example: 'SKU-001' },
             variant_name: { type: 'string', example: 'Red T-Shirt M' },
             cabys_code: { type: 'string', example: '9999999999999' },

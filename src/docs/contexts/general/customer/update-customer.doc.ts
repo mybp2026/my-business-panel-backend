@@ -2,14 +2,38 @@
 export const updateCustomerDoc = {
   dto: {
     first_name: { description: 'New first name. Optional.', example: 'María' },
-    last_name: { description: 'New last name. Optional.', example: 'López Gómez' },
-    document_type_id: { description: 'New document type ID. Optional.', example: 2 },
-    document_number: { description: 'New document number. Optional.', example: '2-9876-5432' },
-    economic_activity: { description: 'New economic activity. Optional.', example: 'Engineer' },
-    email: { description: 'New email address. Optional.', example: 'new.email@example.com' },
-    phone: { description: 'New phone number. Optional.', example: '+50688880000' },
-    birthdate: { description: 'New date of birth. Optional.', example: '1992-08-20' },
-    address: { description: 'New physical address. Optional.', example: 'Heredia, Costa Rica' },
+    last_name: {
+      description: 'New last name. Optional.',
+      example: 'López Gómez',
+    },
+    document_type_id: {
+      description: 'New document type ID. Optional.',
+      example: 2,
+    },
+    document_number: {
+      description: 'New document number. Optional.',
+      example: '2-9876-5432',
+    },
+    economic_activity: {
+      description: 'New economic activity. Optional.',
+      example: 'Engineer',
+    },
+    email: {
+      description: 'New email address. Optional.',
+      example: 'new.email@example.com',
+    },
+    phone: {
+      description: 'New phone number. Optional.',
+      example: '+50688880000',
+    },
+    birthdate: {
+      description: 'New date of birth. Optional.',
+      example: '1992-08-20',
+    },
+    address: {
+      description: 'New physical address. Optional.',
+      example: 'Heredia, Costa Rica',
+    },
     is_tenant: { description: 'Update tenant flag. Optional.', example: true },
   },
 
@@ -26,7 +50,10 @@ export const updateCustomerDoc = {
       schema: {
         type: 'object',
         properties: {
-          tenant_customer_id: { type: 'string', example: '123e4567-e89b-12d3-a456-426614174000' },
+          tenant_customer_id: {
+            type: 'string',
+            example: '123e4567-e89b-12d3-a456-426614174000',
+          },
           email: { type: 'string', example: 'new.email@example.com' },
         },
       },

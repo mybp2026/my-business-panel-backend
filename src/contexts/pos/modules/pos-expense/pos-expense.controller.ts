@@ -1,7 +1,19 @@
-import { Body, Controller, Get, Param, Patch, Post, UseGuards } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Get,
+  Param,
+  Patch,
+  Post,
+  UseGuards,
+} from '@nestjs/common';
 import { ApiTags } from '@nestjs/swagger';
 import { PosExpenseService } from './pos-expense.service';
-import { CreateExpenseDto, CreateExpenseTypeDto, UpdateExpenseStatusDto } from './dto/pos-expense.dto';
+import {
+  CreateExpenseDto,
+  CreateExpenseTypeDto,
+  UpdateExpenseStatusDto,
+} from './dto/pos-expense.dto';
 import { AuthenticationGuard } from '@/common/guards/authentication.guard';
 import { Session } from '@/common/decorators/session.decorator';
 import { IUserSession } from '@/common/interfaces/user_session.interface';
@@ -38,6 +50,11 @@ export class PosExpenseController {
     @Body() data: UpdateExpenseStatusDto,
     @Session() session: IUserSession,
   ) {
-    return this.service.updateStatus(expenseId, data.status, session, data.rejection_reason);
+    return this.service.updateStatus(
+      expenseId,
+      data.status,
+      session,
+      data.rejection_reason,
+    );
   }
 }

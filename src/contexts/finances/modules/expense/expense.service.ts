@@ -50,10 +50,10 @@ export class ExpenseService {
     tenantId: string,
     search: string,
   ): Promise<ExpenseCategoryFromDb[]> {
-    const { rows } = await this.db.query(expenseQueries.searchCategoriesByTenant, [
-      tenantId,
-      search || null,
-    ]);
+    const { rows } = await this.db.query(
+      expenseQueries.searchCategoriesByTenant,
+      [tenantId, search || null],
+    );
     return rows;
   }
 

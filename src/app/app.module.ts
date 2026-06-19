@@ -76,6 +76,7 @@ import { AccountingModule } from '@/contexts/finances/modules/accounting/account
 import { ExpenseModule } from '@/contexts/finances/modules/expense/expense.module';
 import { AccountsModule } from '@/contexts/finances/modules/accounts/accounts.module';
 import { ProfitabilityModule } from '@/contexts/finances/modules/profitability/profitability.module';
+import { CashFlowModule } from '@/contexts/finances/modules/cash-flow/cash-flow.module';
 
 @Module({
   imports: [
@@ -143,6 +144,7 @@ import { ProfitabilityModule } from '@/contexts/finances/modules/profitability/p
     ExpenseModule,
     AccountsModule,
     ProfitabilityModule,
+    CashFlowModule,
     ReportingModule,
   ],
   controllers: [AppController],

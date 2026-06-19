@@ -38,14 +38,18 @@ export class ClockingController {
     return this.clockingService.registerClockOut(data.employeeId);
   }
 
-  @ApiOperation({ summary: 'Registrar clock-in manual con fecha y hora específica' })
+  @ApiOperation({
+    summary: 'Registrar clock-in manual con fecha y hora específica',
+  })
   @ApiResponse({ status: 201, description: 'Clock-in manual registrado' })
   @Post('manual-in')
   async manualClockIn(@Body() dto: ManualClockInDto) {
     return this.clockingService.registerManualClockIn(dto);
   }
 
-  @ApiOperation({ summary: 'Registrar clock-out manual con fecha y hora específica' })
+  @ApiOperation({
+    summary: 'Registrar clock-out manual con fecha y hora específica',
+  })
   @ApiResponse({ status: 200, description: 'Clock-out manual registrado' })
   @Patch('manual-out')
   async manualClockOut(@Body() dto: ManualClockOutDto) {

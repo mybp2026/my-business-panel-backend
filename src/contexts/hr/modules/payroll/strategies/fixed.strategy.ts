@@ -1,6 +1,9 @@
-import { Injectable } from "@nestjs/common";
-import { CalculatorInput, IPayrollStrategy } from "../interface/payroll-strategy.interface";
-import Decimal from "decimal.js";
+import { Injectable } from '@nestjs/common';
+import {
+  CalculatorInput,
+  IPayrollStrategy,
+} from '../interface/payroll-strategy.interface';
+import Decimal from 'decimal.js';
 
 @Injectable()
 export class FixedStrategy implements IPayrollStrategy {

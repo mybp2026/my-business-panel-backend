@@ -12,7 +12,10 @@ import {
 } from '@nestjs/common';
 import { ApiTags } from '@nestjs/swagger';
 import { DutiesTypeService } from './duties-type.service';
-import { CreateDutiesTypeDto, UpdateDutiesTypeDto } from './dto/duties-type.dto';
+import {
+  CreateDutiesTypeDto,
+  UpdateDutiesTypeDto,
+} from './dto/duties-type.dto';
 import { AuthenticationGuard } from '@/common/guards/authentication.guard';
 
 @ApiTags('DutiesType')

@@ -6,17 +6,22 @@ import {
   Param,
   Patch,
   Post,
+  UseGuards,
 } from '@nestjs/common';
 import { ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
 import { ConceptService } from './concept.service';
 import { NewConceptDto } from './dto/newConcept.dto';
 import { UpdateConceptDto } from './dto/updateConcept.dto';
+import { AuthenticationGuard } from '@/common/guards/authentication.guard';
+import { Session } from '@/common/decorators/session.decorator';
+import { IUserSession } from '@/common/interfaces/user_session.interface';
 import {
   getConceptsByTenantDoc,
   createConceptDoc,
   updateConceptDoc,
   softDeleteConceptDoc,
   deleteConceptDoc,
+  provisionConceptsDoc,
 } from '@/docs/contexts/hr/concept';
 
 @ApiTags('Concept')
@@ -30,6 +35,15 @@ export class ConceptController {
   @Get(':tenantId')
   async getConceptsByTenant(@Param('tenantId') tenantId: string) {
     return this.conceptService.getAllConceptsByTenant(tenantId);
+  }
+
+  @ApiOperation(provisionConceptsDoc.operation)
+  @ApiResponse(provisionConceptsDoc.responses[201])
+  @ApiResponse(provisionConceptsDoc.responses[401])
+  @UseGuards(AuthenticationGuard)
+  @Post('provision')
+  async provisionDefaults(@Session() user: IUserSession) {
+    return this.conceptService.provisionDefaults(user.tenant_id);
   }
 
   @ApiOperation(createConceptDoc.operation)
@@ -61,6 +75,11 @@ export class ConceptController {
   @Patch(':conceptId/soft-delete')
   async softDeleteConcept(@Param('conceptId') conceptId: number) {
     return this.conceptService.softDeleteConcept(conceptId);
+  }
+
+  @Patch(':conceptId/reactivate')
+  async reactivateConcept(@Param('conceptId') conceptId: number) {
+    return this.conceptService.reactivateConcept(conceptId);
   }
 
   @ApiOperation(deleteConceptDoc.operation)

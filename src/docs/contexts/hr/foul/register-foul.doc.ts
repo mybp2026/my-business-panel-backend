@@ -39,7 +39,10 @@ export const registerFoulDoc = {
         type: 'object',
         properties: {
           message: { type: 'string', example: 'Foul registered successfully' },
-          foul_id: { type: 'string', example: 'a0b1c2d3-e4f5-6789-abcd-012345678901' },
+          foul_id: {
+            type: 'string',
+            example: 'a0b1c2d3-e4f5-6789-abcd-012345678901',
+          },
         },
       },
     },

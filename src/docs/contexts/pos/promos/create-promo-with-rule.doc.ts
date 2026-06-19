@@ -38,7 +38,8 @@ export const createPromoWithRuleDoc = {
       example: true,
     },
     rules: {
-      description: 'Reglas de la promoción según su tipo (descuento, cantidad mínima, etc.).',
+      description:
+        'Reglas de la promoción según su tipo (descuento, cantidad mínima, etc.).',
       example: {
         buy_quantity: 1,
         get_quantity: 1,
@@ -58,7 +59,10 @@ export const createPromoWithRuleDoc = {
       schema: {
         type: 'object',
         properties: {
-          message: { type: 'string', example: 'Promotion and rule with id: abc123 created successfully' },
+          message: {
+            type: 'string',
+            example: 'Promotion and rule with id: abc123 created successfully',
+          },
         },
       },
     },

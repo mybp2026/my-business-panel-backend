@@ -4,6 +4,6 @@ import { PaysheetController } from './paysheet.controller';
 
 @Module({
   providers: [PaysheetService],
-  controllers: [PaysheetController]
+  controllers: [PaysheetController],
 })
 export class PaysheetModule {}

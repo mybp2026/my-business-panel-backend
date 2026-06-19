@@ -2,7 +2,10 @@ import { Body, Controller, Get, Param, Patch } from '@nestjs/common';
 import { ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
 import { ContractService } from './contract.service';
 import { ContractDto } from '../employee/dto/newEmployeeDto.dto';
-import { getContractByIdDoc, updateContractDoc } from '@/docs/contexts/hr/contract';
+import {
+  getContractByIdDoc,
+  updateContractDoc,
+} from '@/docs/contexts/hr/contract';
 
 @ApiTags('Contract')
 @Controller('contract')

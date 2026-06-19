@@ -219,7 +219,9 @@ export class TenantService {
       const paymentScheduleId: number | undefined =
         scheduleRows[0]?.payment_schedule_id;
       if (!paymentScheduleId)
-        throw new Error('No payment schedule found in hr_schema.payment_schedule');
+        throw new Error(
+          'No payment schedule found in hr_schema.payment_schedule',
+        );
 
       const { rows: employeeRows } = await txn.query(employee.full, [
         today, // start_date
@@ -322,10 +324,7 @@ export class TenantService {
           },
         });
 
-        const priceId =
-          this.tiers[
-            subscription.plan.toLowerCase() as keyof typeof this.tiers
-          ];
+        const priceId = this.tiers[subscription.plan.toLowerCase()];
 
         const stripeSubscription = await this.stripe.subscriptions.create({
           customer: tenantStripeId,
@@ -349,9 +348,7 @@ export class TenantService {
 
         clientSecret = invoice.confirmation_secret?.client_secret ?? null;
         if (!clientSecret)
-          throw new Error(
-            'Could not obtain payment client_secret from Stripe',
-          );
+          throw new Error('Could not obtain payment client_secret from Stripe');
 
         // ── 6. Registrar pago y suscripción en BD (misma transacción) ─────
         await txn.query(tenant.updateStripeId, [tenantStripeId, tenantId]);

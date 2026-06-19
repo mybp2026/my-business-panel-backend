@@ -4,6 +4,6 @@ import { SuspentionService } from './suspention.service';
 
 @Module({
   controllers: [SuspentionController],
-  providers: [SuspentionService]
+  providers: [SuspentionService],
 })
 export class SuspentionModule {}

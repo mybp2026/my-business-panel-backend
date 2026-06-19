@@ -27,7 +27,8 @@ export const saveHaciendaConfigDoc = {
   },
   operation: {
     summary: 'Guardar configuración de Hacienda',
-    description: 'Crea o actualiza las credenciales de Hacienda para el tenant. Requiere nivel de acceso 4.',
+    description:
+      'Crea o actualiza las credenciales de Hacienda para el tenant. Requiere nivel de acceso 4.',
   },
   responses: {
     201: { status: 201, description: 'Configuración guardada exitosamente' },

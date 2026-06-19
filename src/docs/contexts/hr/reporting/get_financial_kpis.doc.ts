@@ -2,7 +2,8 @@
 export const getFinancialKpisDoc = {
   operation: {
     summary: 'KPIs financieros',
-    description: 'Indicadores clave del período: márgenes, gastos y crecimiento.',
+    description:
+      'Indicadores clave del período: márgenes, gastos y crecimiento.',
   },
 
   responses: {

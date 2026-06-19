@@ -11,7 +11,10 @@ export const getCostCenterByIdDoc = {
       schema: {
         type: 'object',
         properties: {
-          cost_center_id: { type: 'string', example: 'b2c3d4e5-f678-90ab-cdef-1234567890ab' },
+          cost_center_id: {
+            type: 'string',
+            example: 'b2c3d4e5-f678-90ab-cdef-1234567890ab',
+          },
           name: { type: 'string', example: 'Ventas' },
         },
       },

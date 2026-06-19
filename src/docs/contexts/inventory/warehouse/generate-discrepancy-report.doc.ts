@@ -11,7 +11,10 @@ export const generateDiscrepancyReportDoc = {
       schema: {
         type: 'object',
         properties: {
-          report_id: { type: 'string', example: 'c3d4e5f6-7890-abcd-ef12-34567890abcd' },
+          report_id: {
+            type: 'string',
+            example: 'c3d4e5f6-7890-abcd-ef12-34567890abcd',
+          },
         },
       },
     },

@@ -6,7 +6,8 @@ export const createSupplierDoc = {
       example: 'Distribuidora Nacional S.A.',
     },
     supplier_contact_info: {
-      description: 'Información de contacto del proveedor (teléfono, correo, etc.).',
+      description:
+        'Información de contacto del proveedor (teléfono, correo, etc.).',
       example: 'contacto@distribuidora.com | +506-0000-0000',
     },
     supplier_address: {
@@ -21,7 +22,8 @@ export const createSupplierDoc = {
 
   operation: {
     summary: 'Crear proveedor',
-    description: 'Registra un nuevo proveedor para el tenant del usuario autenticado.',
+    description:
+      'Registra un nuevo proveedor para el tenant del usuario autenticado.',
   },
 
   responses: {
@@ -31,11 +33,26 @@ export const createSupplierDoc = {
       schema: {
         type: 'object',
         properties: {
-          supplier_id: { type: 'string', example: '123e4567-e89b-12d3-a456-426614174000' },
-          supplier_name: { type: 'string', example: 'Distribuidora Nacional S.A.' },
-          supplier_contact_info: { type: 'string', example: 'contacto@distribuidora.com | +506-0000-0000' },
-          supplier_address: { type: 'string', example: 'Calle 5, San José, Costa Rica' },
-          supplier_notes: { type: 'string', example: 'Entrega los martes y jueves' },
+          supplier_id: {
+            type: 'string',
+            example: '123e4567-e89b-12d3-a456-426614174000',
+          },
+          supplier_name: {
+            type: 'string',
+            example: 'Distribuidora Nacional S.A.',
+          },
+          supplier_contact_info: {
+            type: 'string',
+            example: 'contacto@distribuidora.com | +506-0000-0000',
+          },
+          supplier_address: {
+            type: 'string',
+            example: 'Calle 5, San José, Costa Rica',
+          },
+          supplier_notes: {
+            type: 'string',
+            example: 'Entrega los martes y jueves',
+          },
         },
       },
     },

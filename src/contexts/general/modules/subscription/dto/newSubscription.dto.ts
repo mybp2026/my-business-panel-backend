@@ -1,4 +1,10 @@
-import { IsDateString, IsNotEmpty, IsNumber, IsString, IsUUID } from 'class-validator';
+import {
+  IsDateString,
+  IsNotEmpty,
+  IsNumber,
+  IsString,
+  IsUUID,
+} from 'class-validator';
 import { ApiProperty } from '@nestjs/swagger';
 import { createSubscriptionDoc } from '@/docs/contexts/general/subscription';
 

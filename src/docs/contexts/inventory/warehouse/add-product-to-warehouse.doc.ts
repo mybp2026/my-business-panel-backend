@@ -30,7 +30,10 @@ export const addProductToWarehouseDoc = {
       schema: {
         type: 'object',
         properties: {
-          message: { type: 'string', example: 'Product added to warehouse successfully' },
+          message: {
+            type: 'string',
+            example: 'Product added to warehouse successfully',
+          },
         },
       },
     },

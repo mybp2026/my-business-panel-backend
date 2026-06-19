@@ -1,4 +1,9 @@
-import { BadRequestException, Inject, Injectable, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  Inject,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import Database from '@crane-technologies/database';
 import { DATABASE } from '@/contexts/general/modules/db/db.provider';
 import { generalQueries } from '@general/general.queries';
@@ -24,7 +29,9 @@ export class ExchangeRateService {
 
   async getLatestForPair(fromCurrencyId: number, toCurrencyId: number) {
     if (fromCurrencyId === toCurrencyId) {
-      throw new BadRequestException('from_currency_id must differ from to_currency_id');
+      throw new BadRequestException(
+        'from_currency_id must differ from to_currency_id',
+      );
     }
     const result = await this.db.query(exchangeRate.latestForPair, [
       fromCurrencyId,
@@ -35,7 +42,9 @@ export class ExchangeRateService {
 
   async create(dto: CreateExchangeRateDto) {
     if (dto.from_currency_id === dto.to_currency_id) {
-      throw new BadRequestException('from_currency_id must differ from to_currency_id');
+      throw new BadRequestException(
+        'from_currency_id must differ from to_currency_id',
+      );
     }
     const result = await this.db.query(exchangeRate.upsert, [
       dto.from_currency_id,

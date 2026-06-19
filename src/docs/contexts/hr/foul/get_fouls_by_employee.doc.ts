@@ -13,10 +13,16 @@ export const getFoulsByEmployeeDoc = {
         items: {
           type: 'object',
           properties: {
-            foul_id: { type: 'string', example: 'a0b1c2d3-e4f5-6789-abcd-012345678901' },
+            foul_id: {
+              type: 'string',
+              example: 'a0b1c2d3-e4f5-6789-abcd-012345678901',
+            },
             foul_date: { type: 'string', example: '2024-03-18' },
             foul_hour: { type: 'string', example: '08:45' },
-            description: { type: 'string', example: 'El empleado no se presentó a laborar sin previo aviso' },
+            description: {
+              type: 'string',
+              example: 'El empleado no se presentó a laborar sin previo aviso',
+            },
           },
         },
       },

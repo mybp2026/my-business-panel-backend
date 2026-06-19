@@ -2,7 +2,8 @@
 export const getMovementsByDetailDoc = {
   operation: {
     summary: 'Get payroll movements by detail',
-    description: 'Returns the payroll movements linked to a specific payroll detail line.',
+    description:
+      'Returns the payroll movements linked to a specific payroll detail line.',
   },
 
   responses: {

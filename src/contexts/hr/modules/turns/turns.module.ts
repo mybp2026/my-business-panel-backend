@@ -4,6 +4,6 @@ import { TurnsController } from './turns.controller';
 
 @Module({
   providers: [TurnsService],
-  controllers: [TurnsController]
+  controllers: [TurnsController],
 })
 export class TurnsModule {}

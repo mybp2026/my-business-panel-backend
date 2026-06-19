@@ -21,7 +21,8 @@ export const processPayrollDoc = {
 
   operation: {
     summary: 'Process payroll for an employee',
-    description: 'Runs the payroll calculation engine for a specific employee and period, applying all applicable concepts.',
+    description:
+      'Runs the payroll calculation engine for a specific employee and period, applying all applicable concepts.',
   },
 
   responses: {
@@ -31,7 +32,10 @@ export const processPayrollDoc = {
       schema: {
         type: 'object',
         properties: {
-          message: { type: 'string', example: 'Payroll processed successfully' },
+          message: {
+            type: 'string',
+            example: 'Payroll processed successfully',
+          },
         },
       },
     },

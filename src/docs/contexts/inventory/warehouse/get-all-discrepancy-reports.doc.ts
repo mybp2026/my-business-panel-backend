@@ -13,8 +13,14 @@ export const getAllDiscrepancyReportsDoc = {
         items: {
           type: 'object',
           properties: {
-            report_id: { type: 'string', example: 'c3d4e5f6-7890-abcd-ef12-34567890abcd' },
-            warehouse_id: { type: 'string', example: 'b9d4e17c-3a82-4f5c-c0d7-1b6e9f3a2d85' },
+            report_id: {
+              type: 'string',
+              example: 'c3d4e5f6-7890-abcd-ef12-34567890abcd',
+            },
+            warehouse_id: {
+              type: 'string',
+              example: 'b9d4e17c-3a82-4f5c-c0d7-1b6e9f3a2d85',
+            },
           },
         },
       },

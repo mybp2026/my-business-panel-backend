@@ -86,12 +86,19 @@ export const createFullSaleDoc = {
   responses: {
     201: {
       status: 201,
-      description: 'Venta creada. Si se solicitó factura electrónica y hubo un problema generándola, se incluye eInvoiceWarning.',
+      description:
+        'Venta creada. Si se solicitó factura electrónica y hubo un problema generándola, se incluye eInvoiceWarning.',
       schema: {
         type: 'object',
         properties: {
-          saleId: { type: 'string', example: 'f6a1b2c3-d4e5-6789-fabc-345678901234' },
-          eInvoiceWarning: { type: 'string', example: 'Error generating e-invoice' },
+          saleId: {
+            type: 'string',
+            example: 'f6a1b2c3-d4e5-6789-fabc-345678901234',
+          },
+          eInvoiceWarning: {
+            type: 'string',
+            example: 'Error generating e-invoice',
+          },
         },
       },
     },

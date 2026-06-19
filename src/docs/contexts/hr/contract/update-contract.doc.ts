@@ -2,7 +2,8 @@
 export const updateContractDoc = {
   operation: {
     summary: 'Update contract terms',
-    description: 'Updates the terms of an existing employee contract, such as salary, dates, or turn.',
+    description:
+      'Updates the terms of an existing employee contract, such as salary, dates, or turn.',
   },
 
   responses: {

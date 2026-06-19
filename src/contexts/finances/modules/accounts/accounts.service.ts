@@ -105,7 +105,8 @@ export class AccountsService {
       conditions.push(`pap.account_payable_status = $${values.length}`);
     }
 
-    const sortCol = AP_SORT_COLS[query.sort_by ?? ''] ?? AP_SORT_COLS['due_date'];
+    const sortCol =
+      AP_SORT_COLS[query.sort_by ?? ''] ?? AP_SORT_COLS['due_date'];
     const sortDir = query.sort_dir === 'asc' ? 'ASC' : 'DESC';
 
     const sql = `
@@ -136,7 +137,8 @@ export class AccountsService {
       conditions.push(`sar.account_receivable_status = $${values.length}`);
     }
 
-    const sortCol = AR_SORT_COLS[query.sort_by ?? ''] ?? AR_SORT_COLS['due_date'];
+    const sortCol =
+      AR_SORT_COLS[query.sort_by ?? ''] ?? AR_SORT_COLS['due_date'];
     const sortDir = query.sort_dir === 'asc' ? 'ASC' : 'DESC';
 
     const sql = `
@@ -150,29 +152,22 @@ export class AccountsService {
     return result.rows;
   }
 
-  async getPayablePayments(
-    payableId: string,
-    session: IUserSession,
-  ) {
+  async getPayablePayments(payableId: string, session: IUserSession) {
     const isSuperuser =
       this.stateService.getRole(session.role_id).role_hierarchy ===
       SUPERUSER_HIERARCHY;
 
     const { payableDetail } = accountsOverviewQueries;
 
-    const accessResult = await this.db.query(
-      payableDetail.getAccess,
-      [payableId],
-    );
+    const accessResult = await this.db.query(payableDetail.getAccess, [
+      payableId,
+    ]);
 
     if (!accessResult.rows[0]) {
       throw new NotFoundException('Cuenta por pagar no encontrada');
     }
 
-    if (
-      !isSuperuser &&
-      accessResult.rows[0].tenant_id !== session.tenant_id
-    ) {
+    if (!isSuperuser && accessResult.rows[0].tenant_id !== session.tenant_id) {
       throw new ForbiddenException('Sin acceso a esta cuenta');
     }
 
@@ -180,36 +175,28 @@ export class AccountsService {
     return result.rows;
   }
 
-  async getReceivableCollections(
-    receivableId: string,
-    session: IUserSession,
-  ) {
+  async getReceivableCollections(receivableId: string, session: IUserSession) {
     const isSuperuser =
       this.stateService.getRole(session.role_id).role_hierarchy ===
       SUPERUSER_HIERARCHY;
 
     const { receivableDetail } = accountsOverviewQueries;
 
-    const accessResult = await this.db.query(
-      receivableDetail.getAccess,
-      [receivableId],
-    );
+    const accessResult = await this.db.query(receivableDetail.getAccess, [
+      receivableId,
+    ]);
 
     if (!accessResult.rows[0]) {
       throw new NotFoundException('Cuenta por cobrar no encontrada');
     }
 
-    if (
-      !isSuperuser &&
-      accessResult.rows[0].tenant_id !== session.tenant_id
-    ) {
+    if (!isSuperuser && accessResult.rows[0].tenant_id !== session.tenant_id) {
       throw new ForbiddenException('Sin acceso a esta cuenta');
     }
 
-    const result = await this.db.query(
-      receivableDetail.getCollections,
-      [receivableId],
-    );
+    const result = await this.db.query(receivableDetail.getCollections, [
+      receivableId,
+    ]);
     return result.rows;
   }
 }

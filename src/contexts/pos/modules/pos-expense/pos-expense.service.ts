@@ -10,7 +10,9 @@ export class PosExpenseService {
   constructor(@Inject(DATABASE) private readonly db: Database) {}
 
   async listTypesByTenant(tenantId: string) {
-    const { rows } = await this.db.query(posExpenseQueries.listTypesByTenant, [tenantId]);
+    const { rows } = await this.db.query(posExpenseQueries.listTypesByTenant, [
+      tenantId,
+    ]);
     return rows;
   }
 
@@ -24,7 +26,9 @@ export class PosExpenseService {
   }
 
   async listByBranch(branchId: string) {
-    const { rows } = await this.db.query(posExpenseQueries.listByBranch, [branchId]);
+    const { rows } = await this.db.query(posExpenseQueries.listByBranch, [
+      branchId,
+    ]);
     return rows;
   }
 
@@ -37,8 +41,11 @@ export class PosExpenseService {
       session.user_id,
       status,
     ]);
-    
-    const { rows: fullRecord } = await this.db.query(posExpenseQueries.getById, [rows[0].expense_id]);
+
+    const { rows: fullRecord } = await this.db.query(
+      posExpenseQueries.getById,
+      [rows[0].expense_id],
+    );
     return fullRecord[0];
   }
 
@@ -75,7 +82,10 @@ export class PosExpenseService {
       rejectionReason ?? null,
     ]);
 
-    const { rows: fullRecord } = await this.db.query(posExpenseQueries.getById, [expenseId]);
+    const { rows: fullRecord } = await this.db.query(
+      posExpenseQueries.getById,
+      [expenseId],
+    );
     return fullRecord[0];
   }
 }
