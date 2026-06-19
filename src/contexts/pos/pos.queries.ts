@@ -686,6 +686,41 @@ export const posQueryDefs = {
         AND CURRENT_DATE BETWEEN p.promotion_start_date AND p.promotion_end_date
       ORDER BY p.created_at DESC
     `,
+    getAnalytics: `
+      WITH filtered_items AS (
+        SELECT
+          si.promotion_id,
+          si.sale_id,
+          si.discount_applied,
+          si.total_price,
+          s.currency_id
+        FROM pos_schema.sale_item si
+        INNER JOIN pos_schema.sale s ON s.sale_id = si.sale_id
+        WHERE s.is_completed = TRUE
+          AND s.sale_date >= CURRENT_TIMESTAMP - $2::interval
+          AND ($4::uuid IS NULL OR s.branch_id = $4::uuid)
+          AND si.promotion_id IS NOT NULL
+      )
+      SELECT
+        p.promotion_id,
+        p.promotion_name,
+        p.promotion_code,
+        p.is_active,
+        pt.type_name AS promotion_type,
+        COALESCE(fi.currency_id, 1) AS currency_id,
+        COUNT(DISTINCT fi.sale_id)::text AS sale_count,
+        COALESCE(SUM(fi.discount_applied), 0)::text AS total_discount,
+        COALESCE(SUM(fi.total_price), 0)::text AS total_revenue
+      FROM pos_schema.promotion p
+      INNER JOIN pos_schema.promotion_type pt ON pt.promotion_type_id = p.promotion_type_id
+      LEFT JOIN filtered_items fi ON fi.promotion_id = p.promotion_id
+      WHERE p.tenant_id = $1
+        AND ($3::boolean IS NULL OR p.is_active = $3)
+      GROUP BY
+        p.promotion_id, p.promotion_name, p.promotion_code, p.is_active, pt.type_name,
+        COALESCE(fi.currency_id, 1)
+      ORDER BY SUM(fi.discount_applied) DESC NULLS LAST
+    `,
   },
 
   promotionTypes: {

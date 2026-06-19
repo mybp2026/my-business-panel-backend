@@ -11,7 +11,10 @@ export const deleteWarehouseDoc = {
       schema: {
         type: 'object',
         properties: {
-          message: { type: 'string', example: 'Warehouse deleted successfully' },
+          message: {
+            type: 'string',
+            example: 'Warehouse deleted successfully',
+          },
         },
       },
     },
@@ -31,7 +34,10 @@ export const deleteWarehouseDoc = {
       schema: {
         type: 'object',
         properties: {
-          error: { type: 'string', example: 'Warehouse not found for this tenant' },
+          error: {
+            type: 'string',
+            example: 'Warehouse not found for this tenant',
+          },
         },
       },
     },

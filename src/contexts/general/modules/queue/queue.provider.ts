@@ -13,7 +13,8 @@ export const queueProvider: Provider = {
 
     // For external providers like Upstash/RedisCloud, TLS is often required.
     // We can add a simple check or an env var REDIS_TLS=true
-    const tls = configService.get<string>('REDIS_TLS') === 'true' ? {} : undefined;
+    const tls =
+      configService.get<string>('REDIS_TLS') === 'true' ? {} : undefined;
 
     return new BullMQAdapter({ host, port, password, tls });
   },

@@ -13,7 +13,10 @@ export const getTenantPromosDoc = {
         items: {
           type: 'object',
           properties: {
-            promotion_id: { type: 'string', example: 'b3c4d5e6-f7a8-9012-bcde-f23456789012' },
+            promotion_id: {
+              type: 'string',
+              example: 'b3c4d5e6-f7a8-9012-bcde-f23456789012',
+            },
             promotion_name: { type: 'string', example: '2x1 en bebidas' },
             promotion_code: { type: 'string', example: 'BEBE2X1' },
             is_active: { type: 'boolean', example: true },

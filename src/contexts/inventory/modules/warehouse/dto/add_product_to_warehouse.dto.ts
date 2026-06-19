@@ -1,17 +1,23 @@
-import { IsUUID, IsNumber, IsPositive, IsDateString, IsOptional } from 'class-validator';
+import {
+  IsUUID,
+  IsNumber,
+  IsPositive,
+  IsDateString,
+  IsOptional,
+} from 'class-validator';
 
 export class AddProductToWarehouseDto {
-    @IsUUID()
-    warehouse_id!: string;
-    
-    @IsUUID()
-    product_id!: string;
+  @IsUUID()
+  warehouse_id!: string;
 
-    @IsNumber()
-    @IsPositive()
-    amount!: number;
+  @IsUUID()
+  product_id!: string;
 
-    @IsOptional()
-    @IsDateString()
-    expiration_date?: string;
+  @IsNumber()
+  @IsPositive()
+  amount!: number;
+
+  @IsOptional()
+  @IsDateString()
+  expiration_date?: string;
 }

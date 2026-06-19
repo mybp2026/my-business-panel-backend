@@ -299,6 +299,18 @@ export const hrQueryDefs = {
         detail_id, concept_id, base_amount, calculated_amount, description
       ) VALUES ($1, $2, $3, $4, $5);
     `,
+    insertPayrollExpense: `
+      INSERT INTO accounting_schema.expense
+        (tenant_id, branch_id, category_id, description, amount, tax_amount,
+         total_amount, currency_id, expense_date, payment_method, reference_number)
+      SELECT
+        $1::uuid, $2::uuid, ec.category_id,
+        'Nómina ' || to_char($5::date, 'DD/MM/YYYY') || ' al ' || to_char($6::date, 'DD/MM/YYYY'),
+        $3::numeric, 0, $3::numeric, 1, NOW()::date, 'TRANSFER', $4
+      FROM accounting_schema.expense_category ec
+      WHERE ec.tenant_id = $1::uuid AND ec.account_code = '5-1-001'
+      LIMIT 1
+    `,
     insertPaysheet: `
       INSERT INTO hr_schema.paysheet (
         tenant_id, 
@@ -392,8 +404,19 @@ export const hrQueryDefs = {
 
   payrollMovement: {
     getMovementsByPaysheet: `
-      SELECT * FROM hr_schema.payroll_movement pm
+      SELECT
+        pm.movement_id,
+        pm.detail_id,
+        pm.concept_id,
+        pm.base_amount,
+        pm.calculated_amount,
+        pm.description,
+        pd.employee_id,
+        pc.name AS concept_name,
+        pc.type AS concept_type
+      FROM hr_schema.payroll_movement pm
       INNER JOIN hr_schema.paysheet_detail pd USING(detail_id)
+      INNER JOIN hr_schema.payroll_concept pc USING(concept_id)
       WHERE pd.paysheet_id = $1
     `,
     getMovementsByDetail: `
@@ -437,8 +460,20 @@ export const hrQueryDefs = {
     `,
   },
   concept: {
+    getAllByTenant: `
+      SELECT
+        concept_id, name, type, calculation_method,
+        is_taxable, is_active, base_value, code
+      FROM hr_schema.payroll_concept
+      WHERE tenant_id = $1
+      ORDER BY type DESC, name ASC
+    `,
     getConceptById: `
       SELECT * FROM hr_schema.payroll_concept WHERE concept_id = $1 LIMIT 1
+    `,
+    reactivate: `
+      UPDATE hr_schema.payroll_concept SET is_active = true
+      WHERE concept_id = $1 RETURNING concept_id
     `,
     createConcept: `
       INSERT INTO hr_schema.payroll_concept (
@@ -471,6 +506,9 @@ export const hrQueryDefs = {
     `,
     deleteConcept: `
       DELETE FROM hr_schema.payroll_concept WHERE concept_id = $1 RETURNING concept_id;
+    `,
+    provisionDefaults: `
+      SELECT hr_schema.provision_tenant_payroll_concepts($1::uuid) AS created;
     `,
   },
 

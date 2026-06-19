@@ -13,8 +13,14 @@ export const getSuspentionByEmployeeDoc = {
       schema: {
         type: 'object',
         properties: {
-          suspention_id: { type: 'string', example: 'c4d5e6f7-a8b9-0123-defa-456789012345' },
-          reason: { type: 'string', example: 'Incumplimiento del reglamento interno de la empresa' },
+          suspention_id: {
+            type: 'string',
+            example: 'c4d5e6f7-a8b9-0123-defa-456789012345',
+          },
+          reason: {
+            type: 'string',
+            example: 'Incumplimiento del reglamento interno de la empresa',
+          },
           suspention_start: { type: 'string', example: '2024-04-15' },
           suspention_end: { type: 'string', example: '2024-04-17' },
           is_active: { type: 'boolean', example: false },

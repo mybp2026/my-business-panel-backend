@@ -1,4 +1,10 @@
-import { IsString, IsInt, IsOptional, IsBoolean, MaxLength } from 'class-validator';
+import {
+  IsString,
+  IsInt,
+  IsOptional,
+  IsBoolean,
+  MaxLength,
+} from 'class-validator';
 
 export class CreateAccountDto {
   @IsString()

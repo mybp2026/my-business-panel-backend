@@ -1,4 +1,4 @@
-import { Type } from "class-transformer";
+import { Type } from 'class-transformer';
 import {
   IsArray,
   IsBoolean,
@@ -9,7 +9,7 @@ import {
   IsString,
   IsUUID,
   ValidateNested,
-} from "class-validator";
+} from 'class-validator';
 
 export class PromotionTargetDto {
   @IsIn(['VARIANT', 'GROUP'])

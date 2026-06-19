@@ -2,7 +2,8 @@
 export const createSuppliersBulkDoc = {
   operation: {
     summary: 'Crear proveedores en lote',
-    description: 'Crea multiples proveedores a la vez para el tenant del usuario autenticado.',
+    description:
+      'Crea multiples proveedores a la vez para el tenant del usuario autenticado.',
   },
 
   responses: {
@@ -19,8 +20,14 @@ export const createSuppliersBulkDoc = {
             items: {
               type: 'object',
               properties: {
-                supplier_id: { type: 'string', example: '123e4567-e89b-12d3-a456-426614174000' },
-                supplier_name: { type: 'string', example: 'Distribuidora Nacional S.A.' },
+                supplier_id: {
+                  type: 'string',
+                  example: '123e4567-e89b-12d3-a456-426614174000',
+                },
+                supplier_name: {
+                  type: 'string',
+                  example: 'Distribuidora Nacional S.A.',
+                },
               },
             },
           },

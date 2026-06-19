@@ -18,12 +18,7 @@ export class TenantAttributeService {
     return result.rows;
   }
 
-  async searchUnified(
-    tenantId: string,
-    query: string,
-    page = 1,
-    limit = 100,
-  ) {
+  async searchUnified(tenantId: string, query: string, page = 1, limit = 100) {
     const offset = (page - 1) * limit;
     const term = (query ?? '').trim();
     const [data, count] = await Promise.all([

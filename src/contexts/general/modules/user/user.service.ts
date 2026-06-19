@@ -38,7 +38,10 @@ export class UserService {
     }
   }
 
-  async getUserById(userId: string, full?: boolean): Promise<IUserResult | null> {
+  async getUserById(
+    userId: string,
+    full?: boolean,
+  ): Promise<IUserResult | null> {
     if (!full) {
       const fetchedData = await this.db.query(users.byId, [userId]);
       if (fetchedData.rows.length === 0) return null;
@@ -49,19 +52,51 @@ export class UserService {
     if (fetchedData.rows.length === 0) return null;
 
     const {
-      employee_id, first_name, last_name, doc_number, phone, employee_email,
-      is_active, payment_schedule_id, branch_id, contract_id, start_date,
-      end_date, hours, base_salary, duties, duties_type_id, turn_type, turn_id,
+      employee_id,
+      first_name,
+      last_name,
+      doc_number,
+      phone,
+      employee_email,
+      is_active,
+      payment_schedule_id,
+      branch_id,
+      contract_id,
+      start_date,
+      end_date,
+      hours,
+      base_salary,
+      duties,
+      duties_type_id,
+      turn_type,
+      turn_id,
       ...userFields
     } = fetchedData.rows[0];
 
     return {
       ...userFields,
-      employee: employee_id ? {
-        employee_id, first_name, last_name, doc_number, phone, employee_email,
-        is_active, payment_schedule_id, branch_id, contract_id, start_date,
-        end_date, hours, base_salary, duties, duties_type_id, turn_type, turn_id,
-      } : null,
+      employee: employee_id
+        ? {
+            employee_id,
+            first_name,
+            last_name,
+            doc_number,
+            phone,
+            employee_email,
+            is_active,
+            payment_schedule_id,
+            branch_id,
+            contract_id,
+            start_date,
+            end_date,
+            hours,
+            base_salary,
+            duties,
+            duties_type_id,
+            turn_type,
+            turn_id,
+          }
+        : null,
     };
   }
 
@@ -202,7 +237,10 @@ export class UserService {
       const userIds = (userResult.fields || []).map((row: any) => row.user_id);
 
       const contractRows = createUserDto.map((dto) => {
-        if (!dto.employeeInfo) throw new Error(`employeeInfo is required for bulk user creation (email: ${dto.email})`);
+        if (!dto.employeeInfo)
+          throw new Error(
+            `employeeInfo is required for bulk user creation (email: ${dto.email})`,
+          );
         const {
           start_date,
           end_date,

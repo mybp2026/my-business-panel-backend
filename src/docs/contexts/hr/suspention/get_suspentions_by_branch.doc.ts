@@ -15,9 +15,19 @@ export const getSuspentionsByBranchDoc = {
         items: {
           type: 'object',
           properties: {
-            suspention_id: { type: 'string', example: 'c4d5e6f7-a8b9-0123-defa-456789012345' },
-            employee_id: { type: 'string', example: '3c4d5e6f-7a8b-9012-cdef-345678901234' },
-            reason: { type: 'string', example: 'Falta grave — comportamiento inapropiado con un cliente' },
+            suspention_id: {
+              type: 'string',
+              example: 'c4d5e6f7-a8b9-0123-defa-456789012345',
+            },
+            employee_id: {
+              type: 'string',
+              example: '3c4d5e6f-7a8b-9012-cdef-345678901234',
+            },
+            reason: {
+              type: 'string',
+              example:
+                'Falta grave — comportamiento inapropiado con un cliente',
+            },
             suspention_start: { type: 'string', example: '2024-04-15' },
             suspention_end: { type: 'string', example: '2024-04-17' },
           },

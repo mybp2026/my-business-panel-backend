@@ -214,7 +214,10 @@ export class SuppliersService {
       );
     }
 
-    const result = await this.db.query(suppliers.delete, [supplierId, tenantId]);
+    const result = await this.db.query(suppliers.delete, [
+      supplierId,
+      tenantId,
+    ]);
     return {
       message: 'Supplier deleted successfully',
       supplier: result.rows[0],

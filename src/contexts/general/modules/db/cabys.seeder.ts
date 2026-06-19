@@ -67,7 +67,7 @@ export async function seedCabysIfNeeded(db: Database): Promise<void> {
 
       if (isLeaf) {
         const rawTax = row.getCell(colIndices.tax).text;
-        let taxValue = rawTax.includes('%')
+        const taxValue = rawTax.includes('%')
           ? parseFloat(rawTax.replace('%', ''))
           : parseFloat(rawTax) || 0;
         products.push([

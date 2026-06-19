@@ -62,12 +62,19 @@ export const createExpenseDoc = {
   responses: {
     201: {
       status: 201,
-      description: 'Gasto registrado. Si se generó asiento contable, se incluye el entryId.',
+      description:
+        'Gasto registrado. Si se generó asiento contable, se incluye el entryId.',
       schema: {
         type: 'object',
         properties: {
-          expenseId: { type: 'string', example: '9e1b4c73-f2a8-4d5b-b0c7-3e6d9f1a2b84' },
-          entryId: { type: 'string', example: '3b8f2c91-e4a7-4d5b-a0c6-7d1e9f3b2a85' },
+          expenseId: {
+            type: 'string',
+            example: '9e1b4c73-f2a8-4d5b-b0c7-3e6d9f1a2b84',
+          },
+          entryId: {
+            type: 'string',
+            example: '3b8f2c91-e4a7-4d5b-a0c6-7d1e9f3b2a85',
+          },
         },
       },
     },

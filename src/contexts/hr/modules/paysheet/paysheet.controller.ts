@@ -17,32 +17,32 @@ export class PaysheetController {
   @ApiOperation(getPaysheetByPeriodDoc.operation)
   @ApiResponse(getPaysheetByPeriodDoc.responses[200])
   @ApiResponse(getPaysheetByPeriodDoc.responses[401])
-  @Get("find")
+  @Get('find')
   async getPaysheetByPeriod(
-    @Query("start") periodStart: string,
-    @Query("end") periodEnd: string,
-    @Query("branchId") branchId: string,
+    @Query('start') periodStart: string,
+    @Query('end') periodEnd: string,
+    @Query('branchId') branchId: string,
   ) {
     return this.paysheetService.getPaysheetByPeriod(
       branchId,
       periodStart,
       periodEnd,
-    )
+    );
   }
 
   @ApiOperation(getPaysheetsByTenantDoc.operation)
   @ApiResponse(getPaysheetsByTenantDoc.responses[200])
   @ApiResponse(getPaysheetsByTenantDoc.responses[401])
-  @Get("tenant/:tenantId")
-  async getPaysheetsByTenant(@Param("tenantId") tenantId: string) {
+  @Get('tenant/:tenantId')
+  async getPaysheetsByTenant(@Param('tenantId') tenantId: string) {
     return this.paysheetService.getPaysheetsByTenant(tenantId);
   }
 
   @ApiOperation(getPaysheetByBranchDoc.operation)
   @ApiResponse(getPaysheetByBranchDoc.responses[200])
   @ApiResponse(getPaysheetByBranchDoc.responses[401])
-  @Get("branch/:branchId")
-  async getPaysheetByBranch(@Param("branchId") branchId: string) {
+  @Get('branch/:branchId')
+  async getPaysheetByBranch(@Param('branchId') branchId: string) {
     return this.paysheetService.getPaysheetByBranch(branchId);
   }
 
@@ -50,8 +50,8 @@ export class PaysheetController {
   @ApiResponse(getPaysheetByIdDoc.responses[200])
   @ApiResponse(getPaysheetByIdDoc.responses[401])
   @ApiResponse(getPaysheetByIdDoc.responses[404])
-  @Get(":paysheetId")
-  async getPaysheetById(@Param("paysheetId") paysheetId: string) {
+  @Get(':paysheetId')
+  async getPaysheetById(@Param('paysheetId') paysheetId: string) {
     return this.paysheetService.getPaysheetById(paysheetId);
   }
 
@@ -59,8 +59,8 @@ export class PaysheetController {
   @ApiResponse(getPaysheetDetailsDoc.responses[200])
   @ApiResponse(getPaysheetDetailsDoc.responses[401])
   @ApiResponse(getPaysheetDetailsDoc.responses[404])
-  @Get(":paysheetId/details")
-  async getPaysheetDetails(@Param("paysheetId") paysheetId: string) {
+  @Get(':paysheetId/details')
+  async getPaysheetDetails(@Param('paysheetId') paysheetId: string) {
     return this.paysheetService.getPaysheetDetails(paysheetId);
   }
 }

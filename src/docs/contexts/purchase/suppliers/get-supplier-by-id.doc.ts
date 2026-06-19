@@ -12,11 +12,26 @@ export const getSupplierByIdDoc = {
       schema: {
         type: 'object',
         properties: {
-          supplier_id: { type: 'string', example: 'a1b2c3d4-e5f6-7890-abcd-ef1234567890' },
-          supplier_name: { type: 'string', example: 'Distribuidora Nacional S.A.' },
-          supplier_contact_info: { type: 'string', example: 'contacto@distribuidora.com' },
-          supplier_address: { type: 'string', example: 'Calle 5, San José, Costa Rica' },
-          supplier_notes: { type: 'string', example: 'Entrega los martes y jueves' },
+          supplier_id: {
+            type: 'string',
+            example: 'a1b2c3d4-e5f6-7890-abcd-ef1234567890',
+          },
+          supplier_name: {
+            type: 'string',
+            example: 'Distribuidora Nacional S.A.',
+          },
+          supplier_contact_info: {
+            type: 'string',
+            example: 'contacto@distribuidora.com',
+          },
+          supplier_address: {
+            type: 'string',
+            example: 'Calle 5, San José, Costa Rica',
+          },
+          supplier_notes: {
+            type: 'string',
+            example: 'Entrega los martes y jueves',
+          },
         },
       },
     },

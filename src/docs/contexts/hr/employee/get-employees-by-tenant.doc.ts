@@ -14,7 +14,10 @@ export const getEmployeesByTenantDoc = {
         items: {
           type: 'object',
           properties: {
-            employee_id: { type: 'string', example: 'a1b2c3d4-e5f6-7890-abcd-ef1234567890' },
+            employee_id: {
+              type: 'string',
+              example: 'a1b2c3d4-e5f6-7890-abcd-ef1234567890',
+            },
             first_name: { type: 'string', example: 'Juan' },
             last_name: { type: 'string', example: 'Pérez' },
           },

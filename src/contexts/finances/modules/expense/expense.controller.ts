@@ -100,7 +100,11 @@ export class ExpenseController {
     @Query('start') start: string,
     @Query('end') end: string,
   ) {
-    return this.expenseService.getAnalyticsFixedVsVariable(tenantId, start, end);
+    return this.expenseService.getAnalyticsFixedVsVariable(
+      tenantId,
+      start,
+      end,
+    );
   }
 
   @Get('analytics/fixed-breakdown/:tenantId')
@@ -118,7 +122,11 @@ export class ExpenseController {
     @Query('start') start: string,
     @Query('end') end: string,
   ) {
-    return this.expenseService.getAnalyticsVariableBreakdown(tenantId, start, end);
+    return this.expenseService.getAnalyticsVariableBreakdown(
+      tenantId,
+      start,
+      end,
+    );
   }
 
   @Get('analytics/sales-vs-expenses/:tenantId')
@@ -128,7 +136,12 @@ export class ExpenseController {
     @Query('end') end: string,
     @Query('branchId') branchId?: string,
   ) {
-    return this.expenseService.getAnalyticsSalesVsExpenses(tenantId, start, end, branchId);
+    return this.expenseService.getAnalyticsSalesVsExpenses(
+      tenantId,
+      start,
+      end,
+      branchId,
+    );
   }
 
   // -------------------------------------------------------

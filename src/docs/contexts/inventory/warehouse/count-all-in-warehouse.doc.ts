@@ -20,7 +20,10 @@ export const countAllInWarehouseDoc = {
         items: {
           type: 'object',
           properties: {
-            product_id: { type: 'string', example: 'f2c7a94e-8b1d-4e3f-a5c6-0d9b2e7f3a18' },
+            product_id: {
+              type: 'string',
+              example: 'f2c7a94e-8b1d-4e3f-a5c6-0d9b2e7f3a18',
+            },
             product_name: { type: 'string', example: 'Café molido 250g' },
             amount: { type: 'number', example: 120 },
             expiration_date: { type: 'string', example: '2025-12-31' },

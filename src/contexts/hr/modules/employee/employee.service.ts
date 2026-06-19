@@ -1,7 +1,11 @@
 import { BadRequestException, Inject, Injectable } from '@nestjs/common';
 import { DATABASE } from '@/contexts/general/modules/db/db.provider';
 import Database from '@crane-technologies/database';
-import { Employee, IEmployee, IEmployeeDetail } from './interface/employee.interface';
+import {
+  Employee,
+  IEmployee,
+  IEmployeeDetail,
+} from './interface/employee.interface';
 import { hrQueries } from '@hr/hr.queries';
 import { NewEmployeeDto, NewSingleEmployeeDto } from './dto/newEmployeeDto.dto';
 import { CreateFullEmployeeError } from '@/common/errors/create_full_employee.error';
@@ -42,7 +46,10 @@ export class EmployeeService {
     tenantId?: string,
     excludeId?: string,
   ): Promise<{ exists: boolean }> {
-    const allowedFields: Record<string, { column: string; tenantScoped: boolean }> = {
+    const allowedFields: Record<
+      string,
+      { column: string; tenantScoped: boolean }
+    > = {
       doc_number: { column: 'doc_number', tenantScoped: false },
       email: { column: 'email', tenantScoped: false },
       phone: { column: 'phone', tenantScoped: true },

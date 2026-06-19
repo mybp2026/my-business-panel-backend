@@ -11,7 +11,10 @@ export const getAccountByIdDoc = {
       schema: {
         type: 'object',
         properties: {
-          account_id: { type: 'string', example: 'a1b2c3d4-e5f6-7890-abcd-ef1234567890' },
+          account_id: {
+            type: 'string',
+            example: 'a1b2c3d4-e5f6-7890-abcd-ef1234567890',
+          },
           name: { type: 'string', example: 'Caja General' },
         },
       },

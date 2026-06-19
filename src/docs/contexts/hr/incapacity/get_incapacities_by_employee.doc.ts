@@ -14,8 +14,14 @@ export const getIncapacitiesByEmployeeDoc = {
         items: {
           type: 'object',
           properties: {
-            incapacity_id: { type: 'string', example: 'b2c3d4e5-f6a7-8901-bcde-234567890123' },
-            employee_id: { type: 'string', example: '2b3c4d5e-6f7a-8901-bcde-f12345678901' },
+            incapacity_id: {
+              type: 'string',
+              example: 'b2c3d4e5-f6a7-8901-bcde-234567890123',
+            },
+            employee_id: {
+              type: 'string',
+              example: '2b3c4d5e-6f7a-8901-bcde-f12345678901',
+            },
             type: { type: 'string', example: 'INS' },
             period_start: { type: 'string', example: '2024-01-20' },
             period_end: { type: 'string', example: '2024-02-03' },

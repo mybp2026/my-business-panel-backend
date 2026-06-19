@@ -2,7 +2,8 @@
 export const createPaysheetDoc = {
   dto: {
     tenantId: {
-      description: 'UUID of the tenant for which the paysheet is being created.',
+      description:
+        'UUID of the tenant for which the paysheet is being created.',
       example: '123e4567-e89b-12d3-a456-426614174000',
     },
     branchId: {
@@ -21,7 +22,8 @@ export const createPaysheetDoc = {
 
   operation: {
     summary: 'Create a paysheet header',
-    description: 'Creates the header record for a new payroll period. Employees are processed separately.',
+    description:
+      'Creates the header record for a new payroll period. Employees are processed separately.',
   },
 
   responses: {
@@ -31,7 +33,10 @@ export const createPaysheetDoc = {
       schema: {
         type: 'object',
         properties: {
-          paysheet_id: { type: 'string', example: 'a1b2c3d4-e5f6-7890-abcd-ef1234567890' },
+          paysheet_id: {
+            type: 'string',
+            example: 'a1b2c3d4-e5f6-7890-abcd-ef1234567890',
+          },
         },
       },
     },

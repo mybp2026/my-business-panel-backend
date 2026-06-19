@@ -228,7 +228,7 @@ export class SubscriptionService {
     }
 
     if (event.type === 'customer.subscription.created') {
-      const subscription = event.data.object as Stripe.Subscription;
+      const subscription = event.data.object;
       const tenantId = subscription.metadata.tenantId;
 
       if (!tenantId) {
@@ -239,7 +239,7 @@ export class SubscriptionService {
     }
 
     if (event.type === 'customer.subscription.updated') {
-      const subscription = event.data.object as Stripe.Subscription;
+      const subscription = event.data.object;
       const tenantId = subscription.metadata.tenantId;
 
       if (!tenantId) {
@@ -258,7 +258,7 @@ export class SubscriptionService {
     }
 
     if (event.type === 'customer.subscription.deleted') {
-      const subscription = event.data.object as Stripe.Subscription;
+      const subscription = event.data.object;
       const tenantId = subscription.metadata.tenantId;
 
       if (!tenantId) {

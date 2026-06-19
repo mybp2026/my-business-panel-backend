@@ -2,7 +2,8 @@
 export const getAllSuppliersDoc = {
   operation: {
     summary: 'Listar proveedores del tenant',
-    description: 'Retorna todos los proveedores registrados para el tenant del usuario autenticado.',
+    description:
+      'Retorna todos los proveedores registrados para el tenant del usuario autenticado.',
   },
 
   responses: {
@@ -14,11 +15,26 @@ export const getAllSuppliersDoc = {
         items: {
           type: 'object',
           properties: {
-            supplier_id: { type: 'string', example: 'a1b2c3d4-e5f6-7890-abcd-ef1234567890' },
-            supplier_name: { type: 'string', example: 'Distribuidora Nacional S.A.' },
-            supplier_contact_info: { type: 'string', example: 'contacto@distribuidora.com' },
-            supplier_address: { type: 'string', example: 'Calle 5, San José, Costa Rica' },
-            supplier_notes: { type: 'string', example: 'Entrega los martes y jueves' },
+            supplier_id: {
+              type: 'string',
+              example: 'a1b2c3d4-e5f6-7890-abcd-ef1234567890',
+            },
+            supplier_name: {
+              type: 'string',
+              example: 'Distribuidora Nacional S.A.',
+            },
+            supplier_contact_info: {
+              type: 'string',
+              example: 'contacto@distribuidora.com',
+            },
+            supplier_address: {
+              type: 'string',
+              example: 'Calle 5, San José, Costa Rica',
+            },
+            supplier_notes: {
+              type: 'string',
+              example: 'Entrega los martes y jueves',
+            },
           },
         },
       },

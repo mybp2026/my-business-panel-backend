@@ -14,7 +14,10 @@ export const closeSuspentionDoc = {
         type: 'object',
         properties: {
           message: { type: 'string', example: 'Suspention closed succesfully' },
-          suspentionId: { type: 'string', example: 'c4d5e6f7-a8b9-0123-defa-456789012345' },
+          suspentionId: {
+            type: 'string',
+            example: 'c4d5e6f7-a8b9-0123-defa-456789012345',
+          },
         },
       },
     },

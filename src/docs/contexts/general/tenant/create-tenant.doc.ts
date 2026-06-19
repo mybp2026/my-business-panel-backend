@@ -10,7 +10,8 @@ export const createTenantDoc = {
       example: 'admin@acme.com',
     },
     is_subscribed: {
-      description: 'Whether the tenant has an active subscription. Optional, defaults to false.',
+      description:
+        'Whether the tenant has an active subscription. Optional, defaults to false.',
       example: true,
     },
     region_id: {
@@ -22,7 +23,7 @@ export const createTenantDoc = {
       example: '3-101-123456',
     },
     economic_activity: {
-      description: 'Description of the tenant\'s economic activity.',
+      description: "Description of the tenant's economic activity.",
       example: 'Software Development',
     },
     sign: {
@@ -43,13 +44,19 @@ export const createTenantDoc = {
       schema: {
         type: 'object',
         properties: {
-          tenant_id: { type: 'string', example: '123e4567-e89b-12d3-a456-426614174000' },
+          tenant_id: {
+            type: 'string',
+            example: '123e4567-e89b-12d3-a456-426614174000',
+          },
           tenant_name: { type: 'string', example: 'Acme Corp' },
           contact_email: { type: 'string', example: 'admin@acme.com' },
           is_subscribed: { type: 'boolean', example: true },
           region_id: { type: 'number', example: 1 },
           identification: { type: 'string', example: '3-101-123456' },
-          economic_activity: { type: 'string', example: 'Software Development' },
+          economic_activity: {
+            type: 'string',
+            example: 'Software Development',
+          },
           sign: { type: 'string', example: 'ACME' },
         },
       },
