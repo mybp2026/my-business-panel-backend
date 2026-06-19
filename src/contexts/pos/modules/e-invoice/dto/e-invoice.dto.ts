@@ -1,5 +1,16 @@
-import { Type } from "class-transformer";
-import { ArrayMinSize, IsArray, IsEmail, IsNotEmpty, IsNumber, IsOptional, IsString, Length, Matches, ValidateNested } from "class-validator";
+import { Type } from 'class-transformer';
+import {
+  ArrayMinSize,
+  IsArray,
+  IsEmail,
+  IsNotEmpty,
+  IsNumber,
+  IsOptional,
+  IsString,
+  Length,
+  Matches,
+  ValidateNested,
+} from 'class-validator';
 
 export class IdentificationDto {
   @IsString()
@@ -9,10 +20,11 @@ export class IdentificationDto {
 
   @IsString()
   @IsNotEmpty()
-  @Matches(/^[0-9]+$/, { message: "La identificacion solo puede tener numeros." })
+  @Matches(/^[0-9]+$/, {
+    message: 'La identificacion solo puede tener numeros.',
+  })
   @Length(9, 12)
   number!: string;
-
 }
 
 export class UbicationDto {
@@ -35,7 +47,7 @@ export class UbicationDto {
   @Length(1, 250)
   @IsNotEmpty()
   otrasSenas!: string;
-} 
+}
 
 export class LineDetailDto {
   @IsNumber()

@@ -10,7 +10,8 @@ export const registerIncapacityDoc = {
       example: 'd7e8f9a0-b1c2-3456-defa-567890123456',
     },
     type: {
-      description: 'Tipo de incapacidad: CCSS para enfermedad común, INS para accidente laboral.',
+      description:
+        'Tipo de incapacidad: CCSS para enfermedad común, INS para accidente laboral.',
       example: 'CCSS',
     },
     period_start: {
@@ -22,11 +23,13 @@ export const registerIncapacityDoc = {
       example: '2024-02-12',
     },
     days_paying: {
-      description: 'Cantidad de días que se le pagará al empleado durante la incapacidad.',
+      description:
+        'Cantidad de días que se le pagará al empleado durante la incapacidad.',
       example: 7,
     },
     percentage_to_pay: {
-      description: 'Porcentaje del salario que se pagará durante la incapacidad (0-100).',
+      description:
+        'Porcentaje del salario que se pagará durante la incapacidad (0-100).',
       example: 60,
     },
   },
@@ -43,8 +46,14 @@ export const registerIncapacityDoc = {
       schema: {
         type: 'object',
         properties: {
-          message: { type: 'string', example: 'Incapacity registered successfully' },
-          incapacity_id: { type: 'string', example: 'b2c3d4e5-f6a7-8901-bcde-234567890123' },
+          message: {
+            type: 'string',
+            example: 'Incapacity registered successfully',
+          },
+          incapacity_id: {
+            type: 'string',
+            example: 'b2c3d4e5-f6a7-8901-bcde-234567890123',
+          },
         },
       },
     },

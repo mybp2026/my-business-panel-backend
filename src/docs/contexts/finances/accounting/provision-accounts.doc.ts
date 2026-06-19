@@ -11,7 +11,10 @@ export const provisionAccountsDoc = {
       schema: {
         type: 'object',
         properties: {
-          message: { type: 'string', example: 'Accounts provisioned successfully' },
+          message: {
+            type: 'string',
+            example: 'Accounts provisioned successfully',
+          },
         },
       },
     },

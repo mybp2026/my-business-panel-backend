@@ -57,7 +57,12 @@ export class TenantController {
     @Query('field') field: string,
     @Query('value') value: string,
   ) {
-    const allowed = ['email', 'doc_number', 'tenant_identification', 'tenant_name'];
+    const allowed = [
+      'email',
+      'doc_number',
+      'tenant_identification',
+      'tenant_name',
+    ];
     if (!allowed.includes(field)) {
       throw new BadRequestException(
         `Campo no soportado. Usa uno de: ${allowed.join(', ')}`,

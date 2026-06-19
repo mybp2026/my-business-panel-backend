@@ -14,14 +14,16 @@ export const registerPaymentDoc = {
       example: 1,
     },
     payment_reference: {
-      description: 'Referencia externa opcional del pago (ej. número de cheque, ID de transferencia).',
+      description:
+        'Referencia externa opcional del pago (ej. número de cheque, ID de transferencia).',
       example: 'TXN-20260409-001',
     },
   },
 
   operation: {
     summary: 'Registrar pago de compra',
-    description: 'Registra un pago contra una cuenta por pagar y genera el asiento contable correspondiente.',
+    description:
+      'Registra un pago contra una cuenta por pagar y genera el asiento contable correspondiente.',
   },
 
   responses: {
@@ -31,11 +33,17 @@ export const registerPaymentDoc = {
       schema: {
         type: 'object',
         properties: {
-          payment_id: { type: 'string', example: '123e4567-e89b-12d3-a456-426614174000' },
+          payment_id: {
+            type: 'string',
+            example: '123e4567-e89b-12d3-a456-426614174000',
+          },
           purchase_account_payable: {
             type: 'object',
             properties: {
-              purchase_account_payable_id: { type: 'string', example: '123e4567-e89b-12d3-a456-426614174000' },
+              purchase_account_payable_id: {
+                type: 'string',
+                example: '123e4567-e89b-12d3-a456-426614174000',
+              },
               amount_due: { type: 'number', example: 1000.0 },
               amount_paid: { type: 'number', example: 500.0 },
               status: { type: 'string', example: 'PARTIAL' },

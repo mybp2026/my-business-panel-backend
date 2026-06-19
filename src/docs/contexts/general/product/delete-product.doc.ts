@@ -12,7 +12,11 @@ export const deleteProductDoc = {
       schema: {
         type: 'object',
         properties: {
-          message: { type: 'string', example: 'Product with id 123e4567-e89b-12d3-a456-426614174000 deleted' },
+          message: {
+            type: 'string',
+            example:
+              'Product with id 123e4567-e89b-12d3-a456-426614174000 deleted',
+          },
         },
       },
     },

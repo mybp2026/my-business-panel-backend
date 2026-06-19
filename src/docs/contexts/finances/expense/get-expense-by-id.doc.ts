@@ -11,9 +11,18 @@ export const getExpenseByIdDoc = {
       schema: {
         type: 'object',
         properties: {
-          expense_id: { type: 'string', example: '9e1b4c73-f2a8-4d5b-b0c7-3e6d9f1a2b84' },
-          category_id: { type: 'string', example: '4c9f3b82-a1e7-4d5c-b0d6-8e2f1a3c7b94' },
-          description: { type: 'string', example: 'Pago de electricidad mes de abril' },
+          expense_id: {
+            type: 'string',
+            example: '9e1b4c73-f2a8-4d5b-b0c7-3e6d9f1a2b84',
+          },
+          category_id: {
+            type: 'string',
+            example: '4c9f3b82-a1e7-4d5c-b0d6-8e2f1a3c7b94',
+          },
+          description: {
+            type: 'string',
+            example: 'Pago de electricidad mes de abril',
+          },
           amount: { type: 'number', example: 45000 },
           tax_amount: { type: 'number', example: 5850 },
           total_amount: { type: 'number', example: 50850 },

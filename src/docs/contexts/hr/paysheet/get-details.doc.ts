@@ -2,7 +2,8 @@
 export const getPaysheetDetailsDoc = {
   operation: {
     summary: 'Get paysheet details',
-    description: 'Returns the per-employee detail lines for a given paysheet, including their calculated net pay.',
+    description:
+      'Returns the per-employee detail lines for a given paysheet, including their calculated net pay.',
   },
 
   responses: {

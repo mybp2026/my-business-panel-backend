@@ -14,7 +14,8 @@ export const createUserDoc = {
       example: 'MyPassword123!',
     },
     role_id: {
-      description: 'Numeric ID of the role to assign (1=Admin, 2=User, 3=Viewer).',
+      description:
+        'Numeric ID of the role to assign (1=Admin, 2=User, 3=Viewer).',
       example: 2,
     },
     employeeInfo: {

@@ -2,14 +2,16 @@
 export const updateOrderStatusDoc = {
   dto: {
     status_id: {
-      description: 'ID del estado destino. Transiciones permitidas: 1→2 (Confirmada), 2→3 (Entregada). Los estados 3 y 4 son terminales.',
+      description:
+        'ID del estado destino. Transiciones permitidas: 1→2 (Confirmada), 2→3 (Entregada). Los estados 3 y 4 son terminales.',
       example: 2,
     },
   },
 
   operation: {
     summary: 'Actualizar estado de orden de compra',
-    description: 'Transiciona una orden de compra al siguiente estado. Al entregar (estado 3), actualiza automáticamente el inventario y genera un asiento contable.',
+    description:
+      'Transiciona una orden de compra al siguiente estado. Al entregar (estado 3), actualiza automáticamente el inventario y genera un asiento contable.',
   },
 
   responses: {
@@ -19,7 +21,10 @@ export const updateOrderStatusDoc = {
       schema: {
         type: 'object',
         properties: {
-          purchase_order_id: { type: 'string', example: '123e4567-e89b-12d3-a456-426614174000' },
+          purchase_order_id: {
+            type: 'string',
+            example: '123e4567-e89b-12d3-a456-426614174000',
+          },
           purchase_order_status_id: { type: 'number', example: 2 },
         },
       },
@@ -52,7 +57,10 @@ export const updateOrderStatusDoc = {
       schema: {
         type: 'object',
         properties: {
-          message: { type: 'string', example: 'Orden no encontrada para este tenant' },
+          message: {
+            type: 'string',
+            example: 'Orden no encontrada para este tenant',
+          },
           error: { type: 'string', example: 'Not Found' },
           statusCode: { type: 'number', example: 404 },
         },

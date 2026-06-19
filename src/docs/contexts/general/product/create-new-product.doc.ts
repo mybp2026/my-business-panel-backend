@@ -2,7 +2,8 @@
 export const createNewProductDoc = {
   dto: {
     products: {
-      description: 'Array of product variants to insert. Duplicate SKUs per tenant are silently ignored (ON CONFLICT DO NOTHING).',
+      description:
+        'Array of product variants to insert. Duplicate SKUs per tenant are silently ignored (ON CONFLICT DO NOTHING).',
       example: [
         {
           tenant_id: '123e4567-e89b-12d3-a456-426614174000',
@@ -28,13 +29,19 @@ export const createNewProductDoc = {
       schema: {
         type: 'object',
         properties: {
-          message: { type: 'string', example: 'Products created successfully!' },
+          message: {
+            type: 'string',
+            example: 'Products created successfully!',
+          },
           product: {
             type: 'array',
             items: {
               type: 'object',
               properties: {
-                product_variant_id: { type: 'string', example: '123e4567-e89b-12d3-a456-426614174000' },
+                product_variant_id: {
+                  type: 'string',
+                  example: '123e4567-e89b-12d3-a456-426614174000',
+                },
               },
             },
           },

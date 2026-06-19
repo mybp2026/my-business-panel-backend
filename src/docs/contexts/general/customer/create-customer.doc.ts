@@ -42,7 +42,8 @@ export const createCustomerDoc = {
       example: 'San José, Costa Rica',
     },
     is_tenant: {
-      description: 'Whether this customer is also a tenant. Optional, defaults to false.',
+      description:
+        'Whether this customer is also a tenant. Optional, defaults to false.',
       example: false,
     },
   },
@@ -63,7 +64,10 @@ export const createCustomerDoc = {
           customer: {
             type: 'object',
             properties: {
-              tenant_customer_id: { type: 'string', example: '123e4567-e89b-12d3-a456-426614174000' },
+              tenant_customer_id: {
+                type: 'string',
+                example: '123e4567-e89b-12d3-a456-426614174000',
+              },
               email: { type: 'string', example: 'maria.lopez@example.com' },
             },
           },

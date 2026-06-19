@@ -35,7 +35,8 @@ export const createPurchaseOrderDoc = {
 
   operation: {
     summary: 'Crear orden de compra',
-    description: 'Registra una nueva orden de compra para un proveedor con los productos y detalles de entrega especificados.',
+    description:
+      'Registra una nueva orden de compra para un proveedor con los productos y detalles de entrega especificados.',
   },
 
   responses: {
@@ -45,9 +46,18 @@ export const createPurchaseOrderDoc = {
       schema: {
         type: 'object',
         properties: {
-          purchase_order_id: { type: 'string', example: '123e4567-e89b-12d3-a456-426614174000' },
-          supplier_id: { type: 'string', example: '123e4567-e89b-12d3-a456-426614174000' },
-          warehouse_id: { type: 'string', example: '223e4567-e89b-12d3-a456-426614174000' },
+          purchase_order_id: {
+            type: 'string',
+            example: '123e4567-e89b-12d3-a456-426614174000',
+          },
+          supplier_id: {
+            type: 'string',
+            example: '123e4567-e89b-12d3-a456-426614174000',
+          },
+          warehouse_id: {
+            type: 'string',
+            example: '223e4567-e89b-12d3-a456-426614174000',
+          },
           purchase_order_status_id: { type: 'number', example: 1 },
           expected_delivery_date: { type: 'string', example: '2026-05-01' },
           payment_condition: { type: 'string', example: 'CREDIT' },

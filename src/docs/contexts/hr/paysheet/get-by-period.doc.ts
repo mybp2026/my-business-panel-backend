@@ -2,7 +2,8 @@
 export const getPaysheetByPeriodDoc = {
   operation: {
     summary: 'Get paysheet by period',
-    description: 'Returns the paysheet for a branch within a specific date range.',
+    description:
+      'Returns the paysheet for a branch within a specific date range.',
   },
 
   responses: {

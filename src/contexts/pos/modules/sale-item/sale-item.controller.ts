@@ -28,7 +28,7 @@ export class SaleItemController {
   @ApiOperation(getItemsDoc.operation)
   @ApiResponse(getItemsDoc.responses[200])
   @ApiResponse(getItemsDoc.responses[401])
-  @Get(":sale_id")
+  @Get(':sale_id')
   async getItems(@Param('sale_id') sale_id: string) {
     return this.itemService.getAllItems(sale_id);
   }

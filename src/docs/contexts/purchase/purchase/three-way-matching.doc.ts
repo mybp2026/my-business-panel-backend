@@ -13,7 +13,8 @@ export const threeWayMatchingDoc = {
 
   operation: {
     summary: 'Ejecutar conciliación a tres vías',
-    description: 'Concilia una orden de compra con una recepción de mercancía para verificar que cantidades y montos coincidan.',
+    description:
+      'Concilia una orden de compra con una recepción de mercancía para verificar que cantidades y montos coincidan.',
   },
 
   responses: {
@@ -29,11 +30,15 @@ export const threeWayMatchingDoc = {
     },
     400: {
       status: 400,
-      description: 'Solicitud inválida — purchase_order_id o goods_receipt_id es requerido.',
+      description:
+        'Solicitud inválida — purchase_order_id o goods_receipt_id es requerido.',
       schema: {
         type: 'object',
         properties: {
-          message: { type: 'string', example: 'purchase_order_id y goods_receipt_id son requeridos' },
+          message: {
+            type: 'string',
+            example: 'purchase_order_id y goods_receipt_id son requeridos',
+          },
           error: { type: 'string', example: 'Bad Request' },
           statusCode: { type: 'number', example: 400 },
         },

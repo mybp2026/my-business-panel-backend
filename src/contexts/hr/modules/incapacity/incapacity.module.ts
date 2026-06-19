@@ -4,6 +4,6 @@ import { IncapacityController } from './incapacity.controller';
 
 @Module({
   providers: [IncapacityService],
-  controllers: [IncapacityController]
+  controllers: [IncapacityController],
 })
 export class IncapacityModule {}

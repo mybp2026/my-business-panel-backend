@@ -12,7 +12,10 @@ export const updateLoyalProgramDoc = {
       schema: {
         type: 'object',
         properties: {
-          message: { type: 'string', example: 'Loyal program updated successfully' },
+          message: {
+            type: 'string',
+            example: 'Loyal program updated successfully',
+          },
         },
       },
     },

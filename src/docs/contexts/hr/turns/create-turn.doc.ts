@@ -27,7 +27,10 @@ export const createTurnDoc = {
         type: 'object',
         properties: {
           message: { type: 'string', example: 'Turn created successfully' },
-          turn_id: { type: 'string', example: 'e9f0a1b2-c3d4-5678-efab-678901234567' },
+          turn_id: {
+            type: 'string',
+            example: 'e9f0a1b2-c3d4-5678-efab-678901234567',
+          },
         },
       },
     },

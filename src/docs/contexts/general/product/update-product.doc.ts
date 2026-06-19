@@ -10,7 +10,8 @@ export const updateProductDoc = {
       example: 'Blue T-Shirt L',
     },
     cabys_code: {
-      description: 'New CABYS code (Costa Rican product classification). Optional.',
+      description:
+        'New CABYS code (Costa Rican product classification). Optional.',
       example: '1234567890123',
     },
     unit_price: {
@@ -36,7 +37,10 @@ export const updateProductDoc = {
           product: {
             type: 'object',
             properties: {
-              product_variant_id: { type: 'string', example: '123e4567-e89b-12d3-a456-426614174000' },
+              product_variant_id: {
+                type: 'string',
+                example: '123e4567-e89b-12d3-a456-426614174000',
+              },
               sku: { type: 'string', example: 'SKU-002' },
               variant_name: { type: 'string', example: 'Blue T-Shirt L' },
               unit_price: { type: 'number', example: 18000 },

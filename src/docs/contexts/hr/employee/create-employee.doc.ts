@@ -14,23 +14,23 @@ export const createEmployeeDoc = {
       example: '7e3f91bc-4a82-4d5c-b0e7-2c6d3f8a1b94',
     },
     first_name: {
-      description: 'Employee\'s first name.',
+      description: "Employee's first name.",
       example: 'Juan',
     },
     last_name: {
-      description: 'Employee\'s last name.',
+      description: "Employee's last name.",
       example: 'Pérez',
     },
     doc_number: {
-      description: 'Employee\'s identity document number.',
+      description: "Employee's identity document number.",
       example: '1-2345-6789',
     },
     phone: {
-      description: 'Employee\'s phone number.',
+      description: "Employee's phone number.",
       example: '+506 8888-9999',
     },
     email: {
-      description: 'Employee\'s email address.',
+      description: "Employee's email address.",
       example: 'juan.perez@empresa.com',
     },
     payment_schedule_id: {
@@ -53,7 +53,8 @@ export const createEmployeeDoc = {
 
   operation: {
     summary: 'Create a new employee',
-    description: 'Creates an employee record along with their initial contract.',
+    description:
+      'Creates an employee record along with their initial contract.',
   },
 
   responses: {
@@ -63,7 +64,10 @@ export const createEmployeeDoc = {
       schema: {
         type: 'object',
         properties: {
-          employee_id: { type: 'string', example: 'a1b2c3d4-e5f6-7890-abcd-ef1234567890' },
+          employee_id: {
+            type: 'string',
+            example: 'a1b2c3d4-e5f6-7890-abcd-ef1234567890',
+          },
         },
       },
     },

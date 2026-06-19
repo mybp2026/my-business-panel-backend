@@ -6,7 +6,8 @@ export const assignRoleDoc = {
       example: '123e4567-e89b-12d3-a456-426614174000',
     },
     role_id: {
-      description: 'Numeric ID of the role to assign (1=Admin, 2=User, 3=Viewer).',
+      description:
+        'Numeric ID of the role to assign (1=Admin, 2=User, 3=Viewer).',
       example: 2,
     },
   },

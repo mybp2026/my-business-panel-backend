@@ -14,7 +14,10 @@ export const getProfitabilityBySaleDoc = {
         items: {
           type: 'object',
           properties: {
-            sale_id: { type: 'string', example: 'b3c4d5e6-f7a8-9012-bcde-f23456789012' },
+            sale_id: {
+              type: 'string',
+              example: 'b3c4d5e6-f7a8-9012-bcde-f23456789012',
+            },
             total_revenue: { type: 'number', example: 85000 },
             total_cost: { type: 'number', example: 52000 },
             profit: { type: 'number', example: 33000 },

@@ -11,7 +11,10 @@ export const deletePromotionDoc = {
       schema: {
         type: 'object',
         properties: {
-          message: { type: 'string', example: 'Promotion deleted successfully' },
+          message: {
+            type: 'string',
+            example: 'Promotion deleted successfully',
+          },
         },
       },
     },

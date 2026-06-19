@@ -6,9 +6,15 @@ import {
   Param,
   Patch,
   Post,
+  Query,
   UseGuards,
 } from '@nestjs/common';
-import { ApiBearerAuth, ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
+import {
+  ApiBearerAuth,
+  ApiOperation,
+  ApiResponse,
+  ApiTags,
+} from '@nestjs/swagger';
 import { PromosService } from './promos.service';
 import { NewPromoDto } from './dto/newPromo.dto';
 import { UpdatePromotionDto } from './dto/updatePromo.dto';
@@ -30,6 +36,23 @@ import {
 @UseGuards(AuthenticationGuard)
 export class PromosController {
   constructor(private readonly promosService: PromosService) {}
+
+  @Get('analytics/:tenantId')
+  getAnalytics(
+    @Param('tenantId') tenantId: string,
+    @Query('interval') interval: string = '30d',
+    @Query('isActive') isActive?: string,
+    @Query('branchId') branchId?: string,
+  ) {
+    const activeFilter =
+      isActive === 'true' ? true : isActive === 'false' ? false : undefined;
+    return this.promosService.getAnalytics(
+      tenantId,
+      interval,
+      activeFilter,
+      branchId,
+    );
+  }
 
   @ApiOperation(getTenantPromosDoc.operation)
   @ApiResponse(getTenantPromosDoc.responses[200])

@@ -7,11 +7,15 @@ export const voidJournalEntryDoc = {
   responses: {
     201: {
       status: 201,
-      description: 'Asiento anulado. Se genera un asiento de reversión automáticamente.',
+      description:
+        'Asiento anulado. Se genera un asiento de reversión automáticamente.',
       schema: {
         type: 'object',
         properties: {
-          reversal_entry_id: { type: 'string', example: '3b8f2c91-e4a7-4d5b-a0c6-7d1e9f3b2a85' },
+          reversal_entry_id: {
+            type: 'string',
+            example: '3b8f2c91-e4a7-4d5b-a0c6-7d1e9f3b2a85',
+          },
         },
       },
     },

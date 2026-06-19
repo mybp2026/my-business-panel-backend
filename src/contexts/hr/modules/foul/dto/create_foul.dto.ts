@@ -1,4 +1,4 @@
-import { IsDateString, IsNotEmpty, IsString, IsUUID } from "class-validator";
+import { IsDateString, IsNotEmpty, IsString, IsUUID } from 'class-validator';
 import { ApiProperty } from '@nestjs/swagger';
 import { registerFoulDoc } from '@/docs/contexts/hr/foul';
 

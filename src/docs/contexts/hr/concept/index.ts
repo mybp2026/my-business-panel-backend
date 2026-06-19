@@ -3,3 +3,4 @@ export * from './create-concept.doc';
 export * from './update-concept.doc';
 export * from './soft-delete-concept.doc';
 export * from './delete-concept.doc';
+export * from './provision-concepts.doc';

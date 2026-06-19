@@ -19,7 +19,10 @@ export const closeFiscalPeriodDoc = {
       schema: {
         type: 'object',
         properties: {
-          error: { type: 'string', example: 'Período no encontrado o ya está cerrado' },
+          error: {
+            type: 'string',
+            example: 'Período no encontrado o ya está cerrado',
+          },
         },
       },
     },

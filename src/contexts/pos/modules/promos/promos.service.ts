@@ -6,8 +6,17 @@ import {
 import { DATABASE } from '@/contexts/general/modules/db/db.provider';
 import Database from '@crane-technologies/database';
 import type { ITransaction } from '@crane-technologies/database/dist/interfaces/ITransaction';
-import { Promo, PromoRule, PromoWithRule } from './interface/promo.interface';
-import { NewPromoDto, PromoRules, PromotionTargetDto } from './dto/newPromo.dto';
+import {
+  Promo,
+  PromoAnalyticsRow,
+  PromoRule,
+  PromoWithRule,
+} from './interface/promo.interface';
+import {
+  NewPromoDto,
+  PromoRules,
+  PromotionTargetDto,
+} from './dto/newPromo.dto';
 import { RuleCreationError } from '@/common/errors/create_rule.error';
 import { PromotionCreationError } from '@/common/errors/create_promo.error';
 import { UpdatePromotionDto } from './dto/updatePromo.dto';
@@ -30,7 +39,9 @@ export class PromosService {
    * automatically when starting a sale.
    */
   async getActiveDefaults(tenantId: string) {
-    const result = await this.db.query(promotions.getActiveDefaults, [tenantId]);
+    const result = await this.db.query(promotions.getActiveDefaults, [
+      tenantId,
+    ]);
     return result.rows;
   }
 
@@ -95,11 +106,15 @@ export class PromosService {
 
       const promotionId = promo.rows[0].promotion_id;
 
-      for (const ruleData of (rules ?? [])) {
+      for (const ruleData of rules ?? []) {
         await this._insertRule(txn, { ...ruleData, promotion_id: promotionId });
       }
 
-      if (!effectiveIsUniversal && customer_segment_ids && customer_segment_ids.length > 0) {
+      if (
+        !effectiveIsUniversal &&
+        customer_segment_ids &&
+        customer_segment_ids.length > 0
+      ) {
         await this.replacePromoSegments(promotionId, customer_segment_ids, txn);
       }
 
@@ -166,14 +181,17 @@ export class PromosService {
    * group or any of its descendants.
    */
   async getApplicableToVariant(tenantId: string, variantId: string) {
-    const result = await this.db.query(
-      promotionTarget.getApplicableToVariant,
-      [tenantId, variantId],
-    );
+    const result = await this.db.query(promotionTarget.getApplicableToVariant, [
+      tenantId,
+      variantId,
+    ]);
     return result.rows;
   }
 
-  private async _insertRule(txn: ITransaction, data: PromoRules): Promise<string> {
+  private async _insertRule(
+    txn: ITransaction,
+    data: PromoRules,
+  ): Promise<string> {
     const { promotion_rule_id: _, ...dataWithoutId } = data;
     const insertKeys = Object.keys(dataWithoutId).filter(
       (key) => dataWithoutId[key as keyof typeof dataWithoutId] !== undefined,
@@ -184,7 +202,9 @@ export class PromosService {
     }
 
     const insertClause = insertKeys.map((k) => `"${k}"`);
-    const paramsArray = insertKeys.map((k) => dataWithoutId[k as keyof typeof dataWithoutId]);
+    const paramsArray = insertKeys.map(
+      (k) => dataWithoutId[k as keyof typeof dataWithoutId],
+    );
     const placeholders = insertKeys.map((_, i) => `$${i + 1}`);
 
     const q = `
@@ -252,16 +272,23 @@ export class PromosService {
       if (rules !== undefined) {
         await txn.query(promotions.deletePromoRules, [promotionId]);
         for (const ruleData of rules) {
-          await this._insertRule(txn, { ...ruleData, promotion_id: promotionId });
+          await this._insertRule(txn, {
+            ...ruleData,
+            promotion_id: promotionId,
+          });
         }
       }
 
       if (customer_segment_ids !== undefined) {
         await txn.query(promotions.deletePromoSegments, [promotionId]);
-        const effectiveUniversal = is_universal ?? updatedPromo.rows[0]?.is_universal;
+        const effectiveUniversal =
+          is_universal ?? updatedPromo.rows[0]?.is_universal;
         if (!effectiveUniversal && customer_segment_ids.length > 0) {
           for (const segId of customer_segment_ids) {
-            await txn.query(promotions.insertPromoSegment, [promotionId, segId]);
+            await txn.query(promotions.insertPromoSegment, [
+              promotionId,
+              segId,
+            ]);
           }
         }
       }
@@ -286,5 +313,31 @@ export class PromosService {
   async getPromoTypes() {
     const promoType = await this.db.query(promotionTypes.getPromoTypes);
     return promoType.rows;
+  }
+
+  private readonly INTERVAL_MAP: Record<string, string> = {
+    '24h': '24 hours',
+    '7d': '7 days',
+    '15d': '15 days',
+    '30d': '30 days',
+    '90d': '90 days',
+    '180d': '180 days',
+    '365d': '365 days',
+  };
+
+  async getAnalytics(
+    tenantId: string,
+    interval: string,
+    isActive?: boolean,
+    branchId?: string,
+  ): Promise<PromoAnalyticsRow[]> {
+    const pgInterval = this.INTERVAL_MAP[interval] ?? '30 days';
+    const result = await this.db.query(promotions.getAnalytics, [
+      tenantId,
+      pgInterval,
+      isActive ?? null,
+      branchId ?? null,
+    ]);
+    return result.rows;
   }
 }

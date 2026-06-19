@@ -1,5 +1,15 @@
 ﻿import { Type } from 'class-transformer';
-import { IsArray, IsDateString, IsEnum, IsNumber, IsOptional, IsPositive, IsString, IsUUID, ValidateNested } from 'class-validator';
+import {
+  IsArray,
+  IsDateString,
+  IsEnum,
+  IsNumber,
+  IsOptional,
+  IsPositive,
+  IsString,
+  IsUUID,
+  ValidateNested,
+} from 'class-validator';
 
 export class TransferRequestProductDto {
   @IsUUID()
@@ -34,7 +44,7 @@ export class CreateTransferRequestDto {
 export enum TransferRequestStatus {
   ACCEPTED = 'accepted',
   REJECTED = 'rejected',
-  CANCELLED = 'cancelled'
+  CANCELLED = 'cancelled',
 }
 
 export class UpdateTransferRequestStatusDto {

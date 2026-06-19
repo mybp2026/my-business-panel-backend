@@ -9,7 +9,12 @@ import {
   Query,
   UseGuards,
 } from '@nestjs/common';
-import { ApiBearerAuth, ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
+import {
+  ApiBearerAuth,
+  ApiOperation,
+  ApiResponse,
+  ApiTags,
+} from '@nestjs/swagger';
 import { BranchService } from './branch.service';
 import { AuthenticationGuard } from '@/common/guards/authentication.guard';
 import { LevelAuthorizationGuard } from '@/common/guards/level_authorization.guard';

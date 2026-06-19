@@ -2,7 +2,8 @@
 export const deleteSupplierDoc = {
   operation: {
     summary: 'Eliminar proveedor',
-    description: 'Elimina un proveedor según su ID. Retorna 404 si el proveedor no existe.',
+    description:
+      'Elimina un proveedor según su ID. Retorna 404 si el proveedor no existe.',
   },
 
   responses: {
@@ -16,8 +17,14 @@ export const deleteSupplierDoc = {
           supplier: {
             type: 'object',
             properties: {
-              supplier_id: { type: 'string', example: 'a1b2c3d4-e5f6-7890-abcd-ef1234567890' },
-              supplier_name: { type: 'string', example: 'Distribuidora Nacional S.A.' },
+              supplier_id: {
+                type: 'string',
+                example: 'a1b2c3d4-e5f6-7890-abcd-ef1234567890',
+              },
+              supplier_name: {
+                type: 'string',
+                example: 'Distribuidora Nacional S.A.',
+              },
             },
           },
         },
