@@ -33,7 +33,8 @@ export const createConceptDoc = {
 
   operation: {
     summary: 'Create a payroll concept',
-    description: 'Creates a new earning or deduction concept for a tenant\'s payroll.',
+    description:
+      "Creates a new earning or deduction concept for a tenant's payroll.",
   },
 
   responses: {

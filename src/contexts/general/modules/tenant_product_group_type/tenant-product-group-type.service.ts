@@ -61,7 +61,10 @@ export class TenantProductGroupTypeService {
       ]);
       return { deleted: result.rows[0]?.tenant_product_group_type_id ?? null };
     } catch (err: any) {
-      if (err?.code === '23503' && err?.constraint?.includes('royalty_option')) {
+      if (
+        err?.code === '23503' &&
+        err?.constraint?.includes('royalty_option')
+      ) {
         throw new BadRequestException(
           'No se puede eliminar esta dimensión porque tiene reglas de regalía asociadas. Elimine las reglas de regalía vinculadas a esta dimensión antes de continuar.',
         );

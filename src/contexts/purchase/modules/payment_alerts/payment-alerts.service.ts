@@ -59,10 +59,7 @@ export class PaymentAlertsService {
     };
   }
 
-  async upsertConfig(
-    dto: UpsertPaymentAlertConfigDto,
-    session: IUserSession,
-  ) {
+  async upsertConfig(dto: UpsertPaymentAlertConfigDto, session: IUserSession) {
     const scopedTenantId = this.resolveTenantId(session, dto.tenant_id);
 
     await this.db.query(alerts.upsertConfig, [
@@ -137,6 +134,8 @@ export class PaymentAlertsService {
   }
 
   private isSuperuser(roleId: number) {
-    return this.stateService.getRole(roleId).role_hierarchy === SUPERUSER_HIERARCHY;
+    return (
+      this.stateService.getRole(roleId).role_hierarchy === SUPERUSER_HIERARCHY
+    );
   }
 }

@@ -11,7 +11,10 @@ export class ManualClockInDto {
   @IsUUID()
   branchId!: string;
 
-  @ApiProperty({ description: 'Clock-in timestamp (ISO 8601)', example: '2026-05-01T08:00:00' })
+  @ApiProperty({
+    description: 'Clock-in timestamp (ISO 8601)',
+    example: '2026-05-01T08:00:00',
+  })
   @IsDateString()
   clockIn!: string;
 }
@@ -23,7 +26,10 @@ export class ManualClockOutDto {
   @IsPositive()
   clockingId!: number;
 
-  @ApiProperty({ description: 'Clock-out timestamp (ISO 8601)', example: '2026-05-01T17:00:00' })
+  @ApiProperty({
+    description: 'Clock-out timestamp (ISO 8601)',
+    example: '2026-05-01T17:00:00',
+  })
   @IsDateString()
   clockOut!: string;
 }

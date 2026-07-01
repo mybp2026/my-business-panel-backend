@@ -1,4 +1,13 @@
-import { Controller, Get, Post, Body, Patch, Param, ParseIntPipe, UseGuards } from '@nestjs/common';
+import {
+  Controller,
+  Get,
+  Post,
+  Body,
+  Patch,
+  Param,
+  ParseIntPipe,
+  UseGuards,
+} from '@nestjs/common';
 import { ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
 import { PurchaseService } from './purchase.service';
 import { CreatePurchaseDto } from './dto/create-purchase.dto';
@@ -82,13 +91,18 @@ export class PurchaseController {
   }
 
   @ApiOperation({ summary: 'Obtener catálogos del módulo de compras' })
-  @ApiResponse({ status: 200, description: 'Catálogos obtenidos correctamente' })
+  @ApiResponse({
+    status: 200,
+    description: 'Catálogos obtenidos correctamente',
+  })
   @Get('catalogs')
   getPurchaseCatalogs() {
     return this.purchaseService.getPurchaseCatalogs();
   }
 
-  @ApiOperation({ summary: 'Obtener tasa de cambio más reciente para una moneda vs CRC' })
+  @ApiOperation({
+    summary: 'Obtener tasa de cambio más reciente para una moneda vs CRC',
+  })
   @ApiResponse({ status: 200, description: 'Tasa de cambio obtenida' })
   @Get('exchange-rate/:currencyId')
   getExchangeRate(@Param('currencyId', ParseIntPipe) currencyId: number) {

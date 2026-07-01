@@ -117,7 +117,7 @@ export class EInvoiceService {
     if (!sale.activity_code) {
       throw new BadRequestException(
         'El tenant no tiene un código de actividad económica configurado (campo econ_activity). ' +
-        'Configúrelo con el código registrado ante Hacienda en el perfil del tenant.',
+          'Configúrelo con el código registrado ante Hacienda en el perfil del tenant.',
       );
     }
 

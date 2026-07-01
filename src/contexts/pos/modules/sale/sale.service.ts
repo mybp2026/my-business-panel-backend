@@ -69,7 +69,9 @@ export class SaleService {
   async createFullSale(data: FullSaleDto) {
     const { items, payments } = data;
 
-    const hasPointsPayment = (payments ?? []).some((p) => p.is_points_redemption);
+    const hasPointsPayment = (payments ?? []).some(
+      (p) => p.is_points_redemption,
+    );
     if (hasPointsPayment && !data.tenant_customer_id) {
       throw new BadRequestException(
         'Se requiere asociar un cliente para realizar pagos con puntos de fidelidad.',
@@ -99,7 +101,6 @@ export class SaleService {
 
     const txn = await this.db.transaction();
     try {
-
       let saleId: string;
       try {
         const { rows } = await txn.query(sales.createSale, [
@@ -225,7 +226,10 @@ export class SaleService {
             [data.tenant_id],
           );
           const lp = lpRows[0];
-          if (lp && data.total_amount >= Number(lp.minimum_purchase_for_points)) {
+          if (
+            lp &&
+            data.total_amount >= Number(lp.minimum_purchase_for_points)
+          ) {
             pointsAccumulated = Math.floor(
               loyaltyBaseAmount * Number(lp.points_earned_per_currency_unit),
             );
@@ -261,10 +265,12 @@ export class SaleService {
              WHERE type_name IN ('venta_credito', 'venta_apartado')`,
           );
           const arTypeMap = new Map<string, string>(
-            arTypesRes.rows.map((r: { type_name: string; account_receivable_type_id: string }) => [
-              r.type_name,
-              r.account_receivable_type_id,
-            ]),
+            arTypesRes.rows.map(
+              (r: {
+                type_name: string;
+                account_receivable_type_id: string;
+              }) => [r.type_name, r.account_receivable_type_id],
+            ),
           );
 
           const arTypeName =
@@ -291,7 +297,8 @@ export class SaleService {
               new Date(data.due_date!),
             ],
           );
-          const accountReceivableId: string = arRes.rows[0].account_receivable_id;
+          const accountReceivableId: string =
+            arRes.rows[0].account_receivable_id;
 
           const sarRes = await txn.query(
             `INSERT INTO pos_schema.sale_account_receivable(
@@ -407,7 +414,10 @@ export class SaleService {
             [data.tenant_id],
           );
           const program = programRows[0];
-          if (program && data.total_amount >= Number(program.minimum_purchase_for_points)) {
+          if (
+            program &&
+            data.total_amount >= Number(program.minimum_purchase_for_points)
+          ) {
             const earnBase =
               isCredit || isApartado
                 ? Math.min(upfront, data.total_amount)
@@ -425,7 +435,8 @@ export class SaleService {
           }
           // Deduct redeemed points from any points-redemption payment rows
           const redeemedPoints = (data.payments ?? []).reduce(
-            (sum, p) => sum + (p.is_points_redemption ? (p.points_redeemed ?? 0) : 0),
+            (sum, p) =>
+              sum + (p.is_points_redemption ? (p.points_redeemed ?? 0) : 0),
             0,
           );
           if (redeemedPoints > 0) {
@@ -491,10 +502,21 @@ export class SaleService {
         ) AS paginated_sales
       `,
       selectColumns: [
-        'sale_id', 'sale_date', 'total_amount', 'subtotal_amount', 'tax_amount',
-        'is_completed', 'has_electronic_invoice', 'is_refunded', 'branch_id',
-        'branch_name', 'currency_code', 'symbol', 'tenant_customer_id',
-        'created_at', 'return_transaction_id',
+        'sale_id',
+        'sale_date',
+        'total_amount',
+        'subtotal_amount',
+        'tax_amount',
+        'is_completed',
+        'has_electronic_invoice',
+        'is_refunded',
+        'branch_id',
+        'branch_name',
+        'currency_code',
+        'symbol',
+        'tenant_customer_id',
+        'created_at',
+        'return_transaction_id',
       ],
       pkFields: ['sale_id'],
       where: { tenant_id: tenantId },

@@ -1,6 +1,6 @@
-import { PartialType } from "@nestjs/mapped-types";
-import { IsOptional, IsUUID } from "class-validator";
-import { NewSingleEmployeeDto } from "./newEmployeeDto.dto";
+import { PartialType } from '@nestjs/mapped-types';
+import { IsOptional, IsUUID } from 'class-validator';
+import { NewSingleEmployeeDto } from './newEmployeeDto.dto';
 
 export class UpdateEmployeeDto extends PartialType(NewSingleEmployeeDto) {
   @IsOptional()

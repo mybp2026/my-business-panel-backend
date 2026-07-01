@@ -15,6 +15,7 @@ export interface PayrollConceptRow {
   type: 'earning' | 'deduction';
   calculation_method: 'fixed' | 'percentage' | 'formula' | 'manual';
   is_taxable: boolean;
+  is_active?: boolean;
   base_value: string;
   code?: string;
 }

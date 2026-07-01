@@ -12,7 +12,10 @@ export const deleteLoyalProgramDoc = {
       schema: {
         type: 'object',
         properties: {
-          message: { type: 'string', example: 'Loyal program deleted successfully' },
+          message: {
+            type: 'string',
+            example: 'Loyal program deleted successfully',
+          },
         },
       },
     },

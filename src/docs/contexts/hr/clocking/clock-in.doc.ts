@@ -23,7 +23,10 @@ export const clockInDoc = {
       schema: {
         type: 'object',
         properties: {
-          clocking_id: { type: 'string', example: 'a1b2c3d4-e5f6-7890-abcd-ef1234567890' },
+          clocking_id: {
+            type: 'string',
+            example: 'a1b2c3d4-e5f6-7890-abcd-ef1234567890',
+          },
         },
       },
     },

@@ -2,7 +2,8 @@
 export const deleteEmployeeDoc = {
   operation: {
     summary: 'Delete an employee',
-    description: 'Permanently removes an employee and their associated data from the system.',
+    description:
+      'Permanently removes an employee and their associated data from the system.',
   },
 
   responses: {

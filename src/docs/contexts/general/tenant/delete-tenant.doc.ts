@@ -2,7 +2,8 @@
 export const deleteTenantDoc = {
   operation: {
     summary: 'Delete a tenant',
-    description: 'Deletes a tenant by its UUID. Returns an error if the tenant does not exist.',
+    description:
+      'Deletes a tenant by its UUID. Returns an error if the tenant does not exist.',
   },
 
   responses: {
@@ -16,7 +17,10 @@ export const deleteTenantDoc = {
           tenant: {
             type: 'object',
             properties: {
-              tenant_id: { type: 'string', example: '123e4567-e89b-12d3-a456-426614174000' },
+              tenant_id: {
+                type: 'string',
+                example: '123e4567-e89b-12d3-a456-426614174000',
+              },
               tenant_name: { type: 'string', example: 'Acme Corp' },
             },
           },

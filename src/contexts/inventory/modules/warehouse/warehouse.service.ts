@@ -633,7 +633,7 @@ export class WarehouseService {
         item.product_variant_id,
         warehouseId,
       ]);
-      let directAvailable = Number(directStockRes.rows[0]?.stock ?? 0);
+      const directAvailable = Number(directStockRes.rows[0]?.stock ?? 0);
       let quantityToProcess = Number(item.quantity);
 
       if (directAvailable > 0) {
@@ -966,7 +966,11 @@ export class WarehouseService {
             const addedQty = product.amount * Number(comp.quantity);
             const { rows: existing } = await txn.query(
               inventoryQueries.getInventoryId,
-              [destination_warehouse_id, comp.child_product_variant_id, tenant_id],
+              [
+                destination_warehouse_id,
+                comp.child_product_variant_id,
+                tenant_id,
+              ],
             );
             if (existing.length > 0) {
               await txn.query(inventoryQueries.addStock, [
@@ -1220,7 +1224,7 @@ export class WarehouseService {
       throw new BadRequestException('Can only update pending requests');
     }
 
-    let transferId = null;
+    const transferId = null;
 
     if (status === 'approved') {
       const rawProducts: { product_variant_id: string; amount: number }[] =

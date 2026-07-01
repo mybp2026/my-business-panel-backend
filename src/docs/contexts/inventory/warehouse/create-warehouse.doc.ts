@@ -26,10 +26,19 @@ export const createWarehouseDoc = {
       schema: {
         type: 'object',
         properties: {
-          warehouse_id: { type: 'string', example: 'b9d4e17c-3a82-4f5c-c0d7-1b6e9f3a2d85' },
-          branch_id: { type: 'string', example: '7e3f91bc-4a82-4d5c-b0e7-2c6d3f8a1b94' },
+          warehouse_id: {
+            type: 'string',
+            example: 'b9d4e17c-3a82-4f5c-c0d7-1b6e9f3a2d85',
+          },
+          branch_id: {
+            type: 'string',
+            example: '7e3f91bc-4a82-4d5c-b0e7-2c6d3f8a1b94',
+          },
           warehouse_name: { type: 'string', example: 'Bodega Central' },
-          warehouse_address: { type: 'string', example: 'Zona Industrial, Cartago' },
+          warehouse_address: {
+            type: 'string',
+            example: 'Zona Industrial, Cartago',
+          },
         },
       },
     },
@@ -49,7 +58,10 @@ export const createWarehouseDoc = {
       schema: {
         type: 'object',
         properties: {
-          error: { type: 'string', example: 'Branch not found for this tenant' },
+          error: {
+            type: 'string',
+            example: 'Branch not found for this tenant',
+          },
         },
       },
     },

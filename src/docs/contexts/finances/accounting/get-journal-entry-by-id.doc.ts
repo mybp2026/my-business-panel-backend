@@ -11,7 +11,10 @@ export const getJournalEntryByIdDoc = {
       schema: {
         type: 'object',
         properties: {
-          entry_id: { type: 'string', example: '3b8f2c91-e4a7-4d5b-a0c6-7d1e9f3b2a85' },
+          entry_id: {
+            type: 'string',
+            example: '3b8f2c91-e4a7-4d5b-a0c6-7d1e9f3b2a85',
+          },
           description: { type: 'string', example: 'Venta de contado' },
         },
       },

@@ -4,6 +4,6 @@ import { TardinessController } from './tardiness.controller';
 
 @Module({
   providers: [TardinessService],
-  controllers: [TardinessController]
+  controllers: [TardinessController],
 })
 export class TardinessModule {}

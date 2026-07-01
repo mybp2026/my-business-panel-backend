@@ -28,10 +28,7 @@ export class AttributeValueController {
   }
 
   @Get(':tenantId/:id')
-  async getById(
-    @Param('tenantId') tenantId: string,
-    @Param('id') id: string,
-  ) {
+  async getById(@Param('tenantId') tenantId: string, @Param('id') id: string) {
     return this.service.getById(id, tenantId);
   }
 
@@ -50,10 +47,7 @@ export class AttributeValueController {
   }
 
   @Delete(':tenantId/:id')
-  async delete(
-    @Param('tenantId') tenantId: string,
-    @Param('id') id: string,
-  ) {
+  async delete(@Param('tenantId') tenantId: string, @Param('id') id: string) {
     return this.service.delete(id, tenantId);
   }
 }

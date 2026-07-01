@@ -1,7 +1,8 @@
 export const deactivateHaciendaConfigDoc = {
   operation: {
     summary: 'Desactivar configuración de Hacienda',
-    description: 'Desactiva las credenciales de Hacienda del tenant dado su ID. Requiere nivel de acceso 4.',
+    description:
+      'Desactiva las credenciales de Hacienda del tenant dado su ID. Requiere nivel de acceso 4.',
   },
   responses: {
     200: { status: 200, description: 'Configuración desactivada exitosamente' },

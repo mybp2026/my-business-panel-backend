@@ -2,7 +2,8 @@
 export const getTrialBalanceDoc = {
   operation: {
     summary: 'Balance de comprobación',
-    description: 'Devuelve el balance de comprobación con cuentas, débitos y créditos.',
+    description:
+      'Devuelve el balance de comprobación con cuentas, débitos y créditos.',
   },
   responses: {
     200: {

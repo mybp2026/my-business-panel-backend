@@ -63,3 +63,15 @@ export interface PromoType {
   created_at: string;
   updated_at: string;
 }
+
+export interface PromoAnalyticsRow {
+  promotion_id: string;
+  promotion_name: string;
+  promotion_code: string | null;
+  is_active: boolean;
+  promotion_type: string;
+  currency_id: number;
+  sale_count: string;
+  total_discount: string;
+  total_revenue: string;
+}

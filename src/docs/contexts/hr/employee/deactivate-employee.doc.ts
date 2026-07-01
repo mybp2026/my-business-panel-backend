@@ -2,7 +2,8 @@
 export const deactivateEmployeeDoc = {
   operation: {
     summary: 'Deactivate an employee',
-    description: 'Marks an employee as inactive. Their data is preserved but they will no longer appear in active lists.',
+    description:
+      'Marks an employee as inactive. Their data is preserved but they will no longer appear in active lists.',
   },
 
   responses: {

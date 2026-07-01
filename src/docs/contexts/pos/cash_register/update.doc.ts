@@ -29,8 +29,14 @@ export const updateCashRegisterDoc = {
           updated: {
             type: 'object',
             properties: {
-              cash_register_id: { type: 'string', example: 'a4c82f17-9b3e-4d6a-8c5f-1e0b7d3a2c94' },
-              branch_id: { type: 'string', example: '7e3f91bc-4a82-4d5c-b0e7-2c6d3f8a1b94' },
+              cash_register_id: {
+                type: 'string',
+                example: 'a4c82f17-9b3e-4d6a-8c5f-1e0b7d3a2c94',
+              },
+              branch_id: {
+                type: 'string',
+                example: '7e3f91bc-4a82-4d5c-b0e7-2c6d3f8a1b94',
+              },
               is_active: { type: 'boolean', example: false },
             },
           },

@@ -21,7 +21,8 @@ export const updateSupplierDoc = {
 
   operation: {
     summary: 'Actualizar proveedor',
-    description: 'Actualiza uno o más campos de un proveedor existente según su ID.',
+    description:
+      'Actualiza uno o más campos de un proveedor existente según su ID.',
   },
 
   responses: {
@@ -35,8 +36,14 @@ export const updateSupplierDoc = {
           supplier: {
             type: 'object',
             properties: {
-              supplier_id: { type: 'string', example: 'a1b2c3d4-e5f6-7890-abcd-ef1234567890' },
-              supplier_name: { type: 'string', example: 'Distribuidora Nacional S.A.' },
+              supplier_id: {
+                type: 'string',
+                example: 'a1b2c3d4-e5f6-7890-abcd-ef1234567890',
+              },
+              supplier_name: {
+                type: 'string',
+                example: 'Distribuidora Nacional S.A.',
+              },
             },
           },
         },

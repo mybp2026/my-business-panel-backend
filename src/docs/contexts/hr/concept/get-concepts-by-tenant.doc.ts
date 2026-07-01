@@ -2,7 +2,8 @@
 export const getConceptsByTenantDoc = {
   operation: {
     summary: 'Get concepts by tenant',
-    description: 'Returns all payroll concepts (earnings and deductions) configured for a specific tenant.',
+    description:
+      'Returns all payroll concepts (earnings and deductions) configured for a specific tenant.',
   },
 
   responses: {

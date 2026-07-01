@@ -2,7 +2,8 @@
 export const createUsersBulkDoc = {
   dto: {
     users: {
-      description: 'Array of users to create. Each entry follows the same structure as createUser.',
+      description:
+        'Array of users to create. Each entry follows the same structure as createUser.',
       example: [
         {
           tenant_id: '123e4567-e89b-12d3-a456-426614174000',
@@ -53,7 +54,10 @@ export const createUsersBulkDoc = {
             items: {
               type: 'object',
               properties: {
-                user_id: { type: 'string', example: '123e4567-e89b-12d3-a456-426614174000' },
+                user_id: {
+                  type: 'string',
+                  example: '123e4567-e89b-12d3-a456-426614174000',
+                },
                 email: { type: 'string', example: 'ana.garcia@empresa.com' },
               },
             },

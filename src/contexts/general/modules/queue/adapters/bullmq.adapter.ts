@@ -97,7 +97,9 @@ export class BullMQAdapter implements IQueueService {
   private getQueue(name: string): Queue {
     const queue = this.queues.get(name);
     if (!queue) {
-      throw new Error(`Queue "${name}" not registered. Call registerQueue() first.`);
+      throw new Error(
+        `Queue "${name}" not registered. Call registerQueue() first.`,
+      );
     }
     return queue;
   }

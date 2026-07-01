@@ -1,5 +1,12 @@
 import { Type } from 'class-transformer';
-import { IsUUID, IsNumber, Min, IsInt, IsOptional, IsString } from 'class-validator';
+import {
+  IsUUID,
+  IsNumber,
+  Min,
+  IsInt,
+  IsOptional,
+  IsString,
+} from 'class-validator';
 import { ApiProperty } from '@nestjs/swagger';
 import { registerPaymentDoc } from '@/docs/contexts/purchase/purchase';
 
@@ -19,7 +26,11 @@ export class CreatePaymentDto {
   @IsInt()
   payment_method_id!: number;
 
-  @ApiProperty({ description: 'Currency ID (from general_schema.currency). Defaults to 1 (CRC).', required: false })
+  @ApiProperty({
+    description:
+      'Currency ID (from general_schema.currency). Defaults to 1 (CRC).',
+    required: false,
+  })
   @IsOptional()
   @Type(() => Number)
   @IsInt()

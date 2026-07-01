@@ -10,7 +10,8 @@ export const closeCashRegisterSessionDoc = {
       example: 75000,
     },
     closed_at: {
-      description: 'Fecha y hora del cierre. Opcional; si se omite, se usa el momento actual.',
+      description:
+        'Fecha y hora del cierre. Opcional; si se omite, se usa el momento actual.',
       example: '2024-04-01T18:00:00.000Z',
     },
   },
@@ -29,9 +30,15 @@ export const closeCashRegisterSessionDoc = {
           closed: {
             type: 'object',
             properties: {
-              cash_register_session_id: { type: 'string', example: 'c9e4b72a-1f83-4d5e-b6d2-0f5c9e3a7b14' },
+              cash_register_session_id: {
+                type: 'string',
+                example: 'c9e4b72a-1f83-4d5e-b6d2-0f5c9e3a7b14',
+              },
               closing_amount: { type: 'number', example: 75000 },
-              closed_at: { type: 'string', example: '2024-04-01T18:00:00.000Z' },
+              closed_at: {
+                type: 'string',
+                example: '2024-04-01T18:00:00.000Z',
+              },
               is_active: { type: 'boolean', example: false },
             },
           },
@@ -44,7 +51,10 @@ export const closeCashRegisterSessionDoc = {
       schema: {
         type: 'object',
         properties: {
-          error: { type: 'string', example: 'Cash register session is not active' },
+          error: {
+            type: 'string',
+            example: 'Cash register session is not active',
+          },
         },
       },
     },
