@@ -20,6 +20,8 @@ import {
   ExpenseFromDb,
   FixedVsVariableAnalytic,
   FiscalPeriodFromDb,
+  ExpenseFixedVsVariableAnalytic,
+  ExpenseCategoryAnalytic,
   SalesVsExpensesPoint,
 } from './interface/expense.interface';
 import { AccountingJournalService } from '../accounting/accounting-journal.service';
@@ -293,5 +295,71 @@ export class ExpenseService {
     if (!rows.length)
       throw new BadRequestException('Período no encontrado o ya está cerrado');
     return rows[0].period_id;
+  }
+
+  // -------------------------------------------------------
+  // ANALYTICS
+  // -------------------------------------------------------
+
+  async getFixedVsVariableSummary(
+    tenantId: string,
+    start: string,
+    end: string,
+  ): Promise<ExpenseFixedVsVariableAnalytic[]> {
+    const { rows } = await this.db.query(
+      expenseQueries.getFixedVsVariableSummary,
+      [tenantId, start, end],
+    );
+    return rows;
+  }
+
+  async getFixedCategoryBreakdown(
+    tenantId: string,
+    start: string,
+    end: string,
+  ): Promise<ExpenseCategoryAnalytic[]> {
+    const { rows } = await this.db.query(
+      expenseQueries.getFixedCategoryBreakdown,
+      [tenantId, start, end],
+    );
+    return rows;
+  }
+
+  async getVariableCategoryBreakdown(
+    tenantId: string,
+    start: string,
+    end: string,
+  ): Promise<ExpenseCategoryAnalytic[]> {
+    const { rows } = await this.db.query(
+      expenseQueries.getVariableCategoryBreakdown,
+      [tenantId, start, end],
+    );
+    return rows;
+  }
+
+  async getSalesVsExpenses(
+    tenantId: string,
+    start: string,
+    end: string,
+    branchId?: string | null,
+  ): Promise<SalesVsExpensesPoint[]> {
+    const diffDays = Math.round(
+      (new Date(end).getTime() - new Date(start).getTime()) / 86_400_000,
+    );
+    const granularity: 'day' | 'week' | 'month' =
+      diffDays <= 30 ? 'day' : diffDays <= 90 ? 'week' : 'month';
+
+    const query = expenseQueries.getSalesVsExpenses.replace(
+      /\{\{GRANULARITY\}\}/g,
+      granularity,
+    );
+
+    const { rows } = await this.db.query(query, [
+      tenantId,
+      start,
+      end,
+      branchId ?? null,
+    ]);
+    return rows;
   }
 }
