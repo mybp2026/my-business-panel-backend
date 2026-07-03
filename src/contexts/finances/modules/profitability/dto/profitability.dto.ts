@@ -1,4 +1,4 @@
-import { IsIn, IsOptional } from 'class-validator';
+import { IsIn, IsOptional, IsUUID } from 'class-validator';
 import { ProfitabilityInterval } from '../interface/profitability.interface';
 
 export const PROFITABILITY_INTERVALS: ProfitabilityInterval[] = [
@@ -16,4 +16,9 @@ export class GetProfitabilityDto {
   @IsOptional()
   @IsIn(PROFITABILITY_INTERVALS)
   interval?: ProfitabilityInterval;
+
+  // Filtro opcional por sucursal. Ausente = todas las sucursales del tenant.
+  @IsOptional()
+  @IsUUID()
+  branchId?: string;
 }

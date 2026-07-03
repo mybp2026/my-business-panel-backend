@@ -219,4 +219,108 @@ export const posRoyaltyQueries = {
       AND pv.is_active = true
     ORDER BY pv.variant_name ASC
   `,
+
+  // ── Analytics (Regalias) ─────────────────────────────────────────────────────
+  // Regalia = sale_item con sale_price_type = 'ROYALTY'. Valor = total_price
+  // (cantidad x precio de venta). Filtrable por sucursal e intervalo de tiempo.
+  // Params comunes: $1 = tenant_id, $2 = branch_id (uuid|null), $3 = range_start (timestamp),
+  //                 $4 = bucket_unit (text, solo evolucion).
+
+  // Totales: valor entregado en regalias vs ventas reales (para el % respecto a ventas).
+  royaltyTotals: `
+    WITH gifts AS (
+      SELECT
+        COALESCE(SUM(si.total_price), 0) AS total_value,
+        COUNT(*)                         AS gift_lines
+      FROM pos_schema.sale_item si
+      INNER JOIN pos_schema.sale s ON s.sale_id = si.sale_id
+      INNER JOIN general_schema.branch b ON b.branch_id = s.branch_id
+      WHERE b.tenant_id = $1
+        AND si.sale_price_type = 'ROYALTY'
+        AND s.is_completed = true
+        AND s.sale_date >= $3
+        AND ($2::uuid IS NULL OR s.branch_id = $2::uuid)
+    ),
+    sales AS (
+      SELECT COALESCE(SUM(s.total_amount), 0) AS total_sales
+      FROM pos_schema.sale s
+      INNER JOIN general_schema.branch b ON b.branch_id = s.branch_id
+      WHERE b.tenant_id = $1
+        AND s.is_completed = true
+        AND s.sale_date >= $3
+        AND ($2::uuid IS NULL OR s.branch_id = $2::uuid)
+    )
+    SELECT
+      g.total_value::text AS total_value,
+      g.gift_lines::text  AS gift_lines,
+      sl.total_sales::text AS total_sales
+    FROM gifts g CROSS JOIN sales sl
+  `,
+
+  // Top categorias mas regaladas.
+  royaltyByCategory: `
+    SELECT
+      pc.product_category_id                      AS category_id,
+      COALESCE(pc.category_name, 'Sin categoria') AS category_name,
+      SUM(si.total_price)::text                   AS value,
+      SUM(si.quantity)::text                      AS quantity
+    FROM pos_schema.sale_item si
+    INNER JOIN pos_schema.sale s ON s.sale_id = si.sale_id
+    INNER JOIN general_schema.branch b ON b.branch_id = s.branch_id
+    INNER JOIN general_schema.product_variant pv
+      ON pv.tenant_id = si.tenant_id
+     AND pv.product_variant_id = si.product_variant_id
+    LEFT JOIN general_schema.product p ON p.cabys_code = pv.cabys_code
+    LEFT JOIN general_schema.product_category pc
+      ON pc.product_category_id = p.product_category_id
+    WHERE b.tenant_id = $1
+      AND si.sale_price_type = 'ROYALTY'
+      AND s.is_completed = true
+      AND s.sale_date >= $3
+      AND ($2::uuid IS NULL OR s.branch_id = $2::uuid)
+    GROUP BY pc.product_category_id, pc.category_name
+    ORDER BY SUM(si.total_price) DESC
+    LIMIT 10
+  `,
+
+  // Top clientes con mas regalias.
+  royaltyByCustomer: `
+    SELECT
+      s.tenant_customer_id,
+      COALESCE(tc.first_name || ' ' || tc.last_name, 'Cliente general') AS name,
+      tc.document_number,
+      SUM(si.total_price)::text AS value,
+      SUM(si.quantity)::text    AS quantity
+    FROM pos_schema.sale_item si
+    INNER JOIN pos_schema.sale s ON s.sale_id = si.sale_id
+    INNER JOIN general_schema.branch b ON b.branch_id = s.branch_id
+    LEFT JOIN general_schema.tenant_customer tc
+      ON tc.tenant_customer_id = s.tenant_customer_id
+    WHERE b.tenant_id = $1
+      AND si.sale_price_type = 'ROYALTY'
+      AND s.is_completed = true
+      AND s.sale_date >= $3
+      AND ($2::uuid IS NULL OR s.branch_id = $2::uuid)
+    GROUP BY s.tenant_customer_id, tc.first_name, tc.last_name, tc.document_number
+    ORDER BY SUM(si.total_price) DESC
+    LIMIT 10
+  `,
+
+  // Evolucion temporal de la mercancia obsequiada.
+  royaltyEvolution: `
+    SELECT
+      date_trunc($4, s.sale_date)::text AS bucket_start,
+      SUM(si.total_price)::text         AS value,
+      SUM(si.quantity)::text            AS quantity
+    FROM pos_schema.sale_item si
+    INNER JOIN pos_schema.sale s ON s.sale_id = si.sale_id
+    INNER JOIN general_schema.branch b ON b.branch_id = s.branch_id
+    WHERE b.tenant_id = $1
+      AND si.sale_price_type = 'ROYALTY'
+      AND s.is_completed = true
+      AND s.sale_date >= $3
+      AND ($2::uuid IS NULL OR s.branch_id = $2::uuid)
+    GROUP BY bucket_start
+    ORDER BY bucket_start
+  `,
 };

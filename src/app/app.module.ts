@@ -76,6 +76,7 @@ import { AccountingModule } from '@/contexts/finances/modules/accounting/account
 import { ExpenseModule } from '@/contexts/finances/modules/expense/expense.module';
 import { AccountsModule } from '@/contexts/finances/modules/accounts/accounts.module';
 import { ProfitabilityModule } from '@/contexts/finances/modules/profitability/profitability.module';
+import { LoyaltyModule } from '@/contexts/finances/modules/loyalty/loyalty.module';
 import { CashFlowModule } from '@/contexts/finances/modules/cash-flow/cash-flow.module';
 
 @Module({
@@ -144,6 +145,7 @@ import { CashFlowModule } from '@/contexts/finances/modules/cash-flow/cash-flow.
     ExpenseModule,
     AccountsModule,
     ProfitabilityModule,
+    LoyaltyModule,
     CashFlowModule,
     ReportingModule,
   ],

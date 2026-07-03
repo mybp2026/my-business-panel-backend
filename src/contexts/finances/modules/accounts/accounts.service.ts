@@ -19,6 +19,7 @@ interface AccountListQuery {
   status?: string;
   sort_by?: string;
   sort_dir?: string;
+  branch_id?: string;
 }
 
 const SUPERUSER_HIERARCHY = 1;
@@ -47,21 +48,53 @@ export class AccountsService {
     private readonly stateService: StateService,
   ) {}
 
-  async getAccountsOverview(session: IUserSession) {
+  async getAccountsOverview(session: IUserSession, branchId?: string) {
     const isSuperuser =
       this.stateService.getRole(session.role_id).role_hierarchy ===
       SUPERUSER_HIERARCHY;
 
-    const { ap, ar, alertConfig } = accountsOverviewQueries;
+    const { alertConfig } = accountsOverviewQueries;
+    const branch = branchId || null;
+
+    // CxP: filtro multi-tenant (salvo superuser) + sucursal opcional (via warehouse->branch).
+    const apValues: unknown[] = [];
+    const apConditions: string[] = ['ap.is_paid = false'];
+    if (!isSuperuser) {
+      apValues.push(session.tenant_id);
+      apConditions.push(`b.tenant_id = $${apValues.length}`);
+    }
+    if (branch) {
+      apValues.push(branch);
+      apConditions.push(`b.branch_id = $${apValues.length}`);
+    }
+    const apSql = `
+      ${apOverviewSelect}
+      WHERE ${apConditions.join(' AND ')}
+      ORDER BY ap.due_date DESC, pap.created_at DESC
+    `;
+
+    // CxC: filtro multi-tenant (salvo superuser) + sucursal opcional (via sale.branch_id).
+    const arValues: unknown[] = [];
+    const arConditions: string[] = ['ar.is_paid = false'];
+    if (!isSuperuser) {
+      arValues.push(session.tenant_id);
+      arConditions.push(`ar.tenant_id = $${arValues.length}`);
+    }
+    if (branch) {
+      arValues.push(branch);
+      arConditions.push(`sale_b.branch_id = $${arValues.length}`);
+    }
+    const arSql = `
+      ${arOverviewSelect}
+      WHERE ${arConditions.join(' AND ')}
+      ${arGroupByClause}
+      ORDER BY ar.due_date DESC, sar.created_at DESC
+    `;
 
     const [payablesResult, receivablesResult, apConfigResult, arConfigResult] =
       await Promise.all([
-        isSuperuser
-          ? this.db.query(ap.getGlobal)
-          : this.db.query(ap.getByTenant, [session.tenant_id]),
-        isSuperuser
-          ? this.db.query(ar.getGlobal)
-          : this.db.query(ar.getByTenant, [session.tenant_id]),
+        this.db.query(apSql, apValues),
+        this.db.query(arSql, arValues),
         session.tenant_id
           ? this.db
               .query(alertConfig.getPayableConfig, [session.tenant_id])
@@ -105,6 +138,11 @@ export class AccountsService {
       conditions.push(`pap.account_payable_status = $${values.length}`);
     }
 
+    if (query.branch_id) {
+      values.push(query.branch_id);
+      conditions.push(`b.branch_id = $${values.length}`);
+    }
+
     const sortCol =
       AP_SORT_COLS[query.sort_by ?? ''] ?? AP_SORT_COLS['due_date'];
     const sortDir = query.sort_dir === 'asc' ? 'ASC' : 'DESC';
@@ -135,6 +173,11 @@ export class AccountsService {
     if (query.status && /^\d+$/.test(query.status)) {
       values.push(parseInt(query.status, 10));
       conditions.push(`sar.account_receivable_status = $${values.length}`);
+    }
+
+    if (query.branch_id) {
+      values.push(query.branch_id);
+      conditions.push(`sale_b.branch_id = $${values.length}`);
     }
 
     const sortCol =

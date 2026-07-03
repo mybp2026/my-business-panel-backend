@@ -6,9 +6,13 @@ import {
   Patch,
   Post,
   Query,
+  UseGuards,
 } from '@nestjs/common';
 import { ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
 import { ExpenseService } from './expense.service';
+import { AuthenticationGuard } from '@/common/guards/authentication.guard';
+import { Session } from '@/common/decorators/session.decorator';
+import { IUserSession } from '@/common/interfaces/user_session.interface';
 import {
   CreateExpenseCategoryDto,
   CreateExpenseDto,
@@ -147,6 +151,31 @@ export class ExpenseController {
   // -------------------------------------------------------
   // EXPENSES
   // -------------------------------------------------------
+
+  @ApiOperation({
+    summary:
+      'Historial de gastos paginado, filtrable por sucursal y rango de fechas',
+  })
+  @ApiResponse({ status: 200, description: 'Historial de gastos obtenido' })
+  @ApiResponse({ status: 401, description: 'No autenticado' })
+  @UseGuards(AuthenticationGuard)
+  @Get('history')
+  getExpensesHistory(
+    @Session() user: IUserSession,
+    @Query('branchId') branchId?: string,
+    @Query('start') start?: string,
+    @Query('end') end?: string,
+    @Query('page') page?: string,
+    @Query('limit') limit?: string,
+  ) {
+    return this.expenseService.getExpensesPaginated(user.tenant_id, {
+      branchId: branchId ?? null,
+      start: start ?? null,
+      end: end ?? null,
+      page: page ? Number(page) : 1,
+      limit: limit ? Number(limit) : 20,
+    });
+  }
 
   @ApiOperation(getExpensesByTenantDoc.operation)
   @ApiResponse(getExpensesByTenantDoc.responses[200])

@@ -18,8 +18,10 @@ import {
   CategoryAnalytic,
   ExpenseCategoryFromDb,
   ExpenseFromDb,
+  ExpenseHistoryRow,
   FixedVsVariableAnalytic,
   FiscalPeriodFromDb,
+  PaginatedExpenses,
   SalesVsExpensesPoint,
 } from './interface/expense.interface';
 import { AccountingJournalService } from '../accounting/accounting-journal.service';
@@ -137,6 +139,48 @@ export class ExpenseService {
     ]);
     if (!rows.length) throw new NotFoundException('Gasto no encontrado');
     return rows[0];
+  }
+
+  async getExpensesPaginated(
+    tenantId: string,
+    options: {
+      branchId?: string | null;
+      start?: string | null;
+      end?: string | null;
+      page?: number;
+      limit?: number;
+    },
+  ): Promise<PaginatedExpenses> {
+    const page = Math.max(1, Number(options.page) || 1);
+    const limit = Math.min(100, Math.max(1, Number(options.limit) || 20));
+    const offset = (page - 1) * limit;
+    const branchId = options.branchId || null;
+    const start = options.start || null;
+    const end = options.end || null;
+
+    const [{ rows }, { rows: countRows }] = await Promise.all([
+      this.db.query(expenseQueries.getExpensesPaginated, [
+        tenantId,
+        branchId,
+        start,
+        end,
+        limit,
+        offset,
+      ]),
+      this.db.query(expenseQueries.countExpensesPaginated, [
+        tenantId,
+        branchId,
+        start,
+        end,
+      ]),
+    ]);
+
+    return {
+      results: rows as ExpenseHistoryRow[],
+      total: countRows[0]?.total ?? 0,
+      page,
+      limit,
+    };
   }
 
   async getExpensesByDateRange(
