@@ -33,7 +33,16 @@ import {
   getFiscalPeriodsDoc,
   createFiscalPeriodDoc,
   closeFiscalPeriodDoc,
+  getFixedVsVariableDoc,
+  getFixedBreakdownDoc,
+  getVariableBreakdownDoc,
+  getSalesVsExpensesDoc,
 } from '@/docs/contexts/finances/expense';
+import {
+  ExpenseFixedVsVariableAnalytic,
+  ExpenseCategoryAnalytic,
+  SalesVsExpensesPoint,
+} from './interface/expense.interface';
 
 @ApiTags('Expense')
 @Controller('expense')
@@ -151,6 +160,62 @@ export class ExpenseController {
   // -------------------------------------------------------
   // EXPENSES
   // -------------------------------------------------------
+
+  // ANALYTICS (deben estar ANTES de @Get(':tenantId') para evitar conflicto de rutas)
+
+  @ApiOperation(getFixedVsVariableDoc.operation)
+  @ApiResponse(getFixedVsVariableDoc.responses[200])
+  @Get('analytics/fixed-vs-variable/:tenantId')
+  getFixedVsVariableSummary(
+    @Param('tenantId') tenantId: string,
+    @Query('start') start: string,
+    @Query('end') end: string,
+  ): Promise<ExpenseFixedVsVariableAnalytic[]> {
+    return this.expenseService.getFixedVsVariableSummary(tenantId, start, end);
+  }
+
+  @ApiOperation(getFixedBreakdownDoc.operation)
+  @ApiResponse(getFixedBreakdownDoc.responses[200])
+  @Get('analytics/fixed-breakdown/:tenantId')
+  getFixedCategoryBreakdown(
+    @Param('tenantId') tenantId: string,
+    @Query('start') start: string,
+    @Query('end') end: string,
+  ): Promise<ExpenseCategoryAnalytic[]> {
+    return this.expenseService.getFixedCategoryBreakdown(tenantId, start, end);
+  }
+
+  @ApiOperation(getVariableBreakdownDoc.operation)
+  @ApiResponse(getVariableBreakdownDoc.responses[200])
+  @Get('analytics/variable-breakdown/:tenantId')
+  getVariableCategoryBreakdown(
+    @Param('tenantId') tenantId: string,
+    @Query('start') start: string,
+    @Query('end') end: string,
+  ): Promise<ExpenseCategoryAnalytic[]> {
+    return this.expenseService.getVariableCategoryBreakdown(
+      tenantId,
+      start,
+      end,
+    );
+  }
+
+  @ApiOperation(getSalesVsExpensesDoc.operation)
+  @ApiResponse(getSalesVsExpensesDoc.responses[200])
+  @Get('analytics/sales-vs-expenses/:tenantId')
+  getSalesVsExpenses(
+    @Param('tenantId') tenantId: string,
+    @Query('start') start: string,
+    @Query('end') end: string,
+    @Query('branchId') branchId?: string,
+  ): Promise<SalesVsExpensesPoint[]> {
+    return this.expenseService.getSalesVsExpenses(
+      tenantId,
+      start,
+      end,
+      branchId ?? null,
+    );
+  }
 
   @ApiOperation({
     summary:

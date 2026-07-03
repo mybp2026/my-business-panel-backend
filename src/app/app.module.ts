@@ -78,6 +78,7 @@ import { AccountsModule } from '@/contexts/finances/modules/accounts/accounts.mo
 import { ProfitabilityModule } from '@/contexts/finances/modules/profitability/profitability.module';
 import { LoyaltyModule } from '@/contexts/finances/modules/loyalty/loyalty.module';
 import { CashFlowModule } from '@/contexts/finances/modules/cash-flow/cash-flow.module';
+import { IvaModule } from '@/contexts/finances/modules/iva/iva.module';
 
 @Module({
   imports: [
@@ -147,6 +148,7 @@ import { CashFlowModule } from '@/contexts/finances/modules/cash-flow/cash-flow.
     ProfitabilityModule,
     LoyaltyModule,
     CashFlowModule,
+    IvaModule,
     ReportingModule,
   ],
   controllers: [AppController],
