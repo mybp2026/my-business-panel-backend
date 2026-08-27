@@ -13,8 +13,14 @@ export const getTurnsByBranchDoc = {
         items: {
           type: 'object',
           properties: {
-            turn_id: { type: 'string', example: 'e9f0a1b2-c3d4-5678-efab-678901234567' },
-            branch_id: { type: 'string', example: 'd7e8f9a0-b1c2-3456-defa-567890123456' },
+            turn_id: {
+              type: 'string',
+              example: 'e9f0a1b2-c3d4-5678-efab-678901234567',
+            },
+            branch_id: {
+              type: 'string',
+              example: 'd7e8f9a0-b1c2-3456-defa-567890123456',
+            },
             entry: { type: 'string', example: '08:00' },
             out: { type: 'string', example: '17:00' },
           },

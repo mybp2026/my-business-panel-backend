@@ -13,10 +13,16 @@ export const getTardinessByDateRangeDoc = {
         items: {
           type: 'object',
           properties: {
-            employee_id: { type: 'string', example: '1a2b3c4d-5e6f-7890-abcd-ef1234567890' },
+            employee_id: {
+              type: 'string',
+              example: '1a2b3c4d-5e6f-7890-abcd-ef1234567890',
+            },
             type: { type: 'string', example: 'LATE_ENTRY' },
             log: { type: 'string', example: '08:31' },
-            registered_at: { type: 'string', example: '2024-03-10T08:31:00.000Z' },
+            registered_at: {
+              type: 'string',
+              example: '2024-03-10T08:31:00.000Z',
+            },
           },
         },
       },

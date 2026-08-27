@@ -2,7 +2,8 @@
 export const deleteCustomerDoc = {
   operation: {
     summary: 'Delete a customer',
-    description: 'Deletes a customer by their UUID. Returns an error if the customer does not exist.',
+    description:
+      'Deletes a customer by their UUID. Returns an error if the customer does not exist.',
   },
 
   responses: {

@@ -11,8 +11,14 @@ export const closeIncapacityDoc = {
       schema: {
         type: 'object',
         properties: {
-          message: { type: 'string', example: 'Incapacity closed successfully' },
-          incapacity_id: { type: 'string', example: 'b2c3d4e5-f6a7-8901-bcde-234567890123' },
+          message: {
+            type: 'string',
+            example: 'Incapacity closed successfully',
+          },
+          incapacity_id: {
+            type: 'string',
+            example: 'b2c3d4e5-f6a7-8901-bcde-234567890123',
+          },
         },
       },
     },

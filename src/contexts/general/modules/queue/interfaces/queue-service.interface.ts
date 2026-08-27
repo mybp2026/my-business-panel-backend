@@ -39,10 +39,7 @@ export interface IQueueService {
     jobs: { name: string; data: T; options?: IJobOptions }[],
   ): Promise<IJobResult<T>[]>;
 
-  getJobs(
-    queueName: string,
-    statuses: string[],
-  ): Promise<IJobResult[]>;
+  getJobs(queueName: string, statuses: string[]): Promise<IJobResult[]>;
 
   removeJob(queueName: string, jobId: string): Promise<void>;
 

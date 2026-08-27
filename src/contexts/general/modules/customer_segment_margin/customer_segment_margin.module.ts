@@ -5,7 +5,11 @@ import { RoleAuthorizationGuard } from '@/common/guards/role_authorization.guard
 import { LevelAuthorizationGuard } from '@/common/guards/level_authorization.guard';
 
 @Module({
-  providers: [CustomerSegmentMarginService, RoleAuthorizationGuard, LevelAuthorizationGuard],
+  providers: [
+    CustomerSegmentMarginService,
+    RoleAuthorizationGuard,
+    LevelAuthorizationGuard,
+  ],
   controllers: [CustomerSegmentMarginController],
 })
 export class CustomerSegmentMarginModule {}

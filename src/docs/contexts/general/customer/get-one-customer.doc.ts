@@ -2,7 +2,8 @@
 export const getOneCustomerDoc = {
   operation: {
     summary: 'Get customer by document ID',
-    description: 'Retrieves a customer by their document identification number (cedula, passport, etc.).',
+    description:
+      'Retrieves a customer by their document identification number (cedula, passport, etc.).',
   },
 
   responses: {
@@ -12,8 +13,14 @@ export const getOneCustomerDoc = {
       schema: {
         type: 'object',
         properties: {
-          tenant_customer_id: { type: 'string', example: '123e4567-e89b-12d3-a456-426614174000' },
-          tenant_id: { type: 'string', example: '123e4567-e89b-12d3-a456-426614174000' },
+          tenant_customer_id: {
+            type: 'string',
+            example: '123e4567-e89b-12d3-a456-426614174000',
+          },
+          tenant_id: {
+            type: 'string',
+            example: '123e4567-e89b-12d3-a456-426614174000',
+          },
           first_name: { type: 'string', example: 'María' },
           last_name: { type: 'string', example: 'López' },
           document_number: { type: 'string', example: '1-1234-5678' },

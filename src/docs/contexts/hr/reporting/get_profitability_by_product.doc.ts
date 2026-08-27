@@ -13,7 +13,10 @@ export const getProfitabilityByProductDoc = {
         items: {
           type: 'object',
           properties: {
-            product_id: { type: 'string', example: 'a1b2c3d4-e5f6-7890-abcd-ef1234567890' },
+            product_id: {
+              type: 'string',
+              example: 'a1b2c3d4-e5f6-7890-abcd-ef1234567890',
+            },
             product_name: { type: 'string', example: 'Café molido 250g' },
             total_sold: { type: 'number', example: 312 },
             total_cost: { type: 'number', example: 187200 },

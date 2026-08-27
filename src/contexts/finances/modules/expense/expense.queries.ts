@@ -19,6 +19,25 @@ export const expenseQueries = {
     ORDER BY ec.account_code
   `,
 
+  searchCategoriesByTenant: `
+    SELECT
+      ec.category_id,
+      ec.tenant_id,
+      ec.name,
+      ec.account_code,
+      ec.parent_category_id,
+      ec.is_fixed,
+      ec.is_active,
+      ec.created_at,
+      ec.updated_at
+    FROM accounting_schema.expense_category ec
+    WHERE ec.tenant_id = $1
+      AND ec.is_active = TRUE
+      AND ($2::text IS NULL OR ec.name ILIKE '%' || $2 || '%')
+    ORDER BY ec.account_code
+    LIMIT 50
+  `,
+
   getCategoryById: `
     SELECT *
     FROM accounting_schema.expense_category
@@ -170,6 +189,85 @@ export const expenseQueries = {
     INNER JOIN accounting_schema.expense_category ec ON ec.category_id = e.category_id
     WHERE e.tenant_id = $1 AND e.expense_date BETWEEN $2 AND $3
     ORDER BY e.expense_date DESC
+  `,
+
+  // -------------------------------------------------------
+  // ANALYTICS
+  // -------------------------------------------------------
+
+  analyticsFixedVsVariable: `
+    SELECT
+      ec.is_fixed,
+      CASE WHEN ec.is_fixed THEN 'Fijo' ELSE 'Variable' END AS expense_type,
+      COALESCE(SUM(e.total_amount), 0)::text AS total_amount
+    FROM accounting_schema.expense e
+    INNER JOIN accounting_schema.expense_category ec ON ec.category_id = e.category_id
+    WHERE e.tenant_id = $1
+      AND e.expense_date BETWEEN $2::date AND $3::date
+    GROUP BY ec.is_fixed
+  `,
+
+  analyticsFixedBreakdown: `
+    SELECT
+      ec.category_id,
+      ec.name AS category_name,
+      ec.account_code,
+      COALESCE(SUM(e.total_amount), 0)::text AS total_amount
+    FROM accounting_schema.expense e
+    INNER JOIN accounting_schema.expense_category ec ON ec.category_id = e.category_id
+    WHERE e.tenant_id = $1
+      AND ec.is_fixed = TRUE
+      AND e.expense_date BETWEEN $2::date AND $3::date
+    GROUP BY ec.category_id, ec.name, ec.account_code
+    ORDER BY SUM(e.total_amount) DESC
+  `,
+
+  analyticsVariableBreakdown: `
+    SELECT
+      ec.category_id,
+      ec.name AS category_name,
+      ec.account_code,
+      COALESCE(SUM(e.total_amount), 0)::text AS total_amount
+    FROM accounting_schema.expense e
+    INNER JOIN accounting_schema.expense_category ec ON ec.category_id = e.category_id
+    WHERE e.tenant_id = $1
+      AND ec.is_fixed = FALSE
+      AND e.expense_date BETWEEN $2::date AND $3::date
+    GROUP BY ec.category_id, ec.name, ec.account_code
+    ORDER BY SUM(e.total_amount) DESC
+  `,
+
+  analyticsSalesVsExpenses: `
+    WITH daily_sales AS (
+      SELECT
+        DATE(s.sale_date) AS period,
+        COALESCE(SUM(si.total_price), 0) AS total_sales
+      FROM pos_schema.sale s
+      INNER JOIN general_schema.branch b ON b.branch_id = s.branch_id
+      INNER JOIN pos_schema.sale_item si ON si.sale_id = s.sale_id
+      WHERE b.tenant_id = $1
+        AND s.is_completed = TRUE
+        AND s.sale_date::date BETWEEN $2::date AND $3::date
+        AND ($4::uuid IS NULL OR s.branch_id = $4::uuid)
+      GROUP BY DATE(s.sale_date)
+    ),
+    daily_expenses AS (
+      SELECT
+        DATE(e.expense_date) AS period,
+        COALESCE(SUM(e.total_amount), 0) AS total_expenses
+      FROM accounting_schema.expense e
+      WHERE e.tenant_id = $1
+        AND e.expense_date BETWEEN $2::date AND $3::date
+        AND ($4::uuid IS NULL OR e.branch_id = $4::uuid)
+      GROUP BY DATE(e.expense_date)
+    )
+    SELECT
+      COALESCE(s.period, ex.period)::text AS period,
+      COALESCE(s.total_sales, 0)::text AS total_sales,
+      COALESCE(ex.total_expenses, 0)::text AS total_expenses
+    FROM daily_sales s
+    FULL OUTER JOIN daily_expenses ex ON s.period = ex.period
+    ORDER BY period
   `,
 
   // -------------------------------------------------------

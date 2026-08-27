@@ -17,17 +17,20 @@ export const createNewMarginDoc = {
       example: 50000,
     },
     seniority_months: {
-      description: 'Meses de antigüedad mínimos requeridos para aplicar el margen',
+      description:
+        'Meses de antigüedad mínimos requeridos para aplicar el margen',
       example: 6,
     },
     frequency_per_month: {
-      description: 'Frecuencia de compras mínima por mes para aplicar el margen',
+      description:
+        'Frecuencia de compras mínima por mes para aplicar el margen',
       example: 3,
     },
   },
   operation: {
     summary: 'Crear nuevo margen de segmento',
-    description: 'Crea un margen de beneficio o descuento asociado a un segmento de clientes de un tenant.',
+    description:
+      'Crea un margen de beneficio o descuento asociado a un segmento de clientes de un tenant.',
   },
   responses: {
     201: { status: 201, description: 'Margen creado exitosamente' },

@@ -4,6 +4,6 @@ import { FoulService } from './foul.service';
 
 @Module({
   controllers: [FoulController],
-  providers: [FoulService]
+  providers: [FoulService],
 })
 export class FoulModule {}

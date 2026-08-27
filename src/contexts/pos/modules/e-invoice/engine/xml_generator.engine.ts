@@ -93,7 +93,8 @@ export class XmlGeneratorEngine {
     }
 
     xml.ele('CondicionVenta').txt(content.condicionVenta).up();
-    if (content.plazoVenta) xml.ele('PlazoCredito').txt(content.plazoVenta.toString()).up();
+    if (content.plazoVenta)
+      xml.ele('PlazoCredito').txt(content.plazoVenta.toString()).up();
 
     const detalleNode = xml.ele('DetalleServicio');
     for (const line of content.detalle) {
@@ -198,7 +199,10 @@ export class XmlGeneratorEngine {
       .up();
 
     // v4.4: Desglose de impuestos por código y tarifa
-    const taxBreakdown = new Map<string, { codigo: string; tarifaIva: string; monto: Decimal }>();
+    const taxBreakdown = new Map<
+      string,
+      { codigo: string; tarifaIva: string; monto: Decimal }
+    >();
     for (const line of content.detalle) {
       if (line.impuestos) {
         for (const tax of line.impuestos) {
@@ -210,7 +214,9 @@ export class XmlGeneratorEngine {
               monto: new Decimal(0),
             });
           }
-          taxBreakdown.get(key)!.monto = taxBreakdown.get(key)!.monto.plus(tax.monto);
+          taxBreakdown.get(key)!.monto = taxBreakdown
+            .get(key)!
+            .monto.plus(tax.monto);
         }
       }
     }
@@ -446,7 +452,10 @@ export class XmlGeneratorEngine {
     ].join('');
 
     // 9. Insertar la firma antes de cerrar el documento raíz
-    return xmlString.replace('</FacturaElectronica>', `${signatureXml}</FacturaElectronica>`);
+    return xmlString.replace(
+      '</FacturaElectronica>',
+      `${signatureXml}</FacturaElectronica>`,
+    );
   }
 
   /**

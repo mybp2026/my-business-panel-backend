@@ -13,8 +13,14 @@ export const getFoulsByPeriodDoc = {
         items: {
           type: 'object',
           properties: {
-            foul_id: { type: 'string', example: 'a0b1c2d3-e4f5-6789-abcd-012345678901' },
-            employee_id: { type: 'string', example: '2b3c4d5e-6f7a-8901-bcde-f12345678901' },
+            foul_id: {
+              type: 'string',
+              example: 'a0b1c2d3-e4f5-6789-abcd-012345678901',
+            },
+            employee_id: {
+              type: 'string',
+              example: '2b3c4d5e-6f7a-8901-bcde-f12345678901',
+            },
             foul_date: { type: 'string', example: '2024-03-18' },
             description: { type: 'string', example: 'Ausencia injustificada' },
           },

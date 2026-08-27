@@ -14,7 +14,10 @@ export const removeCashRegisterDoc = {
           deleted: {
             type: 'object',
             properties: {
-              cash_register_id: { type: 'string', example: 'a4c82f17-9b3e-4d6a-8c5f-1e0b7d3a2c94' },
+              cash_register_id: {
+                type: 'string',
+                example: 'a4c82f17-9b3e-4d6a-8c5f-1e0b7d3a2c94',
+              },
               register_name: { type: 'string', example: 'Caja Principal' },
             },
           },

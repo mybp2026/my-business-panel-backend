@@ -2,7 +2,8 @@
 export const getMovementsByPaysheetDoc = {
   operation: {
     summary: 'Get payroll movements by paysheet',
-    description: 'Returns all payroll movements (earnings and deductions) associated with a specific paysheet.',
+    description:
+      'Returns all payroll movements (earnings and deductions) associated with a specific paysheet.',
   },
 
   responses: {

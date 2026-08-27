@@ -13,7 +13,8 @@ export const createReturnTransactionDoc = {
       example: 15000,
     },
     refund_method: {
-      description: 'Numeric ID representing the refund method (e.g. 1=cash, 2=card)',
+      description:
+        'Numeric ID representing the refund method (e.g. 1=cash, 2=card)',
       example: 1,
     },
     return_status_id: {
@@ -25,7 +26,8 @@ export const createReturnTransactionDoc = {
       example: '2025-01-15T00:00:00.000Z',
     },
     return_products: {
-      description: 'List of products being returned, each with quantity, unit price, total price and sale_item_id',
+      description:
+        'List of products being returned, each with quantity, unit price, total price and sale_item_id',
       example: [
         {
           quantity: 2,

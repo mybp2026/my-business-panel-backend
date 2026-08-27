@@ -2,7 +2,8 @@
 export const clockOutDoc = {
   operation: {
     summary: 'Register clock-out',
-    description: 'Records the exit time for an employee, closing the active clock-in session.',
+    description:
+      'Records the exit time for an employee, closing the active clock-in session.',
   },
 
   responses: {
@@ -22,7 +23,10 @@ export const clockOutDoc = {
       schema: {
         type: 'object',
         properties: {
-          error: { type: 'string', example: 'No active clock-in session found' },
+          error: {
+            type: 'string',
+            example: 'No active clock-in session found',
+          },
         },
       },
     },

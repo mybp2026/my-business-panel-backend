@@ -64,7 +64,9 @@ export class PosRoyaltyService {
       throw new NotFoundException('Royalty rule not found');
     }
     const tenantId = tenantRows[0].tenant_id as string;
-    const typeIds = Array.from(new Set(dto.tenant_product_group_type_ids ?? []));
+    const typeIds = Array.from(
+      new Set(dto.tenant_product_group_type_ids ?? []),
+    );
 
     await this.db.query(q.deleteOptionsByRuleExcludingTypes, [
       royaltyRuleId,
@@ -114,7 +116,10 @@ export class PosRoyaltyService {
   }
 
   async getApplicableRules(tenantId: string, amount: number) {
-    const { rows } = await this.db.query(q.getApplicableRules, [tenantId, amount]);
+    const { rows } = await this.db.query(q.getApplicableRules, [
+      tenantId,
+      amount,
+    ]);
     return rows;
   }
 

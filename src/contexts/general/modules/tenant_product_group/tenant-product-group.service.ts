@@ -64,7 +64,11 @@ export class TenantProductGroupService {
     return result.rows[0];
   }
 
-  async update(id: string, tenantId: string, data: UpdateTenantProductGroupDto) {
+  async update(
+    id: string,
+    tenantId: string,
+    data: UpdateTenantProductGroupDto,
+  ) {
     const newParent =
       data.parent_group_id === undefined ? undefined : data.parent_group_id;
 

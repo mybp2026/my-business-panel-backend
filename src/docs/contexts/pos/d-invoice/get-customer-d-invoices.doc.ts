@@ -2,7 +2,8 @@
 export const getCustomerDInvoicesDoc = {
   operation: {
     summary: 'Get customer d-invoices',
-    description: 'Returns digital invoices for a customer filtered by tenant and document number.',
+    description:
+      'Returns digital invoices for a customer filtered by tenant and document number.',
   },
 
   responses: {
@@ -14,7 +15,10 @@ export const getCustomerDInvoicesDoc = {
         items: {
           type: 'object',
           properties: {
-            invoice_id: { type: 'string', example: 'a1b2c3d4-e5f6-7890-abcd-ef1234567890' },
+            invoice_id: {
+              type: 'string',
+              example: 'a1b2c3d4-e5f6-7890-abcd-ef1234567890',
+            },
             document_number: { type: 'string', example: 'INV-0001' },
             total: { type: 'number', example: 8750 },
           },

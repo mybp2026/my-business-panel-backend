@@ -17,11 +17,20 @@ export const getTardinessByEmployeeDoc = {
             items: {
               type: 'object',
               properties: {
-                tardiness_id: { type: 'string', example: 'f1a2b3c4-d5e6-7890-fabc-789012345678' },
-                employee_id: { type: 'string', example: '1a2b3c4d-5e6f-7890-abcd-ef1234567890' },
+                tardiness_id: {
+                  type: 'string',
+                  example: 'f1a2b3c4-d5e6-7890-fabc-789012345678',
+                },
+                employee_id: {
+                  type: 'string',
+                  example: '1a2b3c4d-5e6f-7890-abcd-ef1234567890',
+                },
                 type: { type: 'string', example: 'LATE_ENTRY' },
                 log: { type: 'string', example: '08:23' },
-                registered_at: { type: 'string', example: '2024-03-15T08:23:00.000Z' },
+                registered_at: {
+                  type: 'string',
+                  example: '2024-03-15T08:23:00.000Z',
+                },
               },
             },
           },

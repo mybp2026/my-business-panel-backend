@@ -2,7 +2,8 @@
 export const softDeleteConceptDoc = {
   operation: {
     summary: 'Soft-delete a payroll concept',
-    description: 'Marks a payroll concept as inactive without permanently removing it from the database.',
+    description:
+      'Marks a payroll concept as inactive without permanently removing it from the database.',
   },
 
   responses: {

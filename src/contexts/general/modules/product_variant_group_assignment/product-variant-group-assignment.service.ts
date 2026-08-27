@@ -19,10 +19,10 @@ export class ProductVariantGroupAssignmentService {
   constructor(@Inject(DATABASE) private readonly db: Database) {}
 
   async getByVariant(tenantId: string, variantId: string) {
-    const result = await this.db.query(productVariantGroupAssignment.byVariant, [
-      tenantId,
-      variantId,
-    ]);
+    const result = await this.db.query(
+      productVariantGroupAssignment.byVariant,
+      [tenantId, variantId],
+    );
     return result.rows;
   }
 
@@ -67,7 +67,10 @@ export class ProductVariantGroupAssignmentService {
       }
 
       await txn.commit();
-      return { message: 'Variant groups replaced', count: data.group_ids.length };
+      return {
+        message: 'Variant groups replaced',
+        count: data.group_ids.length,
+      };
     } catch (error) {
       await txn.rollback();
       if (error instanceof BadRequestException) throw error;

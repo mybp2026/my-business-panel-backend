@@ -11,7 +11,10 @@ export const transferInventoryDoc = {
       schema: {
         type: 'object',
         properties: {
-          message: { type: 'string', example: 'Inventory transferred successfully' },
+          message: {
+            type: 'string',
+            example: 'Inventory transferred successfully',
+          },
         },
       },
     },

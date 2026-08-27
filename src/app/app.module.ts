@@ -74,6 +74,10 @@ import { TardinessModule } from '@/contexts/hr/modules/tardiness/tardiness.modul
 
 import { AccountingModule } from '@/contexts/finances/modules/accounting/accounting.module';
 import { ExpenseModule } from '@/contexts/finances/modules/expense/expense.module';
+import { AccountsModule } from '@/contexts/finances/modules/accounts/accounts.module';
+import { ProfitabilityModule } from '@/contexts/finances/modules/profitability/profitability.module';
+import { CashFlowModule } from '@/contexts/finances/modules/cash-flow/cash-flow.module';
+import { IvaModule } from '@/contexts/finances/modules/iva/iva.module';
 
 @Module({
   imports: [
@@ -139,6 +143,10 @@ import { ExpenseModule } from '@/contexts/finances/modules/expense/expense.modul
     ExchangeRateModule,
     AccountingModule,
     ExpenseModule,
+    AccountsModule,
+    ProfitabilityModule,
+    CashFlowModule,
+    IvaModule,
     ReportingModule,
   ],
   controllers: [AppController],

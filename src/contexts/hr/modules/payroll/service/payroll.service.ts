@@ -1,6 +1,6 @@
 import { DATABASE } from '@/contexts/general/modules/db/db.provider';
 import Database from '@crane-technologies/database';
-import { Inject, Injectable, Logger } from '@nestjs/common';
+import { BadRequestException, Inject, Injectable, Logger } from '@nestjs/common';
 import { PayrollRepository } from '../repositories/payroll.repository';
 import { CalculationEngine } from './calc-engine.service';
 import { AccountingJournalService } from '@/contexts/finances/modules/accounting/accounting-journal.service';
@@ -68,6 +68,12 @@ export class PayrollService {
       branchId,
     );
 
+    if (employees.length === 0) {
+      throw new BadRequestException(
+        'No hay empleados activos con contrato asignados a esta sucursal.',
+      );
+    }
+
     const hoursWorked = await this.repo.getHoursWorked(
       branchId,
       periodStart,
@@ -125,7 +131,25 @@ export class PayrollService {
       );
     }
 
-    return this.closePayroll(paysheetId, employees.length);
+    const totals = await this.closePayroll(paysheetId, employees.length);
+
+    // Registro de gasto contable — no bloqueante
+    try {
+      await this.db.query(payroll.insertPayrollExpense, [
+        tenantId,
+        branchId,
+        totals.net_total,
+        paysheetId,
+        periodStart,
+        periodEnd,
+      ]);
+    } catch (expenseError) {
+      this.logger.error(
+        `Error registering payroll expense for paysheet ${paysheetId}: ${(expenseError as Error).message}`,
+      );
+    }
+
+    return totals;
   }
 
   private async calculateAndSavePayroll(
@@ -210,8 +234,8 @@ export class PayrollService {
         await txn.query(payroll.insertMovement, [
           detailId,
           mov.concept_id,
-          mov.calculated_amount.toString(),
-          mov.appliedValue.toString(),
+          mov.appliedValue.toString(),       // base_amount: valor/factor de entrada
+          mov.calculated_amount.toString(),  // calculated_amount: resultado monetario
           mov.name,
         ]);
       }

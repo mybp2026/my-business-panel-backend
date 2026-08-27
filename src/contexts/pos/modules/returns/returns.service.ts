@@ -130,7 +130,13 @@ export class ReturnsService {
    * Resolves both digital and electronic invoice IDs from the sale.
    */
   async createPartialRefund(data: ReturnTransactionDto) {
-    const { sale_id, return_products, refund_method, return_status_id, description } = data;
+    const {
+      sale_id,
+      return_products,
+      refund_method,
+      return_status_id,
+      description,
+    } = data;
 
     if (!Array.isArray(return_products) || return_products.length === 0) {
       throw new BadRequestException(

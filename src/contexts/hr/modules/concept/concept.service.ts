@@ -6,16 +6,25 @@ import { PayrollConceptRow } from '../payroll/interface/payroll-db.interface';
 import { NewConceptDto } from './dto/newConcept.dto';
 import { UpdateConceptDto } from './dto/updateConcept.dto';
 
-const { payroll, concept } = hrQueries;
+const { concept } = hrQueries;
 
 @Injectable()
 export class ConceptService {
   constructor(@Inject(DATABASE) private readonly db: Database) {}
 
   async getAllConceptsByTenant(tenantId: string): Promise<PayrollConceptRow[]> {
-    const concept = await this.db.query(payroll.getConcepts, [tenantId]);
+    const result = await this.db.query(concept.getAllByTenant, [tenantId]);
+    return result.rows;
+  }
 
-    return concept.rows.length ? concept.rows : [];
+  async reactivateConcept(conceptId: number) {
+    const existing = await this.db.query(concept.getConceptById, [conceptId]);
+    if (existing.rows.length === 0) throw new Error('Concept not found');
+
+    const result = await this.db.query(concept.reactivate, [conceptId]);
+    if (result.rows.length === 0) throw new Error('Error reactivating concept.');
+
+    return { message: 'Concepto reactivado correctamente', concept: result.rows[0] };
   }
 
   async createNewConcept(data: NewConceptDto) {
@@ -92,6 +101,19 @@ export class ConceptService {
     return {
       message: 'Concept deactivated successfully',
       concept: softDeletedConcept.rows[0],
+    };
+  }
+
+  async provisionDefaults(tenantId: string) {
+    const result = await this.db.query(concept.provisionDefaults, [tenantId]);
+    const created = Number(result.rows[0]?.created ?? 0);
+
+    return {
+      message:
+        created > 0
+          ? `${created} conceptos predeterminados creados correctamente`
+          : 'El tenant ya tiene conceptos; no se crearon conceptos predeterminados',
+      created,
     };
   }
 

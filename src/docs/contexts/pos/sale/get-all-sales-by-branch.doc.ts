@@ -16,10 +16,22 @@ export const getAllSalesByBranchDoc = {
             items: {
               type: 'object',
               properties: {
-                sale_id: { type: 'string', example: 'f6a1b2c3-d4e5-6789-fabc-345678901234' },
-                branch_id: { type: 'string', example: 'a1b2c3d4-e5f6-7890-abcd-ef1234567890' },
-                tenant_customer_id: { type: 'string', example: 'c3d4e5f6-a1b2-3456-cdef-012345678901' },
-                created_at: { type: 'string', example: '2024-04-01T10:30:00.000Z' },
+                sale_id: {
+                  type: 'string',
+                  example: 'f6a1b2c3-d4e5-6789-fabc-345678901234',
+                },
+                branch_id: {
+                  type: 'string',
+                  example: 'a1b2c3d4-e5f6-7890-abcd-ef1234567890',
+                },
+                tenant_customer_id: {
+                  type: 'string',
+                  example: 'c3d4e5f6-a1b2-3456-cdef-012345678901',
+                },
+                created_at: {
+                  type: 'string',
+                  example: '2024-04-01T10:30:00.000Z',
+                },
               },
             },
           },
