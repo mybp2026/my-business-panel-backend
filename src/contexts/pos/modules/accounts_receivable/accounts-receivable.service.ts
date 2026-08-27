@@ -57,11 +57,7 @@ export class AccountsReceivableService {
       dto.sale_account_receivable_id,
     ]);
     const access = accessResult.rows[0] as
-      | {
-          sale_account_receivable_id: string;
-          sale_id: string;
-          tenant_id: string;
-        }
+      | { sale_account_receivable_id: string; sale_id: string; tenant_id: string }
       | undefined;
 
     if (!access) {
@@ -112,9 +108,10 @@ export class AccountsReceivableService {
         dto.sale_account_receivable_id,
       ]);
 
-      const receivableResult = await txn.query(ar.getUpdatedReceivableById, [
-        dto.sale_account_receivable_id,
-      ]);
+      const receivableResult = await txn.query(
+        ar.getUpdatedReceivableById,
+        [dto.sale_account_receivable_id],
+      );
       receivableRow = receivableResult.rows[0] ?? null;
 
       await txn.commit();
@@ -123,9 +120,10 @@ export class AccountsReceivableService {
       throw error;
     }
 
-    const arInfo = await this.db.query(apartado.getARTypeAndSaleInfo, [
-      dto.sale_account_receivable_id,
-    ]);
+    const arInfo = await this.db.query(
+      apartado.getARTypeAndSaleInfo,
+      [dto.sale_account_receivable_id],
+    );
     const arRow = arInfo.rows[0] as
       | {
           type_name: string;
@@ -154,11 +152,7 @@ export class AccountsReceivableService {
 
       if (arRow.is_paid) {
         if (arRow.type_name === 'venta_apartado') {
-          await this.completeApartado(
-            arRow.sale_id,
-            arRow.branch_id,
-            arRow.tenant_id,
-          );
+          await this.completeApartado(arRow.sale_id, arRow.branch_id, arRow.tenant_id);
         } else if (arRow.type_name === 'venta_credito') {
           try {
             await this.db.query(apartado.completeCreditSale, [arRow.sale_id]);
@@ -260,11 +254,7 @@ export class AccountsReceivableService {
       collectionId,
     ]);
     const access = accessResult.rows[0] as
-      | {
-          sale_collection_id: string;
-          tenant_id: string;
-          sale_account_receivable_id: string;
-        }
+      | { sale_collection_id: string; tenant_id: string; sale_account_receivable_id: string }
       | undefined;
 
     if (!access) {
@@ -289,9 +279,10 @@ export class AccountsReceivableService {
         access.sale_account_receivable_id,
       ]);
 
-      const receivableResult = await txn.query(ar.getUpdatedReceivableById, [
-        access.sale_account_receivable_id,
-      ]);
+      const receivableResult = await txn.query(
+        ar.getUpdatedReceivableById,
+        [access.sale_account_receivable_id],
+      );
 
       await txn.commit();
 

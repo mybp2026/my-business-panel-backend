@@ -265,12 +265,10 @@ export class SaleService {
              WHERE type_name IN ('venta_credito', 'venta_apartado')`,
           );
           const arTypeMap = new Map<string, string>(
-            arTypesRes.rows.map(
-              (r: {
-                type_name: string;
-                account_receivable_type_id: string;
-              }) => [r.type_name, r.account_receivable_type_id],
-            ),
+            arTypesRes.rows.map((r: { type_name: string; account_receivable_type_id: string }) => [
+              r.type_name,
+              r.account_receivable_type_id,
+            ]),
           );
 
           const arTypeName =
@@ -297,8 +295,7 @@ export class SaleService {
               new Date(data.due_date!),
             ],
           );
-          const accountReceivableId: string =
-            arRes.rows[0].account_receivable_id;
+          const accountReceivableId: string = arRes.rows[0].account_receivable_id;
 
           const sarRes = await txn.query(
             `INSERT INTO pos_schema.sale_account_receivable(
@@ -414,10 +411,7 @@ export class SaleService {
             [data.tenant_id],
           );
           const program = programRows[0];
-          if (
-            program &&
-            data.total_amount >= Number(program.minimum_purchase_for_points)
-          ) {
+          if (program && data.total_amount >= Number(program.minimum_purchase_for_points)) {
             const earnBase =
               isCredit || isApartado
                 ? Math.min(upfront, data.total_amount)
