@@ -5,7 +5,8 @@
   responses: {
     200: {
       status: 200,
-      description: 'Totales de gastos fijos y variables del tenant en el rango indicado. Incluye gastos POS aprobados como variables.',
+      description:
+        'Totales de gastos fijos y variables del tenant en el rango indicado. Incluye gastos POS aprobados como variables.',
       schema: {
         type: 'array',
         items: {
