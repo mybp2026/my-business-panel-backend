@@ -22,9 +22,13 @@ export class ConceptService {
     if (existing.rows.length === 0) throw new Error('Concept not found');
 
     const result = await this.db.query(concept.reactivate, [conceptId]);
-    if (result.rows.length === 0) throw new Error('Error reactivating concept.');
+    if (result.rows.length === 0)
+      throw new Error('Error reactivating concept.');
 
-    return { message: 'Concepto reactivado correctamente', concept: result.rows[0] };
+    return {
+      message: 'Concepto reactivado correctamente',
+      concept: result.rows[0],
+    };
   }
 
   async createNewConcept(data: NewConceptDto) {

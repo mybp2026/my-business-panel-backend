@@ -5,7 +5,8 @@
   responses: {
     200: {
       status: 200,
-      description: 'Serie temporal con totales de ventas y gastos. Granularidad automática: ≤30d → día, ≤90d → semana, >90d → mes.',
+      description:
+        'Serie temporal con totales de ventas y gastos. Granularidad automática: ≤30d → día, ≤90d → semana, >90d → mes.',
       schema: {
         type: 'array',
         items: {

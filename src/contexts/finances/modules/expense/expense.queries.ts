@@ -165,6 +165,53 @@ export const expenseQueries = {
     RETURNING expense_id
   `,
 
+  // Historial paginado, filtrable por sucursal y rango de fechas.
+  // $1 = tenant_id, $2 = branch_id (uuid|null), $3 = start (date|null),
+  // $4 = end (date|null), $5 = limit, $6 = offset
+  getExpensesPaginated: `
+    SELECT
+      e.expense_id,
+      e.tenant_id,
+      e.branch_id,
+      b.branch_name,
+      e.category_id,
+      ec.name AS category_name,
+      ec.account_code,
+      ec.is_fixed,
+      e.description,
+      e.amount,
+      e.tax_amount,
+      e.total_amount,
+      e.currency_id,
+      e.expense_date,
+      e.payment_method,
+      e.reference_number,
+      e.notes,
+      e.created_by,
+      u.email AS created_by_email,
+      e.created_at,
+      e.updated_at
+    FROM accounting_schema.expense e
+    INNER JOIN accounting_schema.expense_category ec ON ec.category_id = e.category_id
+    INNER JOIN general_schema.branch b ON b.branch_id = e.branch_id
+    LEFT JOIN general_schema.users u ON u.user_id = e.created_by
+    WHERE e.tenant_id = $1
+      AND ($2::uuid IS NULL OR e.branch_id = $2::uuid)
+      AND ($3::date IS NULL OR e.expense_date >= $3::date)
+      AND ($4::date IS NULL OR e.expense_date <= $4::date)
+    ORDER BY e.expense_date DESC, e.created_at DESC
+    LIMIT $5 OFFSET $6
+  `,
+
+  countExpensesPaginated: `
+    SELECT COUNT(*)::int AS total
+    FROM accounting_schema.expense e
+    WHERE e.tenant_id = $1
+      AND ($2::uuid IS NULL OR e.branch_id = $2::uuid)
+      AND ($3::date IS NULL OR e.expense_date >= $3::date)
+      AND ($4::date IS NULL OR e.expense_date <= $4::date)
+  `,
+
   getExpensesByDateRange: `
     SELECT
       e.expense_id,

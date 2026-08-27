@@ -190,3 +190,12 @@ SELECT * FROM (VALUES
     ('Materiales de Producción',          '5-3-004', FALSE, NULL)
 ) AS v(name, account_code, is_fixed, parent_name)
 ON CONFLICT (name) DO NOTHING;
+
+-- Ver ambas filas para 13% (y repetir para 1/2/4/7/8/10/20 si aplica)
+SELECT tax_rate_id, region, rate_percentage, rate_code, rate_name
+FROM general_schema.tax_rate
+WHERE region = 'Costa Rica' OR rate_percentage IN (0.13, 13.00);
+
+
+
+

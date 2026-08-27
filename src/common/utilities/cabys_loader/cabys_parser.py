@@ -58,8 +58,14 @@ def parse_tax(value) -> float:
     try:
         if '%' in s:
             return float(s.replace('%', ''))
-        else:
-            return float(s)
+        parsed = float(s)
+        # Excel percent-formatted cells (e.g. "13%") surface to pandas as the
+        # raw fraction 0.13 with no '%' marker. CR IVA tiers are 1/2/4/7/8/10/13/20;
+        # none is legitimately below 1, so anything in (0, 1) is that fraction
+        # artifact and must be rescaled to match rate_percentage's 0-100 scale.
+        if 0 < parsed < 1:
+            parsed *= 100
+        return parsed
     except ValueError:
         return 0.0
 

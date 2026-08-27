@@ -24,6 +24,10 @@ export class ProfitabilityController {
     @Query() dto: GetProfitabilityDto,
     @Session() session: IUserSession,
   ) {
-    return this.profitabilityService.getProfitability(dto.interval, session);
+    return this.profitabilityService.getProfitability(
+      dto.interval,
+      session,
+      dto.branchId,
+    );
   }
 }

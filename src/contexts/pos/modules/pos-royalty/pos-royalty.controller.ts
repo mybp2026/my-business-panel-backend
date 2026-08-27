@@ -19,6 +19,7 @@ import {
   UpdateRoyaltyRuleDto,
 } from './dto/pos-royalty.dto';
 import { AuthenticationGuard } from '@/common/guards/authentication.guard';
+import type { RoyaltyInterval } from './interface/royalty-analytics.interface';
 
 @ApiTags('POS Royalty')
 @UseGuards(AuthenticationGuard)
@@ -99,5 +100,16 @@ export class PosRoyaltyController {
     @Param('tenantProductGroupId') tenantProductGroupId: string,
   ) {
     return this.service.getGiftableProductsByGroup(tenantProductGroupId);
+  }
+
+  // ── Analytics (Regalias) ─────────────────────────────────────────────────────
+
+  @Get('analytics/:tenantId')
+  getRoyaltyAnalytics(
+    @Param('tenantId') tenantId: string,
+    @Query('interval') interval?: RoyaltyInterval,
+    @Query('branchId') branchId?: string,
+  ) {
+    return this.service.getRoyaltyAnalytics(tenantId, interval, branchId);
   }
 }

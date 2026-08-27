@@ -14,10 +14,7 @@ export class CashFlowController {
 
   @ApiOperation({ summary: 'Flujo de caja historico por periodo y agrupacion' })
   @Get()
-  getCashFlow(
-    @Query() dto: GetCashFlowDto,
-    @Session() session: IUserSession,
-  ) {
+  getCashFlow(@Query() dto: GetCashFlowDto, @Session() session: IUserSession) {
     return this.cashFlowService.getCashFlow(
       dto.startDate,
       dto.endDate,

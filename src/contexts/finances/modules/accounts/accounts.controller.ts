@@ -17,8 +17,11 @@ export class AccountsController {
   @ApiResponse({ status: 200, description: 'Resumen de cuentas obtenido' })
   @ApiResponse({ status: 401, description: 'No autenticado' })
   @Get()
-  getAccountsOverview(@Session() session: IUserSession) {
-    return this.accountsService.getAccountsOverview(session);
+  getAccountsOverview(
+    @Session() session: IUserSession,
+    @Query('branchId') branchId?: string,
+  ) {
+    return this.accountsService.getAccountsOverview(session, branchId);
   }
 
   @ApiOperation({ summary: 'Lista filtrada de cuentas por pagar' })
@@ -28,10 +31,11 @@ export class AccountsController {
     @Query('status') status?: string,
     @Query('sort_by') sort_by?: string,
     @Query('sort_dir') sort_dir?: string,
+    @Query('branchId') branchId?: string,
     @Session() session?: IUserSession,
   ) {
     return this.accountsService.getPayablesList(
-      { status, sort_by, sort_dir },
+      { status, sort_by, sort_dir, branch_id: branchId },
       session!,
     );
   }
@@ -43,10 +47,11 @@ export class AccountsController {
     @Query('status') status?: string,
     @Query('sort_by') sort_by?: string,
     @Query('sort_dir') sort_dir?: string,
+    @Query('branchId') branchId?: string,
     @Session() session?: IUserSession,
   ) {
     return this.accountsService.getReceivablesList(
-      { status, sort_by, sort_dir },
+      { status, sort_by, sort_dir, branch_id: branchId },
       session!,
     );
   }
