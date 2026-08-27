@@ -74,6 +74,8 @@ export const arOverviewSelect = `
   FROM pos_schema.sale_account_receivable sar
   JOIN general_schema.account_receivable ar
     ON ar.account_receivable_id = sar.account_receivable_id
+  JOIN pos_schema.sale sale_b
+    ON sale_b.sale_id = sar.sale_id
   LEFT JOIN general_schema.account_receivable_status ars
     ON ars.status_id = sar.account_receivable_status
   LEFT JOIN general_schema.tenant_customer tc

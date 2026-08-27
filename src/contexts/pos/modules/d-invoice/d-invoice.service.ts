@@ -37,7 +37,8 @@ export class DInvoiceService {
       updated_at,
       sale_id,
     } = data;
-    const res = await (dbClient || this.db).query(dInvoice.create, [
+    const client = dbClient || this.db;
+    const res = await client.query(dInvoice.create, [
       tenant_customer_id,
       currency_id,
       subtotal_amount,
@@ -54,6 +55,15 @@ export class DInvoiceService {
       sale_id,
     ]);
     if (res.rows.length == 0) throw new InvalidInvoice();
+
+    // Poblar las lineas de la factura desde los sale_item. El encabezado ya trae
+    // los totales autoritativos de la venta; los items alimentan el detalle
+    // impreso y el calculo de IVA de notas de credito.
+    await client.query(dInvoice.createItemsFromSale, [
+      res.rows[0].digital_sale_invoice_id,
+      sale_id,
+    ]);
+
     return { message: 'DInvoice created!', invoice: res.rows[0] };
   }
 

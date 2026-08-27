@@ -4,9 +4,11 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 Workspace context (sibling repos, cross-repo feature order, branching) lives in `../CLAUDE.md`. This file covers backend-only conventions.
 
+**Migracion en curso (Costa Rica -> Venezuela):** el proyecto migra su normativa objetivo de Costa Rica a Venezuela (SENIAT/RIF/LOTTT/IVSS en vez de Hacienda/cedula/Codigo de Trabajo/CCSS). Ver tabla de mapeo en `../CLAUDE.md`. El codigo de este repo (e-invoicing, CABYS, HR) sigue implementando reglas de Costa Rica hasta que se readapte modulo por modulo — no asumir que ya sigue la normativa de Venezuela.
+
 ## Stack
 
-NestJS 11 + TypeScript 5.7 + Express + PostgreSQL + Redis (BullMQ queues) + JWT cookie auth + class-validator DTOs + Swagger. Stripe for subscriptions. Hacienda Costa Rica e-invoicing (xml-crypto, node-forge, xmlbuilder2). Decimal.js for money — never use native `number` for amounts.
+NestJS 11 + TypeScript 5.7 + Express + PostgreSQL + Redis (BullMQ queues) + JWT cookie auth + class-validator DTOs + Swagger. Stripe for subscriptions. E-invoicing (xml-crypto, node-forge, xmlbuilder2) — implementado hoy para Hacienda Costa Rica; el mecanismo de facturacion electronica de Venezuela (SENIAT) puede diferir (revisar antes de reusar este stack tal cual). Decimal.js for money — never use native `number` for amounts.
 
 ## Commands
 
@@ -25,7 +27,7 @@ npm run test:e2e           # jest --config ./test/jest-e2e.json
 npm run test -- path/to/file.spec.ts        # single file
 npm run test -- -t "describe or it name"    # single named test
 
-# CABYS catalog loaders (Costa Rica product tax codes)
+# CABYS catalog loaders (Costa Rica product tax codes — legado, pendiente de reemplazo por catalogo fiscal Venezuela)
 npm run cabys:load                 # uses .env
 npm run cabys:load:staging         # uses .env.staging
 npm run cabys:load:dev             # uses .env.development

@@ -41,13 +41,20 @@ export class ProfitabilityService {
   async getProfitability(
     interval: ProfitabilityInterval | undefined,
     session: IUserSession,
+    branchId?: string,
   ): Promise<ProfitabilityRawData> {
     const resolvedInterval = interval ?? DEFAULT_INTERVAL;
     const { rangeMs, bucketUnit } = INTERVAL_CONFIG[resolvedInterval];
     const rangeStart = new Date(Date.now() - rangeMs);
+    const branchFilter = branchId ?? null;
 
-    const tenantParams = [session.tenant_id];
-    const bucketParams = [session.tenant_id, bucketUnit, rangeStart];
+    const tenantParams = [session.tenant_id, branchFilter];
+    const bucketParams = [
+      session.tenant_id,
+      bucketUnit,
+      rangeStart,
+      branchFilter,
+    ];
 
     const [branchesResult, salesResult, returnsResult, expensesResult] =
       await Promise.all([

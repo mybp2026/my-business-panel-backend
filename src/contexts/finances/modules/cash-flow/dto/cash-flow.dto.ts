@@ -1,7 +1,11 @@
 import { IsDateString, IsIn, IsOptional } from 'class-validator';
 import type { CashFlowGroupBy } from '../interface/cash-flow.interface';
 
-export const CASH_FLOW_GROUP_BY: CashFlowGroupBy[] = ['daily', 'weekly', 'monthly'];
+export const CASH_FLOW_GROUP_BY: CashFlowGroupBy[] = [
+  'daily',
+  'weekly',
+  'monthly',
+];
 
 const BUCKET_UNIT: Record<CashFlowGroupBy, string> = {
   daily: 'day',

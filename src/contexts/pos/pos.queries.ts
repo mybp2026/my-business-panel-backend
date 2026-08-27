@@ -78,6 +78,37 @@ export const posQueryDefs = {
       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
       RETURNING *
     `,
+    // Crea las lineas de la factura digital desde los sale_item de la venta.
+    // Espejo del trigger create_digital_sale_invoice (functions/pos/pos_functions.sql):
+    // resuelve la tasa via cabys_code -> product.tax_rate_id -> tax_rate.rate_percentage.
+    // $1 = digital_sale_invoice_id, $2 = sale_id
+    createItemsFromSale: `
+      INSERT INTO pos_schema.digital_sale_invoice_item (
+        digital_sale_invoice_id, sale_item_id, tenant_id, product_variant_id,
+        cabys_code, tax_rate_id, description, quantity, unit_price, subtotal,
+        tax_rate_percentage, tax_amount, total_price
+      )
+      SELECT
+        $1,
+        si.sale_item_id,
+        si.tenant_id,
+        si.product_variant_id,
+        pv.cabys_code,
+        p.tax_rate_id,
+        COALESCE(pv.variant_name, p.product_name, 'Product'),
+        si.quantity,
+        si.unit_price,
+        si.total_price,
+        COALESCE(tr.rate_percentage, 0),
+        ROUND(si.total_price * COALESCE(tr.rate_percentage, 0) / 100, 2),
+        si.total_price + ROUND(si.total_price * COALESCE(tr.rate_percentage, 0) / 100, 2)
+      FROM pos_schema.sale_item si
+      JOIN general_schema.product_variant pv
+        ON si.tenant_id = pv.tenant_id AND si.product_variant_id = pv.product_variant_id
+      LEFT JOIN general_schema.product p ON pv.cabys_code = p.cabys_code
+      LEFT JOIN general_schema.tax_rate tr ON p.tax_rate_id = tr.tax_rate_id
+      WHERE si.sale_id = $2
+    `,
     getBills: `
       SELECT t.tenant_name, tc.first_name, tc.last_name, tc.document_number, tc.email, i.subtotal_amount, i.total_amount, i.invoiced_at FROM pos_schema.digital_sale_invoice i
       INNER JOIN general_schema.tenant_customer tc USING(tenant_customer_id)

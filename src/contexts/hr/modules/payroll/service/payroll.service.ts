@@ -1,6 +1,11 @@
 import { DATABASE } from '@/contexts/general/modules/db/db.provider';
 import Database from '@crane-technologies/database';
-import { BadRequestException, Inject, Injectable, Logger } from '@nestjs/common';
+import {
+  BadRequestException,
+  Inject,
+  Injectable,
+  Logger,
+} from '@nestjs/common';
 import { PayrollRepository } from '../repositories/payroll.repository';
 import { CalculationEngine } from './calc-engine.service';
 import { AccountingJournalService } from '@/contexts/finances/modules/accounting/accounting-journal.service';
@@ -234,8 +239,8 @@ export class PayrollService {
         await txn.query(payroll.insertMovement, [
           detailId,
           mov.concept_id,
-          mov.appliedValue.toString(),       // base_amount: valor/factor de entrada
-          mov.calculated_amount.toString(),  // calculated_amount: resultado monetario
+          mov.appliedValue.toString(), // base_amount: valor/factor de entrada
+          mov.calculated_amount.toString(), // calculated_amount: resultado monetario
           mov.name,
         ]);
       }

@@ -2,11 +2,12 @@
 // El backend solo agrega componentes monetarios por sucursal + bucket de tiempo;
 // las formulas de margen/utilidad se calculan en el frontend.
 //
-// Parametros comunes:
+// Parametros comunes (sales / returns / expenses):
 //   $1 = tenant_id (uuid)        -> aislamiento multi-tenant (la venta no tiene tenant_id,
 //                                   se obtiene via general_schema.branch)
 //   $2 = bucket_unit (text)      -> 'hour' | 'day' | 'week' | 'month' para date_trunc
 //   $3 = range_start (timestamp) -> inicio del rango (now - intervalo)
+//   $4 = branch_id (uuid|null)   -> filtro opcional por sucursal; NULL = todas
 
 // Componentes de ventas, agrupados por (sucursal, bucket, moneda).
 // net_sales = total_price (ya neto de descuento); discounts y cogs explicitos.
@@ -26,6 +27,7 @@ export const salesComponents = `
   WHERE b.tenant_id = $1
     AND s.is_completed = TRUE
     AND s.sale_date >= $3
+    AND ($4::uuid IS NULL OR s.branch_id = $4::uuid)
   GROUP BY b.branch_id, bucket_start, COALESCE(s.currency_id, 1)
 `;
 
@@ -50,29 +52,31 @@ export const returnsComponents = `
     ON b.branch_id = s.branch_id
   WHERE b.tenant_id = $1
     AND rt.return_date >= $3
+    AND ($4::uuid IS NULL OR s.branch_id = $4::uuid)
   GROUP BY b.branch_id, bucket_start, COALESCE(s.currency_id, 1)
 `;
 
-// Gastos operativos aprobados, agrupados por (sucursal, bucket). Montos en CRC (la tabla
-// expense no almacena moneda).
+// Gastos operativos, agrupados por (sucursal, bucket, moneda). Fuente canonica:
+// accounting_schema.expense (tenant_id propio, total_amount, expense_date, currency_id).
 export const expenseComponents = `
   SELECT
-    b.branch_id,
-    date_trunc($2, e.created_at)                         AS bucket_start,
-    SUM(e.expense_amount)                                AS amount_crc
-  FROM pos_schema.expense e
-  INNER JOIN general_schema.branch b
-    ON b.branch_id = e.branch_id
-  WHERE b.tenant_id = $1
-    AND e.status = 'approved'
-    AND e.created_at >= $3
-  GROUP BY b.branch_id, bucket_start
+    e.branch_id,
+    date_trunc($2, e.expense_date)                       AS bucket_start,
+    COALESCE(e.currency_id, 1)                           AS currency_id,
+    SUM(e.total_amount)                                  AS amount
+  FROM accounting_schema.expense e
+  WHERE e.tenant_id = $1
+    AND e.expense_date >= $3
+    AND ($4::uuid IS NULL OR e.branch_id = $4::uuid)
+  GROUP BY e.branch_id, bucket_start, COALESCE(e.currency_id, 1)
 `;
 
 // Sucursales del tenant (para generar los N graficos aunque una sede no tenga ventas).
+// $2 = branch_id (uuid|null) -> si se filtra por sucursal, solo se devuelve esa.
 export const tenantBranches = `
   SELECT branch_id, branch_name
   FROM general_schema.branch
   WHERE tenant_id = $1
+    AND ($2::uuid IS NULL OR branch_id = $2::uuid)
   ORDER BY branch_name
 `;

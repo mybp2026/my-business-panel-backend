@@ -37,7 +37,8 @@ export interface ReturnsComponentRow {
 export interface ExpenseComponentRow {
   branch_id: string;
   bucket_start: string;
-  amount_crc: string;
+  currency_id: number;
+  amount: string;
 }
 
 export interface ProfitabilityRawData {

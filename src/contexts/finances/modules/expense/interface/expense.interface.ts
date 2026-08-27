@@ -31,6 +31,19 @@ export interface ExpenseFromDb {
   updated_at: string;
 }
 
+export interface ExpenseHistoryRow extends ExpenseFromDb {
+  branch_name: string;
+  is_fixed: boolean;
+  created_by_email: string | null;
+}
+
+export interface PaginatedExpenses {
+  results: ExpenseHistoryRow[];
+  total: number;
+  page: number;
+  limit: number;
+}
+
 export interface FiscalPeriodFromDb {
   period_id: string;
   tenant_id: string;

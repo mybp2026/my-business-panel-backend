@@ -69,7 +69,9 @@ export class CashFlowService {
     };
   }
 
-  async getProjections(session: IUserSession): Promise<CashFlowProjectionsData> {
+  async getProjections(
+    session: IUserSession,
+  ): Promise<CashFlowProjectionsData> {
     const result = await this.db.query(cashFlowProjectionsQuery, [
       session.tenant_id,
     ]);

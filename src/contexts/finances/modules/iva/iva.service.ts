@@ -2,7 +2,10 @@ import { Inject, Injectable, Logger } from '@nestjs/common';
 import { DATABASE } from '../../../general/modules/db/db.provider';
 import Database from '@crane-technologies/database';
 import { ivaQueries } from './iva.queries';
-import type { IvaSummaryFromDb, IvaSummaryResponse } from './interface/iva.interface';
+import type {
+  IvaSummaryFromDb,
+  IvaSummaryResponse,
+} from './interface/iva.interface';
 
 @Injectable()
 export class IvaService {
