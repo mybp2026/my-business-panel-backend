@@ -23,6 +23,13 @@ export const generalQueryDefs = {
       'SELECT user_id, email, role_id, created_at FROM general_schema.users WHERE tenant_id = $1',
     byEmailWithPassword:
       'SELECT * FROM general_schema.users WHERE email = $1 LIMIT 1',
+    passwordHashById:
+      'SELECT password_hash FROM general_schema.users WHERE user_id = $1 LIMIT 1',
+    updatePassword: `
+      UPDATE general_schema.users
+      SET password_hash = $1, updated_at = NOW()
+      WHERE user_id = $2
+    `,
     create: `
       INSERT INTO general_schema.users 
       (tenant_id, email, password_hash, role_id, created_at, updated_at) 
@@ -40,6 +47,8 @@ export const generalQueryDefs = {
     `,
     assignRole:
       'UPDATE general_schema.users SET role_id = $1 WHERE user_id = $2',
+    byIdScoped:
+      'SELECT user_id, tenant_id, role_id FROM general_schema.users WHERE user_id = $1 LIMIT 1',
     delete:
       'DELETE FROM general_schema.users WHERE user_id = $1 RETURNING user_id, email',
     getByEmails: `
@@ -155,7 +164,10 @@ export const generalQueryDefs = {
         is_tenant, created_at, updated_at
       FROM general_schema.tenant_customer
       WHERE tenant_customer_id = $1
+        AND ($2::uuid IS NULL OR tenant_id = $2)
     `,
+    // Busqueda por documento: SIEMPRE acotada al tenant de la sesion. El mismo
+    // documento puede existir en varias empresas; cada una ve solo el suyo.
     getInfo: `
       SELECT
         tc.tenant_customer_id AS customer_id,
@@ -182,6 +194,7 @@ export const generalQueryDefs = {
       LEFT JOIN general_schema.customer_segment cs USING(customer_segment_id)
       LEFT JOIN general_schema.identification_type d ON d.identification_type_id = tc.identification_type_id
       WHERE tc.document_number = $1
+        AND tc.tenant_id = $2
     `,
     create: `
       INSERT INTO general_schema.tenant_customer
@@ -208,10 +221,14 @@ export const generalQueryDefs = {
         customer_segment_id AS segment_id,
         is_tenant, created_at, updated_at
       FROM general_schema.tenant_customer
-      WHERE email = $1
+      WHERE email = $1 AND tenant_id = $2
     `,
-    delete:
-      'DELETE FROM general_schema.tenant_customer WHERE tenant_customer_id = $1',
+    delete: `
+      DELETE FROM general_schema.tenant_customer
+      WHERE tenant_customer_id = $1
+        AND ($2::uuid IS NULL OR tenant_id = $2)
+      RETURNING tenant_customer_id
+    `,
 
     // Enriched detail: customer + segment name + loyalty score
     detail: `
@@ -252,6 +269,7 @@ export const generalQueryDefs = {
       LEFT JOIN pos_schema.loyalty_program lp
         ON lp.tenant_id = tc.tenant_id AND lp.is_active = true
       WHERE tc.tenant_customer_id = $1
+        AND ($2::uuid IS NULL OR tc.tenant_id = $2)
       LIMIT 1
     `,
 

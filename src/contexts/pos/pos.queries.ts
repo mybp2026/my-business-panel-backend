@@ -82,10 +82,18 @@ export const posQueryDefs = {
         ON pv.tenant_id = si.tenant_id AND pv.product_variant_id = si.product_variant_id
       LEFT JOIN pos_schema.promotion p ON p.promotion_id = si.promotion_id
       WHERE si.sale_id = $1
+        AND ($2::uuid IS NULL OR si.tenant_id = $2)
     `,
-    getItemById: 'SELECT * FROM pos_schema.sale_item WHERE sale_item_id = $1',
-    delete:
-      'DELETE FROM pos_schema.sale_item WHERE sale_item_id = $1 RETURNING sale_item_id',
+    // $2 = tenant de alcance (null = superusuario de plataforma).
+    getItemById: `
+      SELECT * FROM pos_schema.sale_item
+      WHERE sale_item_id = $1 AND ($2::uuid IS NULL OR tenant_id = $2)
+    `,
+    delete: `
+      DELETE FROM pos_schema.sale_item
+      WHERE sale_item_id = $1 AND ($2::uuid IS NULL OR tenant_id = $2)
+      RETURNING sale_item_id
+    `,
   },
 
   invoice: {
@@ -147,6 +155,7 @@ export const posQueryDefs = {
       INNER JOIN general_schema.currency c USING(currency_id)
       INNER JOIN general_schema.tenant t ON t.tenant_id = tc.tenant_id
       WHERE i.sale_id = $1
+        AND ($2::uuid IS NULL OR t.tenant_id = $2)
     `,
     getInvoiceBySaleId: `
       SELECT
@@ -270,10 +279,19 @@ export const posQueryDefs = {
       LEFT JOIN general_schema.currency c ON c.currency_id = i.currency_id
       LEFT JOIN general_schema.users seller ON seller.user_id = s.seller_user_id
       WHERE i.sale_id = $1
+        AND ($2::uuid IS NULL OR b.tenant_id = $2)
       LIMIT 1
     `,
-    deleteInvoice:
-      'DELETE FROM pos_schema.invoice WHERE invoice_id = $1 RETURNING invoice_id',
+    // $2 = tenant de alcance (null = superusuario de plataforma).
+    deleteInvoice: `
+      DELETE FROM pos_schema.invoice i
+      USING pos_schema.sale s, general_schema.branch b
+      WHERE i.invoice_id = $1
+        AND s.sale_id = i.sale_id
+        AND b.branch_id = s.branch_id
+        AND ($2::uuid IS NULL OR b.tenant_id = $2)
+      RETURNING i.invoice_id
+    `,
     updateAmount: `
     UPDATE pos_schema.invoice SET total_amount = total_amount - $1 WHERE invoice_id = $2
     `,
@@ -304,8 +322,12 @@ export const posQueryDefs = {
       LEFT JOIN pos_schema.return_status rs ON rs.return_status_id = rt.return_status_id
       LEFT JOIN general_schema.payment_method pm ON pm.payment_method_id = rt.refund_method
       LEFT JOIN general_schema.tenant_customer tc ON tc.tenant_customer_id = rt.tenant_customer_id
+      INNER JOIN pos_schema.invoice inv ON inv.invoice_id = rt.invoice_id
+      INNER JOIN pos_schema.sale s ON s.sale_id = inv.sale_id
+      INNER JOIN general_schema.branch b ON b.branch_id = s.branch_id
       WHERE
-          ($1::uuid IS NULL OR rt.invoice_id = $1)
+          ($7::uuid IS NULL OR b.tenant_id = $7)
+          AND ($1::uuid IS NULL OR rt.invoice_id = $1)
           AND ($2::uuid IS NULL OR rt.tenant_customer_id = $2)
           AND ($3::int IS NULL OR rt.return_status_id = $3)
           AND ($4::int IS NULL OR rt.refund_method = $4)
@@ -334,7 +356,11 @@ export const posQueryDefs = {
       LEFT JOIN pos_schema.return_status rs ON rs.return_status_id = rt.return_status_id
       LEFT JOIN general_schema.payment_method pm ON pm.payment_method_id = rt.refund_method
       LEFT JOIN general_schema.tenant_customer tc ON tc.tenant_customer_id = rt.tenant_customer_id
+      INNER JOIN pos_schema.invoice inv ON inv.invoice_id = rt.invoice_id
+      INNER JOIN pos_schema.sale s ON s.sale_id = inv.sale_id
+      INNER JOIN general_schema.branch b ON b.branch_id = s.branch_id
       WHERE rt.return_transaction_id = $1
+        AND ($2::uuid IS NULL OR b.tenant_id = $2)
       LIMIT 1
     `,
 
@@ -385,6 +411,7 @@ export const posQueryDefs = {
       LEFT JOIN general_schema.tenant_customer tc ON tc.tenant_customer_id = s.tenant_customer_id
       LEFT JOIN pos_schema.invoice inv ON inv.sale_id = s.sale_id
       WHERE s.sale_id = $1
+        AND ($2::uuid IS NULL OR b.tenant_id = $2)
       LIMIT 1
     `,
 
@@ -411,6 +438,14 @@ export const posQueryDefs = {
       ORDER BY si.created_at
     `,
 
+    // Cuantas de las lineas pedidas pertenecen realmente a la venta ($1 = sale_id,
+    // $2 = uuid[] de sale_item_id). Evita devolver lineas de otra venta/tenant.
+    countSaleItemsOfSale: `
+      SELECT COUNT(*)::int AS total
+      FROM pos_schema.sale_item
+      WHERE sale_id = $1 AND sale_item_id = ANY($2::uuid[])
+    `,
+
     markSaleRefunded: `
       UPDATE pos_schema.sale
       SET is_refunded = true, updated_at = NOW()
@@ -427,32 +462,41 @@ export const posQueryDefs = {
   },
 
   cashRegister: {
+    // Todas las consultas de cajas se acotan al tenant a traves de la sucursal.
+    // El parametro de tenant es null solo para el superusuario de plataforma.
     all: `
     SELECT cr.*, b.branch_name FROM pos_schema.cash_register cr
     INNER JOIN general_schema.branch b ON b.branch_id = cr.branch_id
+    WHERE ($1::uuid IS NULL OR b.tenant_id = $1)
     `,
     allPaginated: `
     SELECT cr.*, b.branch_name FROM pos_schema.cash_register cr
     INNER JOIN general_schema.branch b ON b.branch_id = cr.branch_id
     WHERE ($1::uuid IS NULL OR cr.branch_id = $1)
       AND ($2::boolean IS NULL OR cr.is_active = $2)
+      AND ($5::uuid IS NULL OR b.tenant_id = $5)
     ORDER BY b.branch_name, cr.register_name
     LIMIT $3 OFFSET $4
     `,
     countPaginated: `
     SELECT COUNT(*)::int AS total FROM pos_schema.cash_register cr
+    INNER JOIN general_schema.branch b ON b.branch_id = cr.branch_id
     WHERE ($1::uuid IS NULL OR cr.branch_id = $1)
       AND ($2::boolean IS NULL OR cr.is_active = $2)
+      AND ($3::uuid IS NULL OR b.tenant_id = $3)
     `,
     byId: `
     SELECT cr.*, b.branch_name FROM pos_schema.cash_register cr
     INNER JOIN general_schema.branch b ON b.branch_id = cr.branch_id
-    WHERE cr.cash_register_id = $1 LIMIT 1
+    WHERE cr.cash_register_id = $1
+      AND ($2::uuid IS NULL OR b.tenant_id = $2)
+    LIMIT 1
     `,
     byBranch: `
     SELECT cr.*, b.branch_name FROM pos_schema.cash_register cr
     INNER JOIN general_schema.branch b ON b.branch_id = cr.branch_id
     WHERE cr.branch_id = $1
+      AND ($2::uuid IS NULL OR b.tenant_id = $2)
     `,
     /**
      * Returns the plain-text key for a cash register. Used by the service to
@@ -661,12 +705,17 @@ export const posQueryDefs = {
     deletePromoRules: `
       DELETE FROM pos_schema.promotion_rule WHERE promotion_id = $1
     `,
-    deletePromo:
-      'DELETE FROM pos_schema.promotion WHERE promotion_id = $1 RETURNING promotion_id',
+    // $2 = tenant de alcance (null = superusuario de plataforma).
+    deletePromo: `
+      DELETE FROM pos_schema.promotion
+      WHERE promotion_id = $1 AND ($2::uuid IS NULL OR tenant_id = $2)
+      RETURNING promotion_id
+    `,
+    // $2 = tenant de alcance. La promocion NUNCA cambia de tenant: el antiguo
+    // SET tenant_id = COALESCE($2, ...) permitia reasignarla desde el body.
     updatePromo: `
       UPDATE pos_schema.promotion
-      SET tenant_id = COALESCE($2, tenant_id),
-          promotion_name = COALESCE($3, promotion_name),
+      SET promotion_name = COALESCE($3, promotion_name),
           promotion_code = COALESCE($4, promotion_code),
           promotion_description = COALESCE($5, promotion_description),
           promotion_type_id = COALESCE($6, promotion_type_id),
@@ -677,8 +726,8 @@ export const posQueryDefs = {
           is_default = COALESCE($11, is_default),
           is_stackable = COALESCE($12, is_stackable),
           updated_at = NOW()
-      WHERE promotion_id = $1
-      RETURNING promotion_id, tenant_id
+      WHERE promotion_id = $1 AND ($2::uuid IS NULL OR tenant_id = $2)
+      RETURNING promotion_id, tenant_id, is_universal
     `,
     /**
      * Active default promotions for a tenant on the current date. Pre-loads rules
@@ -881,11 +930,16 @@ export const posQueryDefs = {
     all: `
       SELECT * FROM pos_schema.loyalty_program WHERE tenant_id = $1
     `,
+    // $2 / $6 = tenant de alcance (null = superusuario de plataforma).
     delete: `
-      DELETE FROM pos_schema.loyalty_program WHERE loyalty_program_id = $1 RETURNING loyalty_program_id
+      DELETE FROM pos_schema.loyalty_program
+      WHERE loyalty_program_id = $1 AND ($2::uuid IS NULL OR tenant_id = $2)
+      RETURNING loyalty_program_id
     `,
     byId: `
-      SELECT * FROM pos_schema.loyalty_program WHERE loyalty_program_id = $1 LIMIT 1
+      SELECT * FROM pos_schema.loyalty_program
+      WHERE loyalty_program_id = $1 AND ($2::uuid IS NULL OR tenant_id = $2)
+      LIMIT 1
     `,
     update: `
       UPDATE pos_schema.loyalty_program
@@ -895,7 +949,7 @@ export const posQueryDefs = {
         minimum_purchase_for_points = COALESCE($4, minimum_purchase_for_points),
         is_active = COALESCE($5, is_active),
         updated_at = NOW()
-      WHERE loyalty_program_id = $1
+      WHERE loyalty_program_id = $1 AND ($6::uuid IS NULL OR tenant_id = $6)
       RETURNING loyalty_program_id
     `,
   },
